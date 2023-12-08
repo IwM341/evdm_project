@@ -1,0 +1,1 @@
+%comspec% /k "D:\Soft\cpp_packages\PATH_PCKG\pybind_msvc.bat & D:\Soft\cpp_packages\PATH_PCKG\eigen_cmake.bat & cls & "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat""

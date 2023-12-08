@@ -1,0 +1,12 @@
+.vscode/
+build/
+performance_tests/
+work_test/
+out/
+.vs/
+*.obj
+*.exe
+*.dll
+*.lib
+*.so
+*.a

@@ -1,0 +1,327 @@
+\input{preamble.tex}
+\input{math_defs.tex}
+\begin{document}
+	Факты о потенциале.
+	\subsubsection{Обозначения}
+	\begin{enumerate}
+		\item $\varphi(r)$ --- безразмерный положительный потегнциал.
+		\begin{itemize}
+			\item $\varphi(r) > 0$
+			\item $\varphi(r) = \cfrac{1}{r}, r \ge 1$
+			\item $\varphi'(r) < 0$
+			\item $\varphi''(r) + \cfrac{2}{r}\varphi'(r) = -\rho(r) < 0$
+		\end{itemize}
+		\item $e$ --- положительная энергия
+		\item $l$ --- момент импульса
+		\item $l_m(e)$ --- максимальный момент импульса при данной энергии, $r_m(e)$ --- точка достижения этого максимума.
+		\begin{equation}
+			l^2_m(e) = \max_r{r^2(\varphi(r)-e)}
+			\label{eq:l_m_e}
+		\end{equation}
+		\item $x_l = \sqrt{1 - \cfrac{l^2}{l_m^2}}$
+		\item $T(e,l)$ --- период траектории.
+		\begin{equation*}
+			T(e,l) = \int_{r_{-}}^{r_{+}}\frac{dx}{ \sqrt{\varphi(x) -e - \frac{l^{2}}{x^{2}}}}
+		\end{equation*}
+		\begin{itemize}
+			\item $T(e,l) - \cfrac{\pi}{2e^{3/2}}$ --- ограниченная гладкая функция параметров $e, x_l l_m$.
+		\end{itemize}
+		\item $r_{\pm}$ --- корни уравнения $r^2\varphi(r)-er^2-l^2=0$
+		\item $u = r^2$, $u_{\pm}$ --- корни уравнения  $u\varphi(u)-eu-l^2=0$
+		\item $F(u) = u\varphi(u)$ --- монотонная, гладкая, выпуклая вниз функция.
+		\item $u_{-} \downarrow e, \uparrow l^2$
+		\item $u_{+} \downarrow e, \downarrow l^2$
+	\end{enumerate}
+	
+	
+	\subsubsection{$l_m(e)$}
+	Для нахождения $l_m(e)$ находятся $r_{i-1},r_i, r_{i+1}$ --- точки, такие, что $r_i \ge r_{i\pm1}$, далее фунция $F(u)$ приближается параболой, после чего находятся $u, l_m$
+	
+	Заметим, что если $e>\cfrac{1}{2}$, то максимальный момент равен
+	\begin{equation*}
+		l^2_m(e) = \cfrac{1}{4e}
+	\end{equation*}
+	однако траектории, пересекающие небесное тело ($\exists t: r(t,e,l) < 1$) ограничиваются $l^2 \le 1 - e$
+	
+	
+	
+	
+		\subsubsection{Траектории.}
+	При расчете траектории, делаем замену
+	\begin{equation*}
+		u = \cfrac{u_{-}+u_{+}}{2} - \cfrac{u_{+}-u_{-}}{2}cos(\theta)
+	\end{equation*}
+	\begin{equation*}
+		\dot{\theta} = 2\sqrt{ \cfrac{u\varphi(u)-eu-l^2}{(u-u_{-})(u-u_{+})} }
+	\end{equation*}
+	
+	\begin{enumerate}
+		\item если $e > 1/2$, то будем линейно интерполировать $\theta(e,l,\tau)$ ($\tau = t/T(e,l)$) по параметрам $e, \sqrt{l^2_m(e) - l^2}$
+		
+		Однако при интегрировании по траектории методом монте-карло, мы можем взять приближенную траекторию $\widetilde{\theta}(t)$, тогда, так как для истинной траектории $F(\theta)dt = d\theta$, то для приближенной таектории $\widetilde{F}(t')dt' = d\widetilde{\theta}$, т.е. 
+		\begin{equation*}
+			dt = \cfrac{\widetilde{F}(t')}{F(\theta)} dt'
+		\end{equation*}
+		
+		$\widetilde{\theta}$ будем аппроксимировать по точкам с помощью кубического сплайна для непрерывности производных.
+		
+		\item если $e < 1/2$, то траектория делится на 2 части: до $r < 1$ и $r > 1$. Нас интересует внутреняя часть траектории и внешняя.
+		
+		При этом выбирается $\theta_1$, а $u_{+}$ подгоняется так, чтобы $u(\theta_1) = 1$
+		
+		\begin{itemize}
+			\item Решение уравнения снаружи:
+			\begin{equation*}
+				\dot{r} = \sqrt{\cfrac{e}{r^2}\cdot (r-r_{-})(r_{+}-r)}
+			\end{equation*}
+			где 
+			\begin{equation*}
+				r_{\pm} = \cfrac{1 \pm \sqrt{1 - 4el^2} }{2e}
+			\end{equation*}
+			
+			Внешняя часть периода траектории равна
+			\begin{equation}
+				T_{ex}(e,l) = \cfrac{\pi}{2e^{3/2}} + \cfrac{\sqrt{1-e-l^2}}{e} - 
+				\cfrac{\atan{\cfrac{2\sqrt{e}\sqrt{1-e-l^2}}{1-2e}}}{2e^{3/2}}
+			\end{equation}
+			при маленьких $e$ верно, что
+			\begin{equation}
+				T_{ex}(e,l) = \cfrac{\pi}{2e^{3/2}} - 
+				z + \cfrac{z^3}{6}-\cfrac{ez^5}{10} +...+ (-1)^k\cfrac{e^{k}z^{2k+3}}{(4k+6)}
+				+...
+			\end{equation}
+			где
+			\begin{equation}
+				z = \cfrac{2\sqrt{1-e-l^2}}{1-2e}
+			\end{equation}
+			
+			Замена $r = \cfrac{r_{-}+r_{+}}{2} - \cfrac{r_{+}-r_{-}}{2} \cos{\theta}$ приводит к уравнению:
+			\begin{equation*}
+				\dot{\theta}\cdot(1 - y\cdot\cos(\theta)) = \cfrac{2\sqrt{e}}{r_{-}+r_{+}} = 2e^{3/2}
+			\end{equation*}
+				где 
+			\begin{equation*}
+				y = \cfrac{r_{+}-r_{-}}{r_{-}+r_{+}} = \sqrt{1 - 4el^2}
+			\end{equation*}
+			тогда 
+			\begin{equation*}
+				\theta - y \sin{\theta} - (\theta_{-} - y\sin{\theta_{-}}) = 2e^{3/2}(t-t_{-})
+			\end{equation*}
+			
+			если $G(y,z) $ --- обратная функция $\theta \rightarrow \theta - y \sin{\theta}$, тогда
+			\begin{equation*}
+				\theta = G(y,2e^{3/2}(t-t_{-}) + (\theta_{-} - y\sin{\theta_{-}})) 
+			\end{equation*}
+			при использовании временного параметра $\tau = t/T_{ex}(e,l)$, получаем
+			\begin{equation*}
+				\theta = G\left(y,\pi \cdot \left(\tau \cfrac{T_{ex}(e,l)}{T(e)} +
+				\cfrac{T_{in}(e,l)}{T(e)}
+				\right) \right) 
+			\end{equation*}
+			где $T_{in}$ --- внутренняя часть периода, $T_{in} + T_{ex} = T(e) = \cfrac{\pi}{2e^{3/2}}$
+			\begin{eqnarray*}
+				\theta = G(y,\pi (1 -(1 - \tau)z ) ) \\
+				z = \cfrac{T_{ex}(e,l)}{T(e)}
+			\end{eqnarray*}
+			
+		\end{itemize}
+	\end{enumerate}
+	
+	В интерполяции внутреннего периода есть дин нюанс: он разрывно зависит от $e$ и $l$.
+	Продемонстрировать это можно тем, что при $e \rightarrow 1/2-0$ $\theta_1 \rightarrow \pi$, а когда  $l \rightarrow l_{max}$ --- $\theta_1 \rightarrow 0$. Тогда непрерывной будет величина 
+	\begin{equation}
+		T_{\theta in} = \cfrac{T_{in}}{\theta_1}
+	\end{equation}
+	
+	Далее: при интерполяции периода по сетке $el$, озможно, что каждый бин придется разбить на более маленькие части для более точной интерполяции периода. Для этого квадратный бин можно разделить на части (сделаем это по переменным $e$ и $\xi = \sqrt{1-l^2/l_m^2}$)
+	
+	
+	\subsubsection{Потенциал.}
+	Свяжем величины: безразмерный потенциал $\varphi(r)$, безразмерный радиус $r$, безразмерная масса $M(r)$ (такая, что $M(1) = 1$), безразмерная плотность $\rho(r)$.
+	\begin{eqnarray*}
+		\cfrac{M(r)}{r^2} = -\varphi'(r) \\
+		3\rho(r) = \cfrac{M'(r)}{r^2}
+	\end{eqnarray*}
+	В дальнейшем нам понадобится непрерывная функция 
+	\begin{equation}
+		Q(r) = \cfrac{M(r)}{r^3}
+	\end{equation}	
+	Для нахождения $Q(r)$ будем делить на $r^3$ $M(r)$, которая определяется квадратурой Гаусса.
+	\begin{equation}
+		Q(r+h) = \cfrac{Q(r)r^3 + I_G[r \rightarrow  3\rho(r)r^2](r,r+h)}{(r+h)^3}
+	\end{equation}
+	
+	После численного интегрирования мы получим $Q(1) \ne 1$, поэтому необходимо будет разделить $Q(r)$ и $\rho(r)$ на $Q(1)$.
+	
+	Для получения потенциала останется лишь проинтегрировать непрерывную функцию $rQ(r)$ с помощью квадратур Гаусса.
+	
+	\subsubsection{Вычисление функция $S(u)$}
+	Мы хотим вычислить функцию 
+	\begin{equation}
+		S(u) = \cfrac{u\varphi(u) -eu-l^2}{(u-u_{-})(u_{+}-u)}
+	\end{equation}
+	Положим $F(u) = u\varphi(u)$.
+	Тогда 
+	\begin{equation}
+		S(u) = \cfrac{1}{u_{+}-u_{-}}\cdot 
+		\left(\cfrac{F(u)-F(u_{-})}{u-u_{-}} - \cfrac{F(u_{+})-F(u)}{u_{+}-u}\right)
+	\end{equation}
+	Эта функция является непрерывной и определенной, однако при близких значениях $u_{+}, u_{-}, u$ необходимо вычисление с помощью производных.
+	Возможные случаи:
+	\begin{itemize}
+		\item $u_{+}$ близко к $u_{-}$. В этом случае получаем, что 
+		\begin{equation}
+			S(u) = -\cfrac{1}{2}F''\left(\cfrac{u_{+} + u_{-} + u}{3}\right)
+		\end{equation}
+		
+		\item $u$ близко к $u_{-}$, но далеко от $u_{+}$ (либо наоборот). Тогда через производные оцениваем только первую разность.
+		\begin{equation}
+			S(u) = \cfrac{1}{u_{+}-u_{-}}\cdot 
+			\left(F'\left(\cfrac{u+u_{-}}{2}\right) - \cfrac{F(u_{+})-F(u)}{u_{+}-u}\right)
+		\end{equation}
+		Далее --- очевидные формулы без текста.
+		\begin{eqnarray}
+			\deriv{}{u} = \cfrac{1}{2r}\deriv{}{r}\\
+			F'(u) = \cfrac{1}{2r}\deriv{}{r}(r^2\varphi(r)) = 
+			\varphi(r) + \cfrac{r\varphi'(r)}{2} = \varphi(r) -\cfrac{r^2}{2} Q(r) \\
+			F''(u) = \cfrac{1}{4}
+			\left( \varphi''(r) + 3\cfrac{\varphi'(r)}{r}\right) = -\cfrac{1}{4}\left(3\rho(r) + Q(r)\right)
+		\end{eqnarray}
+		Видно, что $F(u)$ --- выпуклая вниз и монотонная функция, поскольку $F''(u) < 0$, а $F'(\infty) = 0$ и производная убывает, то $F'(u) > 0$
+		
+	\end{itemize}
+	
+	В случае если $u_p, u > 1$ (т.е. $e < 1/2$) Мы заменим функцию $F(u)$ на полином
+	\begin{equation*}
+		F(u) = 1 + \cfrac{u-1}{2}-\cfrac{(u-1)^2}{8}
+	\end{equation*}
+	Тогда максимальное значение $u_p$ на мнимой траектории равно
+	\begin{equation*}
+		u_p = -4e + 3 + 2\sqrt{4e^2 - 2l^2 - 6e + 3}
+	\end{equation*}
+	
+	
+	
+	\subsubsection{Нахождение $l_m(e)$}
+	\begin{itemize}
+		\item при $e \le \frac{1}{2}$ $l_m^2(e) = 1-e$ --- определяется из условия пересечения траектории с телом
+		\item если условием пересечения пренебречь, то $l_m^2(e) = \frac{1}{4e}$. 
+		\item Когда $e > \frac{1}{2}$, необходимо находить $l_m(e)$ из \ref{eq:l_m_e}.
+		Дифференцируя это выражение по $u$, получаем уравнение 
+		\begin{equation*}
+			F'(u) - e = 0
+		\end{equation*}
+		Как мы уже знаем, $F''(u) > 0$. Это заначит, что корень уравнения можно найти методом бинарного поиска, так как $F'(u)$ убывает.
+	
+	\end{itemize}
+	Найдя близжайшие точки $r_1, r_2$ на узлах сетки $r_i$, мы уточним решение, приблизив функцию $F'(u(r))$ линейно. Тогда 
+	\begin{equation*}
+		r_m = \cfrac{r_2 F'(r_1) - r_1 F'(r_2)}{F'(r_1)-F'(r_2)}
+	\end{equation*}
+	
+	Также можно дополнительно уточнить, сделав шаг методом Ньютона
+	\begin{equation*}
+		r'_m = r_m - \cfrac{F'(r_m)}{F''(r_m)}
+	\end{equation*}
+	
+	Кастати, итерацию ньютона можно модифицировать для случая обнуления первой производной.
+	\begin{equation*}
+		x' = x - \cfrac{2f(x)}
+		{f'(x) +sgn(f'(x))\sqrt{f'(x)^2 - 2f(x)f''(x)} }
+	\end{equation*}
+		
+	\subsubsection{Нахождение концов траектории.}
+	Концы траектории определяются соотношением
+	\begin{equation*}
+		\Phi(u) = F(u) - eu-l^2=0
+	\end{equation*}
+	Так как $\Phi'(u) = F'(u) - e$ --- функция, которая убывает, причем $\Phi'(u_m(e)) = 0$, то $\Phi(u)$ --- возрастает при $u < u_m(e)$ и убывает при $u > u_m(e)$.
+	Таким образом, $\Phi(r)$ ведет себя так же как $\Phi(u)$, тогда для нахождения корней нужно лишь использовать метрд деления отрезка попола, а уточнить можно методом ньютона. 
+	
+	
+	\subsubsection{Переход из фазовых объемов.}
+	Задача номер 1 сводится к нахождению концентрации частиц в точке $r$, зная распределение частиц в плоскости $E-L$.
+	
+	Итак, фазовый объем предсавляется в виде
+	\begin{equation}
+		\label{eq:phase_volume_nd}
+		d\Phi = r_{\odot}^3v_{esc}^3 \cdot 4\pi^{2} d\tau de dl^2
+	\end{equation}
+	А также в виде
+	\begin{equation}
+		d\Phi = r_{\odot}^3v_{esc}^3 \cdot d^3\vec{r}d^3\vec{v}
+	\end{equation}
+	
+	Учтем также, что
+	\begin{equation}
+		\label{eq:velocity_dens}
+		d^{3}\vec{v} = 
+		2\pi dEd\sqrt{v^2-\frac{L^2}{r^2}} d\vec{n} = \pi ded\sqrt{v^2-\frac{l^2}{r^2}} d\vec{n}.
+	\end{equation}
+	 
+	 Причем, поскольку радиальная скорость $v_r$ и тангенциальная $v_{t}$ фиксированны, для $d\vec{n}$ остается только выбор направления для тангенциальной скорости ($\int{d\vec{n}} = 1$).
+	 
+	 Отсюда получаем, что
+	 
+	 \begin{equation}
+	 	n(r) = \int{ \cfrac{dN}{4\pi T(e,l) de dl^2} de d\sqrt{v^2-\frac{l^2}{r^2}}}
+	 \end{equation}
+	 
+	 \begin{enumerate}
+	 	\item Предположение 1: равномерное распределение внутри бина по $dedl$:
+	 	
+	 	В этом случае 
+	 	\begin{equation}
+	 		f_1(e,l) = \cfrac{dN}{de dl}
+	 	\end{equation}
+	 	
+	 	И тогда получим
+	 	\begin{equation}
+	 		\label{eq:n_r}
+	 		n(r) = \int{ \cfrac{1}{r} \cfrac{f_1(e,l) }{8\pi T(e,l)} de \, d\asin{\cfrac{l}{rv}} }
+	 	\end{equation}
+	 	
+	 	\item Предположение 2: равномерное распределение внутри бина по $dedl^2$:
+	 	
+	 	В этом случае 
+	 	\begin{equation}
+	 		f_2(e,l) = \cfrac{dN}{de dl^2}
+	 	\end{equation}
+	 	
+	 	И тогда получим
+	 	\begin{equation}
+	 		n(r) = \int{\cfrac{f_2(e,l) }{4\pi T(e,l)} de \, d\sqrt{v^2-\frac{l^2}{r^2}} }
+	 	\end{equation}
+	 	
+	 	При этом важно учитывать пределы интегрирования не только исходя из размеров бина $[e_0,e_1],[\overline{l}_0,\overline{l}_1]$ но и из области определения подинтегральных фунций: $e<\varphi(r), l<rv = \sqrt{r^2(\varphi(r)-e)}$. Эти ограничения 
+	 	
+	 	Интеграл легче всего взять методом монте-карло (это не очень затратно и просто реализуется)	 	
+	 	
+	 \end{enumerate}
+	 
+	 Вторая интересующая нас величина --- скорость аннигиляции
+	 
+	 \begin{equation}
+	 	\label{eq:ann_st}
+	 	\int{d^3\vec{r} d^3\vec{v}  d^3\vec{v_1} 
+	 		f(\vec{r},\vec{v})f_1(\vec{r},\vec{v_1}) \sigma_{ann} 
+	 		|\vec{v}-\vec{v}_1|} = \cfrac{\sigma_{a0}v_{a0}}{r_{\odot}^3} \int{dN_1 dn_2(r) \phi_{ann}(v) }.
+	 \end{equation}
+	 
+	 где $\sigma_{a0}v_{a0}$ --- размерное сечение $*$ скорость взятое при произвольной скорости $v_{a0}$, а 
+	 
+	\begin{equation}
+		\phi_{ann} = \cfrac{\sigma_{ann} |\vec{v}-\vec{v}_1| }{\sigma_{a0}  v_{a0}}.
+	\end{equation}
+	
+	$dN_1$ --- дифференциал количества частиц сорта 1, $dn_2(r)$ --- дифференциал концентрации частиц сорта 2  (из \ref{eq:n_r})
+	
+	\begin{equation}
+		dN_1 \approx \cfrac{dN_1}{T(e_1,l_1)de_1 dl_1^2} d\tau de_1 dl_1^2 \approx \cfrac{dN_1}{T(e_1,l_1)de_1 dl_1} d\tau de_1 dl_1 
+	\end{equation}
+	
+	Величина $\phi_{ann}$ зависит от разности скоростей и равна $\phi_0 + \phi_1 v+ \phi_2 v^2 +...$. При интегрировании можно вычислить эту величину для каждого члена ряда $v^i$ а потом просуммировать с весами $\phi_i$
+	
+	
+	
+\end{document}

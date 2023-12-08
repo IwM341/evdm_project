@@ -1,0 +1,314 @@
+\documentclass[11pt,a4paper]{article}
+\pdfoutput=1
+%\usepackage{jcappub}
+\usepackage{ifthen}
+\usepackage{epsfig}
+\usepackage{booktabs} 
+\usepackage{natbib}
+\usepackage{bbold}
+\usepackage{amsmath}
+\usepackage{txfonts}
+
+\newenvironment{rc}{\color{cyan}}{}
+\def\eps{{\cal E}}
+%% Error function
+\newcommand{\erf}{\mathop{\mathrm{erf}}}
+\newcommand{\eone}{\ensuremath{\hat{\mathbf{\var}}_1}}  % e_1 unit vector
+\newcommand{\etwo}{\ensuremath{\hat{\mathbf{\varePsilon}}_2}}  % e_2 unit vector
+\newcommand{\beqra}{\begin{flalign}}
+\newcommand{\eeqra}{\end{flalign}}
+\newcommand{\beq}{\begin{equation}}
+\newcommand{\eeq}{\end{equation}}
+\usepackage{ccicons} %new
+\usepackage{listings}%new
+\usepackage{color}   %new
+\usepackage{braket}  %new
+\usepackage{hyperref}%new
+\usepackage{dsfont}  %new
+\usepackage{leftidx} %new
+\usepackage{bm}
+
+\begin{document}
+\subsection*{Hydrogen (H)}
+\begin{flalign}
+W^{00}_{M}(y)&= 0.0397887 & W^{00}_{\Sigma^{\prime\prime}}(y)&= 0.0397887 & W^{00}_{\Sigma^\prime}(y)&= 0.0795775 &\nonumber\\
+W^{11}_{M}(y)&= 0.0397887 & W^{11}_{\Sigma^{\prime\prime}}(y)&= 0.0397887 & W^{11}_{\Sigma^\prime}(y)&= 0.0795775 &\nonumber\\ 
+W^{10}_{M}(y)&= 0.0397887 & W^{10}_{\Sigma^{\prime\prime}}(y)&= 0.0397887 & W^{10}_{\Sigma^\prime}(y)&= 0.0795775 &\nonumber\\ 
+W^{01}_{M}(y)&= 0.0397887 & W^{01}_{\Sigma^{\prime\prime}}(y)&= 0.0397887 & W^{01}_{\Sigma^\prime}(y)&= 0.0795775 &\nonumber\\
+\end{flalign}
+
+\subsection*{Helium ($^3$He)}
+\begin{flalign}
+W^{00}_{M}(y)&= 0.358099 e^{-2y}& W^{00}_{\Sigma^{\prime\prime}}(y)&= 0.0397887  e^{-2y} &W^{00}_{\Sigma^\prime}(y)&= 0.0795775  e^{-2y} &\nonumber\\
+W^{11}_{M}(y)&= 0.0397887 e^{-2y}& W^{11}_{\Sigma^{\prime\prime}}(y)&= 0.0397887 e^{-2y} &W^{11}_{\Sigma^\prime}(y)&= 0.0795775 e^{-2y} &  \nonumber\\ 
+W^{10}_{M}(y)&= 0.119366 e^{-2y} &W^{10}_{\Sigma^{\prime\prime}}(y)&= -0.0397887 e^{-2y} &W^{10}_{\Sigma^\prime}(y)&= -0.0795775 e^{-2y} &  \nonumber\\ 
+W^{01}_{M}(y)&= 0.119366 e^{-2y}& W^{01}_{\Sigma^{\prime\prime}}(y)&= -0.0397887e^{-2y}& W^{01}_{\Sigma^\prime}(y)&= -0.0795775 e^{-2y} &\nonumber\\
+\end{flalign}
+
+\subsection*{Helium ($^4$He)}
+\begin{flalign}
+W^{00}_{M}(y)&= 0.31831 e^{-2y}& \nonumber\\
+\end{flalign}
+
+\subsection*{Carbon ($^{12}$C)}
+\begin{flalign}
+W^{00}_{M}(y)&= 0.565882 e^{-2y} (2.25 - y)^2& \nonumber\\ 
+W^{00}_{\Phi^{\prime\prime}}(y)&= 0.0480805 e^{-2y} & \nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.371134 + 0.164948 y) & \nonumber\\
+\end{flalign}
+
+\subsection*{Nitrogen ($^{14}$N)}
+\begin{flalign}
+W^{00}_{M}(y) &= e^{-2y} (11.6979 - 11.1409 y + 2.67574 y^2) &\nonumber \\
+W^{00}_{\Sigma^{\prime\prime}}(y) &= 0.0230079 e^{-2y} (1.20986 + y)^2 &\nonumber \\
+W^{00}_{\Sigma^\prime}(y) &= 0.134532 e^{-2y} (0.707578 - y)^2 \nonumber \\
+W^{00}_{\Phi^{\prime\prime}}(y)&= 0.0905048 e^{-2y} &\nonumber \\
+W^{00}_{\tilde{\Phi}^\prime}(y)&= 0.00126432 e^{-2y} &\nonumber \\
+W^{00}_{\Delta}(y)&= 0.0424075 e^{-2y} &\nonumber \\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-1.02414 + 0.483267 y)&\nonumber \\
+W^{00}_{\Sigma^{\prime}\Delta}(y)&= e^{-2y} (0.0534451 - 0.0755325 y) &\nonumber\\
+\end{flalign}
+
+\subsection*{Oxygen ($^{16}$O)}
+\begin{flalign}
+W^{00}_{M}(y)&=  0.000032628 e^{-2y} (395.084 - 200.042 y + y^2)^2 &\nonumber\\ 
+W^{00}_{\Phi^{\prime\prime}}(y)&= 0.000032628 e^{-2y} (3.66055 - y)^2 &\nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.0471874 + 0.0367831 y - 0.00664641 y^2 + 0.000032628 y^3) &\nonumber\\
+\end{flalign}
+
+\subsection*{Neon ($^{20}$Ne)}
+\begin{flalign}
+W^{00}_{M}(y)&= 0.0431723 e^{-2y} (13.5766 - 9.05108 y + y^2)^2  &\nonumber\\ 
+W^{00}_{\Phi^{\prime\prime}}(y)&= 0.00348077 e^{-2y} (2.50001 - y)^2 &\nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.416077 + 0.443815 y - 0.1416 y^2 + 0.0122586 y^3)&\nonumber\\
+\end{flalign}
+
+
+\subsection*{Magnesium ($^{24}$Mg)}
+\begin{flalign}
+W^{00}_{M}(y)&= 0.123467 e^{-2y} (9.63385 - 7.49299 y + y^2)^2 &\nonumber\\ 
+W^{00}_{\Phi^{\prime\prime}}(y)&= 0.0260816 e^{-2y} (2.5 - y)^2 &\nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-1.36673 + 1.6097 y - 0.567072 y^2 + 0.056747 y^3)&\nonumber\\
+\end{flalign}
+
+\subsection*{Sodium ($^{23}$Na)}
+\begin{flalign}
+W^{00}_{M}(y)&= e^{-2y} (42.0965 - 63.4498 y + 32.5913 y^2 - 6.57878 y^3 + 
+   0.483166 y^4) &\nonumber\\ 
+W^{11}_{M}(y)&=e^{-2y} (0.0795776 - 0.212207 y + 0.182941 y^2 - 0.0543892 y^3 + 
+   0.00523012 y^4)  &\nonumber\\
+W^{10}_{M}(y)&= e^{-2y} (-1.83028 + 3.81972 y - 2.50445 y^2 + 0.597822 y^3 - 
+   0.04545 y^4) &\nonumber\\
+W^{01}_{M}(y)&= e^{-2y} (-1.83028 + 3.81972 y - 2.50445 y^2 + 0.597822 y^3 - 
+   0.04545 y^4)  &\nonumber\\
+W^{00}_{\Sigma^{\prime\prime}}(y)&= e^{-2y} (0.0126672 - 0.0262533 y + 0.0401886 y^2 - 0.010514 y^3 + 
+   0.00078605 y^4)&\nonumber\\
+W^{11}_{\Sigma^{\prime\prime}}(y)&= e^{-2y} (0.00917577 - 0.0167053 y + 0.0332751 y^2 - 0.00765719 y^3 + 
+   0.000597676 y^4)&\nonumber\\
+W^{10}_{\Sigma^{\prime\prime}}(y)&=e^{-2y} (0.0107811 - 0.020986 y + 0.0360971 y^2 - 0.00876213 y^3 + 
+   0.000626718 y^4) &\nonumber\\
+W^{01}_{\Sigma^{\prime\prime}}(y)&=e^{-2y} (0.0107811 - 0.020986 y + 0.0360971 y^2 - 0.00876213 y^3 + 
+   0.000626718 y^4) &\nonumber\\
+W^{00}_{\Sigma^\prime}(y)&= e^{-2y} (0.0253345 - 0.0750847 y + 0.100235 y^2 - 0.0384261 y^3 + 
+   0.00466396 y^4)&\nonumber\\
+W^{11}_{\Sigma^\prime}(y)&=e^{-2y} (0.0183515 - 0.0567009 y + 0.0887794 y^2 - 0.0374699 y^3 + 
+   0.00477955 y^4) &\nonumber\\
+W^{10}_{\Sigma^\prime}(y)&= e^{-2y} (0.0215622 - 0.0652627 y + 0.0941439 y^2 - 0.0379511 y^3 + 
+   0.00472138 y^4)&\nonumber\\
+W^{01}_{\Sigma^\prime}(y)&=e^{-2y} (0.0215622 - 0.0652627 y + 0.0941439 y^2 - 0.0379511 y^3 + 
+   0.00472138 y^4) &\nonumber\\
+W^{00}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (0.612149 - 0.49308 y + 0.107832 y^2)&\nonumber\\
+W^{11}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (0.00940911 - 0.00747826 y + 0.00163204 y^2)&\nonumber\\
+W^{10}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.075893 + 0.060682 y - 0.0110124 y^2)&\nonumber\\
+W^{01}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.075893 + 0.060682 y - 0.0110124 y^2)&\nonumber\\
+W^{00}_{\tilde{\Phi}^\prime}(y)&= e^{-2y} (0.000495589 - 0.00010394 y + 0.00000544981y^2 )&\nonumber\\%+ 
+   %1.93866*10^-20 y^3 + 1.7241*10^-35 y^4)&\nonumber\\
+W^{11}_{\tilde{\Phi}^\prime}(y)&= e^{-2y} (0.00000616583 + 0.00008381 y + 0.0002848 y^2 )&\nonumber\\%+ 
+  % 1.65458*10^-20 y^3 + 2.40313*10^-37 y^4)&\nonumber\\
+W^{10}_{\tilde{\Phi}^\prime}(y)&= e^{-2y} (-0.0000552785 - 0.000369894 y + 0.0000393968 y^2 )&\nonumber\\%+ 
+   %7.12174*10^-20 y^3 + 2.03549*10^-36 y^4)&\nonumber\\
+W^{01}_{\tilde{\Phi}^\prime}(y)&= e^{-2y} (-0.0000552785 - 0.000369894 y + 0.0000393968 y^2 )&\nonumber\\%+ 
+   %7.12174*10^-20 y^3 + 2.03549*10^-36 y^4)&\nonumber\\
+W^{00}_{\Delta}(y)&=e^{-2y} (0.0335711 - 0.0268568 y + 0.00656896 y^2) &\nonumber\\
+W^{11}_{\Delta}(y)&=e^{-2y} (0.00772326 - 0.00617861 y + 0.0021619 y^2) &\nonumber\\
+W^{10}_{\Delta}(y)&=e^{-2y} (0.0161021 - 0.0128817 y + 0.00362952 y^2) &\nonumber\\
+W^{01}_{\Delta}(y)&=e^{-2y} (0.0161021 - 0.0128817 y + 0.00362952 y^2) &\nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-5.07498 + 5.86765 y - 2.09908 y^2 + 0.226345 y^3)&\nonumber\\ 
+W^{11}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.0273574 + 0.0474719 y - 0.0213121 y^2 + 0.00280825 y^3)&\nonumber\\
+W^{10}_{M\Phi^{\prime\prime}}(y)&=e^{-2y} (0.220651 - 0.382932 y + 0.17682 y^2 - 0.0226015 y^3) &\nonumber\\
+W^{01}_{M\Phi^{\prime\prime}}(y)&=e^{-2y} (0.62922 - 0.727336 y + 0.243236 y^2 - 0.0210943 y^3) &\nonumber\\
+W^{00}_{\Sigma^{\prime}\Delta}(y)&= e^{-2y} (-0.0291634 + 0.0548817 y - 0.0305345 y^2 + 0.00476387 y^3)&\nonumber\\
+W^{11}_{\Sigma^{\prime}\Delta}(y)&= e^{-2y} (-0.0119052 + 0.0231539 y - 0.0164035 y^2 + 0.00310235 y^3) &\nonumber\\
+W^{10}_{\Sigma^{\prime}\Delta}(y)&= e^{-2y} (-0.024821 + 0.0482732 y - 0.02884 y^2 + 0.00481368 y^3)&\nonumber\\
+W^{01}_{\Sigma^{\prime}\Delta}(y)&= e^{-2y} (-0.013988 + 0.0263236 y - 0.0171362 y^2 + 0.00306717 y^3)&\nonumber\\
+\end{flalign}
+
+
+\subsection*{Aluminium ($^{27}$Al)}
+\begin{flalign}
+W^{00}_{M}(y)&= e^{-2y} (87.0146 - 146.097 y + 83.5367 y^2 - 18.5981 y^3 + 
+   1.43446 y^4) &\nonumber\\ 
+W^{11}_{M}(y)&= e^{-2y} (0.119366 - 0.31831 y + 0.337291 y^2 - 0.132526 y^3 + 
+   0.018155 y^4) &\nonumber\\
+W^{10}_{M}(y)&=  e^{-2y} (-3.22283 + 7.00266 y - 4.92756 y^2 + 1.33587 y^3 - 
+   0.11524 y^4) &\nonumber\\
+W^{01}_{M}(y)&= e^{-2y} (-3.22283 + 7.00266 y - 4.92756 y^2 + 1.33587 y^3 - 
+   0.11524 y^4) &\nonumber\\
+W^{00}_{\Sigma^{\prime\prime}}(y)&= e^{-2y} (0.0309465 - 0.0367242 y + 0.0265347 y^2 - 0.00241606 y^3 + 
+   0.0110011 y^4)&\nonumber\\
+W^{11}_{\Sigma^{\prime\prime}}(y)&= e^{-2y} (0.0218834 - 0.00944476 y + 0.011506 y^2 + 0.000953537 y^3 + 
+   0.0104813 y^4)&\nonumber\\
+W^{10}_{\Sigma^{\prime\prime}}(y)&= e^{-2y} (0.0260233 - 0.0210567 y + 0.0158643 y^2 + 0.000606077 y^3 + 
+   0.0105713 y^4)&\nonumber\\
+W^{01}_{\Sigma^{\prime\prime}}(y)&= e^{-2y} (0.0260233 - 0.0210567 y + 0.0158643 y^2 + 0.000606077 y^3 + 
+   0.0105713 y^4)&\nonumber\\
+W^{00}_{\Sigma^\prime}(y)&=e^{-2y} (0.0618929 - 0.210848 y + 0.244466 y^2 - 0.0942682 y^3 + 
+   0.0243737 y^4) &\nonumber\\
+W^{11}_{\Sigma^\prime}(y)&=e^{-2y} (0.0437667 - 0.165622 y + 0.221193 y^2 - 0.101991 y^3 + 
+   0.0277477 y^4) &\nonumber\\
+W^{10}_{\Sigma^\prime}(y)&= e^{-2y} (0.0520466 - 0.18713 y + 0.233007 y^2 - 0.0985082 y^3 + 
+   0.0259327 y^4)&\nonumber\\
+W^{01}_{\Sigma^\prime}(y)&= e^{-2y} (0.0520466 - 0.18713 y + 0.233007 y^2 - 0.0985082 y^3 + 
+   0.0259327 y^4)&\nonumber\\
+W^{00}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (2.80498 - 2.24306 y + 0.455491 y^2)&\nonumber\\
+W^{11}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (0.021493 - 0.0156159 y + 0.00596886 y^2)&\nonumber\\
+W^{10}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.180417 + 0.137389 y - 0.0239615 y^2)&\nonumber\\
+W^{01}_{\Phi^{\prime\prime}}(y)&=e^{-2y} (-0.180417 + 0.137389 y - 0.0239615 y^2) &\nonumber\\
+W^{00}_{\tilde{\Phi}^\prime}(y)&= e^{-2y} (0.0000680703 - 0.000376682 y + 0.00340251 y^2 )&\nonumber\\%- 
+   %4.74722\times10^{-20} y^3 + 2.44131\times10^{-36} y^4)&\nonumber\\
+W^{11}_{\tilde{\Phi}^\prime}(y)&= e^{-2y} (0.0149622 - 0.00563307 y + 0.00440385 y^2) &\nonumber\\%- 
+  %7.12645\times10^{-20} y^3 + 2.3947\times10^{-36} y^4)&\nonumber\\
+W^{10}_{\tilde{\Phi}^\prime}(y)&= e^{-2y} (-0.0010092 + 0.00298228 y + 0.00281525 y^2) &\nonumber\\%+ 
+  %8.43958\times10^{-20} y^3 - 2.3947\times10^{-36} y^4)&\nonumber\\
+W^{01}_{\tilde{\Phi}^\prime}(y)&= e^{-2y} (-0.0010092 + 0.00298228 y + 0.00281525 y^2) &\nonumber\\%+ 
+   %8.43958\times10^{-20} y^3 - 2.3947\times10^{-36} y^4)&\nonumber\\
+W^{00}_{\Delta}(y)&= e^{-2y} (0.126043 - 0.100835 y + 0.0237577 y^2)&\nonumber\\
+W^{11}_{\Delta}(y)&= e^{-2y} (0.05736 - 0.045888 y + 0.012102 y^2)&\nonumber\\
+W^{10}_{\Delta}(y)&= e^{-2y} (0.0850285 - 0.0680228 y + 0.016845 y^2)&\nonumber\\
+W^{01}_{\Delta}(y)&= e^{-2y} (0.0850285 - 0.0680228 y + 0.016845 y^2)&\nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-15.6228 + 19.3589 y - 7.23234 y^2 + 0.79705 y^3) &\nonumber\\ 
+W^{11}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.0370794 + 0.0852545 y - 0.0449284 y^2 + 0.00866992 y^3)&\nonumber\\
+W^{10}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (0.578632 - 1.00438 y + 0.491252 y^2 - 0.0730693 y^3)&\nonumber\\
+W^{01}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (1.00112 - 1.15934 y + 0.40275 y^2 - 0.0364952 y^3)&\nonumber\\
+W^{00}_{\Sigma^{\prime}\Delta}(y)&= e^{-2y} (-0.0883243 + 0.185775 y - 0.104001 y^2 + 0.0163635 y^3)&\nonumber\\
+W^{11}_{\Sigma^{\prime}\Delta}(y)&= e^{-2y} (-0.0501045 + 0.114845 y - 0.0729898 y^2 + 0.0131315 y^3)&\nonumber\\
+W^{10}_{\Sigma^{\prime}\Delta}(y)&= e^{-2y} (-0.0742731 + 0.170242 y - 0.105744 y^2 + 0.0188197 y^3)&\nonumber\\
+W^{01}_{\Sigma^{\prime}\Delta}(y)&= e^{-2y} (-0.0595834 + 0.125323 y - 0.0717204 y^2 + 0.011398 y^3)&\nonumber\\
+\end{flalign}
+
+\subsection*{Silicon ($^{28}$Si)}
+\begin{flalign}
+W^{00}_{M}(y)&= 0.281695 e^{-2y} (7.44089 - 6.37784 y + y^2)^2 &\nonumber\\ 
+W^{00}_{\Phi^{\prime\prime}}(y)&=0.0739103 e^{-2y} (2.5 - y)^2 &\nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-2.68415 + 3.37434 y - 1.281 y^2 + 0.144292 y^3)&\nonumber\\
+\end{flalign}
+
+
+
+\subsection*{Sulfur ($^{32}$S)} 
+
+\begin{flalign}
+W^{00}_{M}(y)&=  0.580305 e^{-2y} (5.92494 - 5.43118 y + y^2)^2&\nonumber\\ 
+W^{00}_{\Phi^{\prime\prime}}(y)&= 0.0765941 e^{-2y} (2.5 - y)^2&\nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-3.12284 + 4.11173 y - 1.6721 y^2 + 0.210827 y^3)&\nonumber\\
+\end{flalign}
+
+\subsection*{Argon ($^{40}$Ar)}
+\begin{flalign}
+W^{00}_{M}(y)&= e^{-2y} (31.8294- 65.9618 y + 48.5834 y^2 - 15.194 y^3 + 
+   1.9036 y^4 - 0.0595886 y^5 &\nonumber \\ &+ 0.000544329 y^6) &\nonumber\\ 
+W^{11}_{M}(y)&= e^{-2y} (0.318304 - 1.06524 y + 1.24846 y^2 - 0.62249 y^3 + 
+   0.141618 y^4 - 0.0138797 y^5 &\nonumber\\ &+ 0.000480513 y^6) &\nonumber\\
+W^{10}_{M}(y)&= e^{-2y} (-3.18299 + 8.62425 y - 8.02539 y^2 + 3.19316 y^3 - 
+   0.554467 y^4 + 0.0353797 y^5 &\nonumber\\ &- 0.000511426 y^6) &\nonumber\\
+W^{01}_{M}(y)&=  e^{-2y} (-3.18299 + 8.62425 y - 8.02539 y^2 + 3.19316 y^3 - 
+   0.554467 y^4 + 0.0353797 y^5 &\nonumber\\ &- 0.000511426 y^6) &\nonumber\\
+W^{00}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (0.299629 - 0.373798 y + 0.154895 y^2 - 0.0238983 y^3 + 
+   0.00122474 y^4)&\nonumber\\
+W^{11}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (0.00414999 - 0.0181474 y + 0.0240755 y^2 - 0.00926264 y^3 + 
+   0.00108115 y^4)&\nonumber\\
+W^{10}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.0352627 + 0.0990955 y - 0.0683453 y^2 + 0.0161561 y^3 - 
+   0.00115071 y^4)&\nonumber\\
+W^{01}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.0352627 + 0.0990955 y - 0.0683453 y^2 + 0.0161561 y^3 - 
+   0.00115071 y^4) &\nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-3.08821 + 5.12625 y - 2.89248 y^2 + 0.653386 y^3 - 
+   0.0526576 y^4 &\nonumber\\ &+ 0.000816493 y^5)&\nonumber\\ 
+W^{11}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.036345 + 0.140282 y - 0.171917 y^2 + 0.0770456 y^3 - 
+   0.0134973 y^4 &\nonumber\\ &+ 0.000720769 y^5)&\nonumber\\
+W^{10}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (0.308826 - 0.709394 y + 0.515378 y^2 - 0.153134 y^3 + 
+   0.0185641 y^4 &\nonumber\\& - 0.000767139 y^5)&\nonumber\\
+W^{01}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (0.363444 -1.17124 y + 1.09117 y^2 - 0.373592 y^3 + 
+   0.0452762 y^4 &\nonumber\\& - 0.000767139 y^5)&\nonumber\\
+   \end{flalign}
+
+\subsection*{Calcium ($^{40}$Ca)}
+\begin{flalign}
+W^{00}_{M}(y)&=  0.000016743 e^{-2y} (1378.8 - 1387.54 y + 281.953 y^2 - y^3)^2&\nonumber\\
+W^{00}_{\Phi^{\prime\prime}}(y)&= 0.0000376718 e^{-2y} (13.117 - 8.74678 y + y^2)^2&\nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.454214 + 0.759976 y - 0.432314 y^2 + 0.0971138 y^3 - 
+   0.00730079 y^4 &\nonumber\\ &+ 0.0000251146 y^5)&\nonumber\\
+\end{flalign}
+
+\subsection*{Iron ($^{56}$Fe)}
+
+\begin{flalign}
+W^{00}_{M}(y)&=  e^{-2y} (62.3888 - 160.428 y + 152.644 y^2 - 67.2779 y^3 + 
+   14.478 y^4 - 1.43665 y^5 &\nonumber\\&+ 0.0525291 y^6) &\nonumber\\ 
+W^{11}_{M}(y)&= e^{-2y} (0.318309 - 1.27323 y + 1.99188 y^2 - 1.54562 y^3 + 
+   0.622264 y^4 - 0.122277 y^5 &\nonumber\\ &+ 0.00921525 y^6) &\nonumber\\
+W^{10}_{M}(y)&= e^{-2y} (-4.45633 + 14.6422 y - 18.2579 y^2 + 10.8919 y^3 - 
+   3.2296 y^4 + 0.446836 y^5 &\nonumber\\& - 0.0220016 y^6) &\nonumber\\
+W^{01}_{M}(y)&= e^{-2y} (-4.45633 + 14.6422 y - 18.2579 y^2 + 10.8919 y^3 - 
+   3.2296 y^4 + 0.446836 y^5 &\nonumber\\ &- 0.0220016 y^6)  &\nonumber\\
+W^{00}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (4.22872 - 6.76595 y + 3.79067 y^2 - 0.867433 y^3 + 
+   0.069506 y^4)&\nonumber\\
+W^{11}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (0.143378 - 0.229404 y + 0.144606 y^2 - 0.0422756 y^3 + 
+   0.00486921 y^4)&\nonumber\\
+W^{10}_{\Phi^{\prime\prime}}(y)&=e^{-2y} (-0.778655 + 1.24585 y - 0.741661 y^2 + 0.194658 y^3 - 
+   0.0183967 y^4) &\nonumber\\
+W^{01}_{\Phi^{\prime\prime}}(y)&=e^{-2y} (-0.778655 + 1.24585 y - 0.741661 y^2 + 0.194658 y^3 - 
+   0.0183967 y^4) &\nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-16.2427 + 33.8776 y - 25.2342 y^2 + 8.30471 y^3 - 
+   1.20334 y^4 + 0.0604243 y^5)&\nonumber\\ 
+W^{11}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.213631 + 0.598168 y - 0.622338 y^2 + 0.308014 y^3 - 
+   0.0735211 y^4 &\nonumber\\ &+ 0.00669858 y^5)&\nonumber\\
+W^{10}_{M\Phi^{\prime\prime}}(y)&=e^{-2y} (1.16019 - 3.24853 y + 3.31473 y^2 - 1.54264 y^3 + 
+   0.325833 y^4- 0.0253084 y^5) &\nonumber\\
+W^{01}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (2.99085 - 6.23805 y + 4.81422 y^2 - 1.74483 y^3 + 
+   0.288128 y^4 - 0.015993 y^5) &\nonumber\\
+\end{flalign}
+
+\subsection*{Nickel ($^{58}$Ni)}
+\begin{flalign}
+W^{00}_{M}(y)&=  e^{-2y} (66.9246 - 175.389 y + 169.877 y^2 - 76.127 y^3 + 16.6597 y^4 - 1.6839 y^5 \nonumber\\
+&+ 0.0628067 y^6)\nonumber\\
+W^{11}_{M}(y)&= e^{-2y} (0.0795762 - 0.318305 y + 0.548985 y^2 - 0.503018 y^3 + 0.250492 y^4\nonumber\\
+& - 0.0603789 y^5 + 0.00545169 y^6)\nonumber\\
+W^{10}_{M}(y)&= e^{-2y} (-2.30773 + 7.63937 y - 10.3404 y^2 + 6.95311 y^3 - 2.30652 y^4 + 0.350525 y^5 \nonumber\\
+&- 0.0185041 y^6)\nonumber\\
+W^{01}_{M}(y)&= e^{-2y} (-2.30773 + 7.63937 y - 10.3404 y^2 + 6.95311 y^3 - 2.30652 y^4 + 0.350525 y^5 \nonumber\\
+&- 0.0185041 y^6)\nonumber\\
+W^{00}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (5.4697 - 8.75152 y + 4.88454 y^2 - 1.10715 y^3 + 0.0875404 y^4)\nonumber\\
+W^{11}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (0.00977975 - 0.0156476 y + 0.0136707 y^2 - 0.00592935 y^3 + 0.00140426 y^4)\nonumber\\
+W^{10}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.231284 + 0.370054 y - 0.264922 y^2 + 0.0935201 y^3 - 0.0110873 y^4)\nonumber\\
+W^{01}_{\Phi^{\prime\prime}}(y)&= e^{-2y} (-0.231284 + 0.370054 y - 0.264922 y^2 + 0.0935201 y^3 - 0.0110873 y^4)\nonumber\\
+W^{00}_{M\Phi^{\prime\prime}}(y)&=e^{-2y} (-19.1326 + 40.3764 y - 30.3339 y^2 + 10.0435 y^3 - 1.4629 y^4 + 
+ 0.0741493 y^5)\nonumber\\
+W^{11}_{M\Phi^{\prime\prime}}(y)&=e^{-2y} (-0.0278969 + 0.0781112 y - 0.0956406 y^2 + 0.0607914 y^3 - 0.0211633 y^4 \nonumber\\
+&+ 0.00276687 y^5)\nonumber\\
+W^{10}_{M\Phi^{\prime\prime}}(y)&=e^{-2y} (0.659741 - 1.84727 y + 2.0953 y^2 - 1.10461 y^3 + 0.25912 y^4 - 0.0218459 y^5)\nonumber\\
+W^{01}_{M\Phi^{\prime\prime}}(y)&= e^{-2y} (0.809015 - 1.7073 y + 1.48687 y^2 - 0.692274 y^3 + 0.145722 y^4 \nonumber\\
+&- 0.00939131 y^5)
+\end{flalign}
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
