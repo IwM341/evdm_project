@@ -47,18 +47,42 @@ namespace evdm{
         RFunc1_t Rho;
         RFunc2_t Q;
         RFunc2_t Phi;
+        
+        RFunc2_t VescFunc;
+        RFunc1_t Temp;
+
+
         size_t low_steps_num;
         T Rho_max;
+        T Vesc;
         
         
         static value_type get_vtype(){
             static_assert("Body::get_vtype() is not callable");
         }
-        SERIALIZATOR_FUNCTION(PROPERTY_NAMES("Q","rho","phi"),PROPERTIES(Q,Rho,Phi))
-        WRITE_FUNCTION(Q,Rho,Phi)
-        DESERIALIZATOR_FUNCTION(Body,PROPERTY_NAMES("Q","rho","phi"),PROPERTY_TYPES(Q,Rho,Phi))
-        READ_FUNCTION(Body,PROPERTY_TYPES(Q,Rho,Phi))
-
+        SERIALIZATOR_FUNCTION(PROPERTY_NAMES("Q","rho","phi","Temp","vesc"), PROPERTIES(Q, Rho, Phi, Temp, Vesc))
+        WRITE_FUNCTION(Q,Rho,Phi,Temp,Vesc)
+        DESERIALIZATOR_FUNCTION(
+            Body,PROPERTY_NAMES("Q","rho","phi","Temp","vesc"), PROPERTY_TYPES(Q, Rho, Phi, Temp,Vesc))
+        READ_FUNCTION(Body,PROPERTY_TYPES(Q,Rho,Phi,Temp,Vesc))
+    
+        auto const& getVesc() const{
+            return VescFunc;
+        }
+        auto const& getTemp() const {
+            return Temp;
+        }
+        template <typename Array_t>
+        void setTemp(Array_t&& values) {
+            if (Temp.size() != values.size()) {
+                throw std::range_error(
+                    "error trying to set temperature of body model,"
+                    " incorrect data size");
+            }
+            for (size_t i = 0; i < Temp.size(); ++i) {
+                Temp[i] = values[i];
+            }
+        }
         auto M() const{
             return grob::make_function_ref(
                 Rho.Grid,
@@ -69,12 +93,14 @@ namespace evdm{
         }
         //CHECKED, OK
         template <typename...ArgsToCreateRho>
-        static Body FromRho(ArgsToCreateRho&&...args){
+        static Body FromRho(T VescMax,ArgsToCreateRho&&...args){
             using namespace __detail;
             RFunc1_t Rho(std::forward<ArgsToCreateRho>(args)...);
             auto Grid = Rho.Grid;
             T h = Grid.h();
             Body B{RFunc1_t(std::move(Rho)),
+                    RFunc2_t(Grid,std::vector<T>(Grid.size(),0)),
+                    RFunc2_t(Grid,std::vector<T>(Grid.size(),0)),
                     RFunc2_t(Grid,std::vector<T>(Grid.size(),0)),
                     RFunc2_t(Grid,std::vector<T>(Grid.size(),0))
                 };
@@ -107,6 +133,12 @@ namespace evdm{
                 phi += phi_shift;
             }
             B.Rho_max = B.Rho[B.Rho.size()-1];
+            
+            B.Vesc = VescMax;
+            for (size_t i = 0; i < B.Phi.size(); ++i) {
+                B.VescFunc[i] = std::sqrt(B.Phi[i]) * VescMax;
+            }
+
             return B;
         }
 
@@ -128,10 +160,10 @@ namespace evdm{
                 return (e > 0.5 ? Internal_lm(e) : 1/(4*e));
             }
             inline auto i_rm(T const &e)const{
-                return (e > 0.5 ? sqrt(Internal_um(e)) : 1);
+                return (e > 0.5 ? sqrt(std::abs(Internal_um(e))) : 1);
             }
             inline auto rm(T const &e)const{
-                return (e > 0.5 ? sqrt(Internal_um(e)) : 1/(2*e));
+                return (e > 0.5 ? sqrt(std::abs(Internal_um(e))) : 1/(2*e));
             }
 
             #define MAKE_FUNC_WRAPPER(func) inline auto func()const{ \
@@ -216,18 +248,21 @@ namespace evdm{
             auto F = [&](T r){return r*r*Phi(r);};
             auto F1 = [&](T r){return Phi(r) - Q(r)*r*r/2;};
             auto mF2 = [&](T r){return (3*Rho(r)+Q(r))/8;};
-            if(rp-rm <= 2*low_steps_num*h){
+
+            auto _dr_max = low_steps_num*h*(1+2*h/(rp+rm));
+
+            if(rp-rm <= _dr_max*2){
                 T u_s = (u+um+up)/3;
                 T r_s = sqrt((u+um+up)/3);
                 auto F2_s = (r_s <= 1 ? mF2(r_s) : -_DD_F_C(u_s)/2); 
                 return F2_s;
             } 
-            else if (r - rm <=low_steps_num*h){
+            else if (r - rm <=_dr_max){
                 T r_s = sqrt((u+um)/2);
                 auto Frp = (rp <= 1 ? F(rp) : __F_C(up)); 
                 return (F1(r_s) - (Frp-F(r))/(up-u))/(up-um);
             }
-            else if (rp - r <= low_steps_num*h){
+            else if (rp - r <= _dr_max){
                 T u_s = (u+up)/2;
                 T r_s = sqrt(u_s);
                 auto F1_s = (r_s <= 1 ? F1(r_s) : _D_F_C(u_s)); 

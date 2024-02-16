@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  7 OCT 2023 13:53
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  24 DEC 2023 14:46
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -21,9 +21,6 @@ File: size11.clo 2021/10/04 v1.4n Standard LaTeX file (size option)
 \abovecaptionskip=\skip47
 \belowcaptionskip=\skip48
 \bibindent=\dimen138
-)
-(D:\Soft\MikTex\tex/latex/base\ifthen.sty
-Package: ifthen 2022/04/13 v1.1d Standard LaTeX ifthen package (DPC)
 )
 (D:\Soft\MikTex\tex/latex/graphics\epsfig.sty
 Package: epsfig 2017/06/25 v1.7b (e)psfig emulation (SPQR)
@@ -595,10 +592,10 @@ Package rerunfilecheck Info: File `ntEFT.out' has not changed.
 (rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
  ) 
 Here is how much of TeX's memory you used:
- 12540 strings out of 475385
- 187581 string characters out of 2790968
- 551984 words of memory out of 3000000
- 33682 multiletter control sequences out of 15000+600000
+ 12481 strings out of 475385
+ 186670 string characters out of 2790968
+ 551346 words of memory out of 3000000
+ 33626 multiletter control sequences out of 15000+600000
  495949 words of font info for 95 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  72i,10n,77p,258b,451s stack positions out of 10000i,1000n,20000p,200000b,80000s

@@ -22,5 +22,14 @@ auto make_python_function_1D(GridFunction_t const& F) {
 	return py::make_tuple( Grid ,Values);
 }
 
+template <typename T>
+auto make_py_array_slice(pybind11::array_t<T>& mvector) {
+	return grob::make_slice(mvector.mutable_data(),0,mvector.size());
+}
+template <typename T>
+auto make_py_array_slice(pybind11::array_t<T>const& mvector) {
+	return grob::make_slice(mvector.data(), 0, mvector.size());
+}
+
 
 #endif//GROB_PYTHON_HPP

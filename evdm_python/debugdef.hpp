@@ -135,8 +135,11 @@ namespace debugdefs{
 #define DEBUG(x)
 #endif
 
+
 #ifdef _VERBOSE
+#ifndef _NDEBUG
 #define DEBUG1(x) print(SVAR(x))
+#endif
 #else
 #define DEBUG1(x)
 #endif

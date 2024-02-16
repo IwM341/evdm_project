@@ -10,7 +10,7 @@ class ff_expr:
         """
         Initialize the ff_expr object.
 
-        :param coefficients: An np.array of float coefficients for the polynomial.
+        :param coeffs: An np.array of float coefficients for the polynomial.
         :param is_exp: A boolean indicating whether the expression is exponential.
         """
         self.coeffs = np.array(coeffs, dtype=float)

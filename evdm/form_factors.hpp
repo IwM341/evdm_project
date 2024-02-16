@@ -2,10 +2,12 @@
 #define FORM_FACTORS_HPP
 #include <cmath>
 #include <array>
-#include "utils/mk.hpp"
+#include "utils/mc.hpp"
 #include "utils/variant_tools.hpp"
+#include "utils/polynom.hpp"
 #include <tuple>
-
+#include <string>
+#include <sstream>
 namespace evdm{
 
     namespace detail{
@@ -29,7 +31,7 @@ namespace evdm{
     };
 
     template <size_t _size>
-    using Polynom = PolynomHorner<float,_size,16*2>;
+    using Polynom = PolynomHorner<float,_size,16>;
 
     struct ElasticFactorBase{
         inline MCResult<float,size_t> EnergyLoss(float Emax) const noexcept{
@@ -40,22 +42,52 @@ namespace evdm{
         }
     };
 
+    inline std::string degree_print(int deg){
+        if (deg < 0)
+            return "*y^(" + std::to_string(deg) + ")";
+        else if (deg == 0) {
+            return "";
+        }
+        else if (deg == 1) {
+            return "*y";
+        }
+        else {
+            return "*y^" + std::to_string(deg);
+        }
+    }
+
     template <size_t _poly_size,bool y_inv = false>
     struct QexpFactor : ElasticFactorBase{
         using Poly = Polynom<_poly_size>;
-        Poly _P;
+        Poly _Pol;
         float b_2;
 
         QexpFactor(){}
         template <typename Array_t>
-        QexpFactor(Array_t const & coeffs,float b):_P(coeffs),b_2(b*b){}
+        QexpFactor(Array_t const & coeffs,float b):_Pol(coeffs),b_2(b*b){}
         inline float ScatterFactor(float q_2,float v_2,float Eloss)const noexcept{
             float y = (b_2*q_2/4);
             if constexpr(y_inv)
-                return _P(y)*exp(-2*y)/y;
+                return _Pol(y)*exp(-2*y)/y;
             else {
-                return _P(y)*exp(-2*y);
+                return _Pol(y)*exp(-2*y);
             }
+        }
+        inline std::string repr() const{
+            std::ostringstream S;
+            S << "exp(-2y)*(";
+            for (size_t i = 0; i < _poly_size; ++i) {
+                if (i != 0 && _Pol[i] >= 0) {
+                    S << " + ";
+                }
+                S << _Pol[i] << degree_print((int)i - (y_inv ? 1 : 0));
+            }
+            S << ")";
+            return S.str();
+        }
+        template <typename T>
+        inline void rescale(T x) {
+            _Pol.rescale(x);
         }
     };
 
@@ -79,6 +111,33 @@ namespace evdm{
             else {
                 return eff_poly (y)*exp(-2*y);
             }
+        }
+        inline std::string repr()const {
+            std::ostringstream S;
+            S << "exp(-2y)*(";
+            S << "{";
+            for (size_t i = 0; i < _poly_size; ++i) {
+                if (i != 0 && (_P_0[i] >= 0)) {
+                    S << " + ";
+                }
+                S << _P_0[i] << degree_print((int)i - (y_inv ? 1 : 0));
+            }
+            S << "} + v^2*{";
+            for (size_t i = 0; i < _poly_size; ++i) {
+                if (i != 0 && _P_V[i] >= 0) {
+                    S << " + ";
+                }
+                S << _P_V[i] << degree_print((int)i - (y_inv ? 1 : 0));
+            }
+            S << "}";
+            S << ")";
+            return S.str();
+        }
+
+        template <typename T>
+        inline void rescale(T x) {
+            _P_0.rescale(x);
+            _P_V.rescale(x);
         }
     };
 
@@ -249,29 +308,40 @@ namespace evdm{
             } else {
                 return variant_cast<Base>(
                     make_variant<Base_yinv_v1>(
-                        __index_detail::find_first_moreq_index(std::max(coeffs_v0.size(),coeffs_v1.size(),PolySizes{}),
+                        __index_detail::find_first_moreq_index(std::max(coeffs_v0.size(),coeffs_v1.size()),PolySizes{}),
                         [&](auto t){
                             return typename decltype(t)::type (coeffs_v0,coeffs_v1,b);
                         }
                     )
-                )
                 );
             }
         }
 
         template <typename Array_t>
         QexpFactors(bool y_inv,double b,Array_t const & coeffs): 
-        Base(vforward(MakeBase_v0(y_inv,b,coeffs))){}
+        Base(vmove(MakeBase_v0(y_inv,b,coeffs))){}
 
         template <typename Array1_t,typename Array2_t>
         QexpFactors(bool y_inv,double b,Array1_t const & coeffs_v0,Array2_t const & coeffs_v1): 
-        Base(vforward(MakeBase_v1(y_inv,b,coeffs_v0,coeffs_v1))){}
+        Base(vmove(MakeBase_v1(y_inv,b,coeffs_v0,coeffs_v1))){}
 
         inline Base & as_variant(){
             return static_cast<Base &>(*this);
         }
         inline Base const & as_variant() const{
             return static_cast<Base const &>(*this);
+        }
+        std::string repr() const {
+            return std::visit([](auto const& Poly) ->std::string{
+                return Poly.repr();
+            }, as_variant());
+        }
+
+        template <typename T>
+        void rescale(T sc) {
+            std::visit([](auto const& Poly) ->std::string {
+                return Poly
+            }, as_variant());
         }
     };
 

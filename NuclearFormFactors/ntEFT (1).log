@@ -1,0 +1,48 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  24 DEC 2023 14:46
+entering extended mode
+ \write18 enabled.
+ %&-line parsing enabled.
+**"./ntEFT (1).tex"
+(ntEFT (1).tex
+LaTeX2e <2022-06-01> patch level 5
+L3 programming layer <2022-09-28> (D:\Soft\MikTex\tex/latex/base\article.cls
+Document Class: article 2021/10/04 v1.4n Standard LaTeX document class
+(D:\Soft\MikTex\tex/latex/base\size11.clo
+File: size11.clo 2021/10/04 v1.4n Standard LaTeX file (size option)
+)
+\c@part=\count185
+\c@section=\count186
+\c@subsection=\count187
+\c@subsubsection=\count188
+\c@paragraph=\count189
+\c@subparagraph=\count190
+\c@figure=\count191
+\c@table=\count192
+\abovecaptionskip=\skip47
+\belowcaptionskip=\skip48
+\bibindent=\dimen138
+)
+
+! LaTeX Error: File `jcappub.sty' not found.
+
+Type X to quit or <RETURN> to proceed,
+or enter new name. (Default extension: sty)
+
+Enter file name: 
+! Emergency stop.
+<read *> 
+         
+l.4 \usepackage
+               {ifthen}^^M
+*** (cannot \read from terminal in nonstop modes)
+
+ 
+Here is how much of TeX's memory you used:
+ 236 strings out of 475385
+ 2964 string characters out of 2790968
+ 342842 words of memory out of 3000000
+ 21707 multiletter control sequences out of 15000+600000
+ 469559 words of font info for 29 fonts, out of 8000000 for 9000
+ 1141 hyphenation exceptions out of 8191
+ 32i,0n,38p,142b,36s stack positions out of 10000i,1000n,20000p,200000b,80000s
+!  ==> Fatal error occurred, no output PDF file produced!

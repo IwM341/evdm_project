@@ -10,16 +10,36 @@
 size_t Py_BodyModel::size()const {
 	return std::visit([](auto const& B) {return B->Phi.Grid.size(); }, m_body);
 }
-Py_BodyModel::Py_BodyModel(pybind11::array_t<double> const& RhoValues)
-:m_body(evdm::load_body_model<double,evdm::forward_shared>(RhoValues.data(),RhoValues.size()))
+
+void Py_BodyModel::setTemp(pybind11::handle mTemp){
+	std::visit([&mTemp](auto & mb) {
+		if (pybind11::array_t<double>::check_(mTemp)) {
+			mb->setTemp(
+				make_py_array_slice(
+					mTemp.cast< pybind11::array_t<double>>()
+				)
+			);
+		}
+		else if (pybind11::array_t<float>::check_(mTemp)) {
+			mb->setTemp(
+				make_py_array_slice(
+					mTemp.cast< pybind11::array_t<float >>()
+				)
+			);
+		}
+		}, m_body);
+	
+}
+Py_BodyModel::Py_BodyModel(pybind11::array_t<double> const& RhoValues, double Velocity, pybind11::handle Temp)
+:m_body(evdm::load_body_model<double,evdm::forward_shared>(RhoValues.data(),RhoValues.size(), Velocity))
 {
-//	DEBUG1(__PRETTY_FUNCTION__);
+	setTemp(Temp);
 }
 
-Py_BodyModel::Py_BodyModel(pybind11::array_t<float> const& RhoValues)
-	:m_body(evdm::load_body_model<double, evdm::forward_shared>(RhoValues.data(), RhoValues.size()))
+Py_BodyModel::Py_BodyModel(pybind11::array_t<float> const& RhoValues, float Velocity, pybind11::handle Temp)
+	:m_body(evdm::load_body_model<double, evdm::forward_shared>(RhoValues.data(), RhoValues.size(), Velocity))
 {
-	//DEBUG1(__PRETTY_FUNCTION__);
+	setTemp(Temp);
 }
 
 template <typename T>
@@ -27,8 +47,9 @@ struct T_t{
 	typedef T type;
 };
 Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
-	std::string const &dtype,
-	std::optional<size_t> _size)
+	std::string_view dtype,
+	std::optional<size_t> _size, 
+	double Velocity, pybind11::handle Temp)
 {
 	//DEBUG1(__PRETTY_FUNCTION__);
 
@@ -51,7 +72,7 @@ Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
 				values[i] = item.cast<T>();
 				++i;
 			}
-			return evdm::load_body_model<evdm::forward_shared>(std::move(values));
+			return evdm::load_body_model<evdm::forward_shared>(std::move(values), Velocity);
 		};
 		if (dtype == "double") {
 			m_body = ExtractList(T_t<double>{});
@@ -62,7 +83,7 @@ Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
 			return;
 		}
 		else {
-			throw pybind11::type_error("wrong data type: " + dtype + ", expect float or double");
+			throw pybind11::type_error("wrong data type: " + std::string(dtype) + ", expect float or double");
 		}
 	}
 	else {
@@ -79,19 +100,19 @@ Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
 			return Rho(x).cast<float>();
 		};
 		if (dtype == "double") {
-			m_body = evdm::make_body_model<double,evdm::forward_shared>(Fd, m_size);
+			m_body = evdm::make_body_model<double,evdm::forward_shared>(Fd, m_size, Velocity);
 			return;
 		}
 		else if (dtype == "float") {
-			m_body = evdm::make_body_model<float, evdm::forward_shared>(Ff, m_size); 
+			m_body = evdm::make_body_model<float, evdm::forward_shared>(Ff, m_size, Velocity);
 			return;
 		}
 		else {
-			throw pybind11::type_error("wrong data type: " + dtype + ", expect float or double");
+			throw pybind11::type_error("wrong data type: " + std::string(dtype) + ", expect float or double");
 		}
 
 	}
-
+	setTemp(Temp);
 }
 
 const char* Py_BodyModel::dtype() const
@@ -142,16 +163,17 @@ pybind11::tuple Py_BodyModel::getQ() const
 		}, m_body);
 }
 
-Py_BodyModel Py_BodyModel::Create(pybind11::handle Rho, std::string const& dtype, std::optional<size_t> _size)
+Py_BodyModel Create(pybind11::handle Rho, std::optional<size_t> _size, 
+	std::string_view dtype,double Velocity, pybind11::handle mTemp = pybind11::none())
 {	
 	if (pybind11::array_t<double>::check_(Rho)) {
-		return Py_BodyModel(Rho.cast<pybind11::array_t<double>>());
+		return Py_BodyModel(Rho.cast<pybind11::array_t<double>>(), Velocity, mTemp);
 	}
 	else if (pybind11::array_t<float>::check_(Rho)) {
-		return Py_BodyModel(Rho.cast<pybind11::array_t<float>>());
+		return Py_BodyModel(Rho.cast<pybind11::array_t<float>>(), (float)Velocity, mTemp);
 	}
 	else {
-		return Py_BodyModel(Rho, dtype, _size);
+		return Py_BodyModel(Rho, dtype, _size, Velocity, mTemp);
 	}
 	
 }
@@ -163,16 +185,22 @@ void Py_BodyModel::add_to_python_module(pybind11::module_& m)
 	using pyobj_ref = pybind11::object const&;
 	py::class_<Py_BodyModel>(m, "Body")
 		.def(
-			py::init([](pyobj_ref _o,std::string const &dtype,std::optional<size_t> const & _size)
-				{return Py_BodyModel::Create(_o, dtype,_size); }),
+			py::init([](pyobj_ref _o, std::optional<size_t> const& _size,
+				double Velocity, std::string_view dtype, pybind11::handle mTemp)
+				{return Create(_o, _size, dtype, Velocity, mTemp); }),
 			"constructs Body from Rho\n"
 			"Rho -- array of values of mass density or function [0,1]->real\n"
+			"size -- if Rho is func then size is the number of points\n"
+			"velocity -- velocity of body inside halo\n"
 			"dtype -- string, float or double\n"
-			"size -- if Rho is func then size is the number of points",
+			"Temp -- optional temperature array, default - 0\n",
 			py::arg("Rho"),
-			py::arg_v("dtype",std::string("")),
-			py::arg_v("size",std::nullopt)
+			py::arg_v("size", std::nullopt),
+			py::arg_v("velocity", 0.7e-3),
+			py::arg_v("dtype", std::string("")),
+			py::arg_v("Temp", pybind11::none())
 		)
+		.def("setTemp", &Py_BodyModel::setTemp, py::arg_v("Temp", pybind11::none()))
 		.def("__repr__", &Py_BodyModel::repr)
 		.def_property_readonly("size", &Py_BodyModel::size)
 		.def_property_readonly("dtype", &Py_BodyModel::dtype)

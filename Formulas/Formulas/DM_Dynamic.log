@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  3 DEC 2023 14:35
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  10 DEC 2023 15:46
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -1108,13 +1108,13 @@ Package rerunfilecheck Info: File `DM_Dynamic.out' has not changed.
 (rerunfilecheck)             Checksum: D3BB26A9DA3701B7F1FC00CD46FC94F4;1444.
  ) 
 Here is how much of TeX's memory you used:
- 26116 strings out of 475385
- 501702 string characters out of 2790968
+ 26120 strings out of 475385
+ 501754 string characters out of 2790968
  842670 words of memory out of 3000000
  47018 multiletter control sequences out of 15000+600000
  472907 words of font info for 39 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 81i,11n,83p,488b,628s stack positions out of 10000i,1000n,20000p,200000b,80000s
+ 81i,13n,83p,488b,628s stack positions out of 10000i,1000n,20000p,200000b,80000s
  <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\t
 crm1000.pk> <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/lh/lh-t2a/d
 pi600\labx1000.pk> <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/lh/l
@@ -1125,9 +1125,9 @@ onts/cm/cmr10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr5.pfb><D:/S
 oft/MikTex/fonts/type1/public/amsfonts/cm/cmr7.pfb><D:/Soft/MikTex/fonts/type1/
 public/amsfonts/cm/cmsy10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cm
 sy5.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy7.pfb>
-Output written on DM_Dynamic.pdf (6 pages, 170453 bytes).
+Output written on DM_Dynamic.pdf (6 pages, 173266 bytes).
 PDF statistics:
- 281 PDF objects out of 1000 (max. 8388607)
- 53 named destinations out of 1000 (max. 500000)
+ 287 PDF objects out of 1000 (max. 8388607)
+ 57 named destinations out of 1000 (max. 500000)
  77 words of extra memory for PDF output out of 10000 (max. 10000000)
 

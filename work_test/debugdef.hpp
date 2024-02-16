@@ -25,7 +25,9 @@ std::ostream & operator << (std::ostream & os, const std::pair<U,V> & P){
     return os;
 }
 
-
+/// @brief struct for printing numbers
+/// use: auto format = _ff(precision,is_exponental)
+/// then cout << format*4 << endl;
 struct _ff{
     struct _format_args{
         size_t prec;
@@ -155,12 +157,12 @@ void print(){
 }
 template <typename T>
 void print(T data){
-    std::cout << data <<std::endl;
+    std::cout << debugdefs::to_debug_string(data) <<std::endl;
 }
 
 template <typename ...Args, typename T>
 void print(T data,Args...args){
-    std::cout << data;
+    std::cout << debugdefs::to_debug_string(data);
     print(args...);
 }
 

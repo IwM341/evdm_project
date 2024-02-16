@@ -1,13 +1,13 @@
 #ifndef MK_HPP
 #define MK_HPP
-
+#include "prng.hpp"
 
 namespace evdm{
-    template <typename ResultType,typename DensityType = double>
+    template <typename ResultType,typename DensityType = ResultType>
     struct MCResult{
         ResultType Result;
         DensityType RemainDensity;
-        MCResult(ResultType Result,double RemainDensity = 1.0):Result(Result),RemainDensity(RemainDensity){}
+        MCResult(ResultType Result, DensityType RemainDensity = 1.0):Result(Result),RemainDensity(RemainDensity){}
         MCResult():RemainDensity(0){}
     };
 
@@ -40,5 +40,64 @@ namespace evdm{
         sum2 = sum2/N;
         return MCIntegral<value_type>(sum,sqrt(sum2-sum*sum));
     }
+
+
+    template <typename Gen_t>
+    using Gen_vt = std::decay_t<Gen_t>::value_type;
+
+    template <class Gen_t>
+    inline Gen_vt<Gen_t> RandomPhi(Gen_t&& G) {
+        return G() * 2 * M_PI;
+    }
+
+    template <class Gen_t>
+    inline Gen_vt<Gen_t> RandomCos(Gen_t&& G) {
+        return G() * 2 - 1;
+    }
+
+    template <class Gen_t>
+    inline MCResult<Gen_vt<Gen_t>> RandomCos_c(Gen_t&& G, Gen_vt<Gen_t> cosTheta_min, Gen_vt<Gen_t> cosTheta_max) {
+        return CResult<Gen_vt<Gen_t>>(
+            cosTheta_min + G() * (cosTheta_max - cosTheta_min), 
+            (cosTheta_max - cosTheta_min)/2
+            );
+    }
+
+    template <class Gen_t>
+    inline Gen_vt<Gen_t> RandomPhi(Gen_t&& G, Gen_vt<Gen_t> phi0, Gen_vt<Gen_t> phi1) {
+        return phi0 + G() * (phi1 - phi0);
+    }
+
+    template <class Gen_t>
+    inline Gen_vt<Gen_t> Gauss2Norm(Gen_t&& G, Gen_vt<Gen_t> Vdisp) {
+        if constexpr (G.bounds == genpol::E0I1);
+            return Vdisp * std::sqrt(-2 * std::log(G()));
+        else if (G.bounds == genpol::I0E1)
+            return Vdisp * std::sqrt(-2 * std::log(1 - G()));
+        else
+            static_assert(true, "incorrect generator bounds");
+    }
+    template <class Gen_t>
+    inline Gen_vt<Gen_t> Gauss(Gen_t&& G, Gen_vt<Gen_t> Vdisp) {
+        Gen_vt<Gen_t> V = Gauss2Norm(G, Vdisp);
+        return V * cos(RandomPhi(G));
+    }
+
+    template <class Gen_t>
+    inline MCResult<Gen_vt<Gen_t>> Gauss3_min_abs(Gen_t&& G, Gen_vt<Gen_t> Vdisp, Gen_vt<Gen_t> Vmin) {
+        Vmin = (Vmin > 0 ? Vmin : 0)
+        Gen_vt<Gen_t> a0 = exp(-Vmin * Vmin / (2 * Vdisp * Vdisp));
+
+        Gen_vt<Gen_t> v_nd; 
+        if constexpr (G.bounds == genpol::E0I1);
+            return v_nd = std::sqrt(-2 * std::log(a0 * (G())));
+        else if (G.bounds == genpol::I0E1)
+            return v_nd = std::sqrt(-2 * std::log(a0 * (1 - G()))));
+        else
+            static_assert(true, "incorrect generator bounds");
+
+        return MCResult<Gen_vt<Gen_t>>(v_nd * Vdisp, sqrt(2.0 / M_PI) * v_nd * a0);
+    }
+
 };
 #endif//MK_HPP

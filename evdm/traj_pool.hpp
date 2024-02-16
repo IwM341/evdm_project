@@ -43,17 +43,18 @@ namespace evdm{
         ) 
     );
 
-    template <bool is_static, typename Tr_Type>
+    template <typename Tr_Type>
     using bin_traj_pool_t = grob::GridObject<
             Bin_el_grid_t<Tr_Type>,
-            std::conditional_t<is_static,
-                    std::array<traj_info<Tr_Type>,4>,
-                    std::vector<traj_info<Tr_Type>>
-                > 
+            std::vector<traj_info<Tr_Type>
         >;
 
-    template <bool is_static,typename Tr_Type,typename U,typename T>
-    bin_traj_pool_t<is_static,Tr_Type> GetTrajPool(
+    //template <typename Tr_Type>
+    //
+
+    template <typename Tr_Type,typename U,typename T>
+    bin_traj_pool_t<Tr_Type> GetTrajPool(
+                            bool is_static,
                             const grob::Point<grob::Rect<U>,grob::Rect<U>> & dEdL,
                             Body<T> const & B,
                             typename Body<T>::LE_func_t const & LE,
@@ -81,9 +82,9 @@ namespace evdm{
                 >(std::get<2>(m_traj),traj_bins)
             };
         };
-        if constexpr (is_static){
+        if (is_static){
             auto mGrid = grob::mesh_grids(Bin_e_grid,Bin_l_p_grid);
-            std::array<traj_info_t,4> ti_values = {
+            std::vector<traj_info_t> ti_values = {
                 get_traj(std::get<0>(dEdL).left,std::get<1>(dEdL).left),
                 get_traj(std::get<0>(dEdL).left,std::get<1>(dEdL).right),
                 get_traj(std::get<0>(dEdL).right,std::get<1>(dEdL).left),

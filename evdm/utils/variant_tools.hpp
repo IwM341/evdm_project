@@ -97,12 +97,35 @@ namespace evdm {
         std::make_index_sequence<std::variant_size<variant_type>::value>{});
     }
 
+
     template <typename VariantWrapper>
-    inline decltype(auto) vforward(VariantWrapper && V){
+    inline constexpr decltype(auto) vmove(
+        VariantWrapper && V
+    ) {
+        return __visit_detail::get_variant_type<
+            typename std::decay<VariantWrapper>::type
+        >::id(std::move(V));
+    }
+
+    template <typename VariantWrapper>
+    inline constexpr decltype(auto) vforward(
+        std::remove_reference_t<VariantWrapper>&& V
+    ){
         return __visit_detail::get_variant_type<
             typename std::decay<VariantWrapper>::type
         >::id(std::forward<VariantWrapper>(V));
-    }  
+    }
+
+    template <typename VariantWrapper>
+    inline constexpr decltype(auto) vforward(
+        std::remove_reference_t<VariantWrapper>& V
+    ) {
+        static_assert(!std::is_lvalue_reference<VariantWrapper>::value, "template argument"
+            "substituting VariantWrapper should be an lvalue reference type");
+        return __visit_detail::get_variant_type<
+            typename std::decay<VariantWrapper>::type
+        >::id(std::forward<VariantWrapper>(V));
+    }
 
 
     /// @brief makes x = y
@@ -110,8 +133,8 @@ namespace evdm {
     /// @param y std variant<Args2...>, Args2... should be in Args1...
     template <typename Variant1,typename Variant2>
     inline void variant_assign(Variant1 & x,Variant2 && y){
-        std::visit([&x](auto && value){
-            x = std::forward<decltype(value)>(value);
+        std::visit([&x]<class T>(T && value){
+            x = std::forward<T>(value);
         },std::forward<Variant2>(y));
     }
 

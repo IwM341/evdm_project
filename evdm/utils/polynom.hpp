@@ -53,6 +53,13 @@ namespace evdm{
             }
             return Z;
         }
+        
+        template <typename U>
+        inline void rescale(T x) {
+            for (size_t i = 0; i < _size; ++i) {
+                coeffs[i] *= x;
+            }
+        }
     };
 };
 

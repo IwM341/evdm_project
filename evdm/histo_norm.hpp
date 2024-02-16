@@ -30,16 +30,26 @@ namespace evdm{
         for(size_t p_type =0;p_type <p_types;++p_type){
             for(auto it1 = EL_Grid1.begin();it1 != EL_Grid2.end();++it1){
                 auto dEdL1 = *it1;
-                auto rho1 = H1[grob::make_MI_rec(p_type,it1)]/mu(dEdL1);
-                size_t i2_0 = EL_Grid2.pos(std::get<0>(dEdL1).left);
-                size_t i2_1 = EL_Grid2.pos(std::get<0>(dEdL1).right) + 1;
+                auto H1_v = H1[grob::make_MI_rec(p_type,it1.index())];
+                auto mes1 = mu(dEdL1);
+                auto rho1 = H1_v/mes1;
+                size_t i2_0 = EL_Grid2.grid().pos(std::get<0>(dEdL1).left);
+                size_t i2_1 = EL_Grid2.grid().pos(std::get<0>(dEdL1).right) + 1;
                 for(size_t i2 = i2_0; i2 < i2_1;++i2){
                     size_t j2_0 = EL_Grid2.inner(i2).pos(std::get<1>(dEdL1).left);
-                    size_t j2_1 = EL_Grid2.inner(i2).pos(std::get<1>(dEdL1).right);
+                    size_t j2_1 = EL_Grid2.inner(i2).pos(std::get<1>(dEdL1).right)+1;
                     for(size_t j2 = j2_0; j2 < j2_1;++j2){
-                        auto dEdL2 = EL_Grid2[std::make_tuple(i2,j2)];
-                        auto rho2 = H2[grob::make_MI(p_type,i2,j2)]/mu(dEdL2);
-                        sum += std::pow(std::abs(rho1 - rho2),p)*mu(grob::intersect(dEdL1,dEdL2));
+                        auto m_dEdL2 = EL_Grid2[grob::make_MI(i2,j2)];
+                        auto H2_v = H2[grob::make_MI(p_type,i2,j2)];
+                        auto mes2 = mu(m_dEdL2);
+
+                        auto rho2 = H2_v/mes2;
+
+                        auto [_m_cube, is_intersec] = grob::intersect(dEdL1, m_dEdL2).first;
+                        if(is_intersec){
+                            sum += std::pow(std::abs(rho1 - rho2), p) *
+                                mu(_m_cube);
+                        }
                     }        
                 }
             }

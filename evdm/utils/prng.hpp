@@ -70,9 +70,16 @@ namespace evdm{
         return m_val._float+2;
     }
 
+    template <typename T,genpol policy>
+    struct _bounds_base {
+        typedef T value_type;
+        constexpr static genpol bounds = P;
+    };
+
     template <typename T = float,genpol policy = genpol::I0E1>
-    struct  xorshift32f{
+    struct  xorshift32f : public _bounds_base <T,policy>{
         mutable uint32_t state;
+
         xorshift32f(uint32_t seed = 2121885558):state(seed){}
         static inline uint32_t next(uint32_t x){
             x ^= x << 13;
@@ -91,7 +98,7 @@ namespace evdm{
     };
 
     template <typename T = float,genpol policy = genpol::I0E1>
-    struct  xorshift64f{
+    struct  xorshift64f : public _bounds_base <T,policy> {
         mutable uint64_t state;
         xorshift64f(uint64_t seed = 818855585854798547):state(seed){}
         static inline uint64_t next(uint64_t x){
@@ -109,6 +116,16 @@ namespace evdm{
             state = next(next(thread_num + 1));
         }
     };
+
+    template <typename Gen_t>
+    inline auto E0I1_G(Gen_t&& G) {
+        if constexpr (G.bounds == genpol::E0I1);
+            return G();
+        else if (G.bounds == genpol::I0E1)
+            return 1-G();
+        else
+            static_assert(true, "incorrect generator bounds"); 
+    }
 };
 
 #endif//PRNG_HPP

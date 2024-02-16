@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "my_package"
+version = "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@"
+dynamic = ["version"]
+dependencies = [
+    "numpy","sympy"
+]
+
+[tool.setuptools]
+packages = ["evdm"]

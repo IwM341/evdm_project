@@ -41,19 +41,67 @@ std::string Py_EL_Grid::printd1() const
 	std::stringstream os;
 	std::visit(
 		[&os](const auto& grid_v) {
-			std::visit(
-				[&os](auto const& _GEL) {
-					os << _GEL;
-				}, grid_v.Grid->Grid
-			);
+			os << *grid_v.Grid;
 		},m_grid
 	);
 	return os.str();
 }
 
-pybind11::tuple Py_EL_Grid::getPlot(bool is_internal) const
+Py_BodyModel Py_EL_Grid::getBody() const
 {
-	return pybind11::tuple();
+	return std::visit([](auto& grid) {
+			return Py_BodyModel(grid.body);
+		}, m_grid);
+}
+
+pybind11::array Py_EL_Grid::getPlot(bool is_internal) const
+{
+	return std::visit(
+		[is_internal](auto const& Grid) {
+			auto lines_sizes = evdm::GridEL_printing_size(*Grid.Grid);
+			int N = lines_sizes.size();
+			using T = decltype(Grid.get_grid_vtype());
+			
+			//pybind11::array_t<T> X0(N), X1(N), Y0(N), Y1(N);
+
+			pybind11::array_t<T> Points(pybind11::array::ShapeContainer({N,2,2 }));
+			DEBUG1(Points.size());
+			auto vector_view = [_data = Points.mutable_data(), N, &Points](size_t shift) {
+				return grob::as_container([_data, shift,&Points](size_t i)->T& {
+						if (4 * i + shift >= Points.size()) {
+							std::string _error = "error, out f range 4 * i + shift >= Points.size(), where  = " +
+								std::to_string(shift) + ", i = " + std::to_string(i) + ", size = " + std::to_string(Points.size());
+							throw pybind11::index_error(_error.c_str());
+						}
+						return _data[4 * i + shift];
+					}, N);
+			};
+			
+			auto X0 = vector_view(0);
+			auto X1 = vector_view(2);
+			auto Y0 = vector_view(1);
+			auto Y1 = vector_view(3);
+
+
+			if (is_internal){
+				evdm::GridEL_printing_fill(*Grid.Grid, [](auto const&_e) {return 1; },
+					X0, X1,
+					Y0, Y1,
+					lines_sizes
+				);
+			} else {
+				auto const& LE = Grid.LE();
+				evdm::GridEL_printing_fill(*Grid.Grid, 
+					[&LE](auto const& _e) {return LE(-_e); },
+					X0, X1,
+					Y0, Y1,
+					lines_sizes
+				); 
+			}
+			return pybind11::array(Points);
+		},
+		m_grid
+	);
 }
 
 pybind11::tuple Py_EL_Grid::getLE() const
@@ -65,12 +113,12 @@ pybind11::tuple Py_EL_Grid::getLE() const
 			DEBUG1(Ne);
 			auto _grid_e = grob::GridUniform<T>(-EL_grid_w.body->Phi[0], 0, Ne);
 			DEBUG1(_grid_e);
-			DEBUG1(EL_grid_w.LE->i_lm(-_grid_e[0]));
+			DEBUG1(EL_grid_w.LE()(-_grid_e[0]));
 			return make_python_function_1D(
 				grob::make_function(
 					_grid_e,
-					grob::as_container([&le = *(EL_grid_w.LE), _grid_e](size_t i) {
-						return le.i_lm(-_grid_e[i]);
+					grob::as_container([le = EL_grid_w.LE(), _grid_e](size_t i) {
+						return le(-_grid_e[i]);
 					}, Ne)
 				)
 			);
@@ -116,7 +164,8 @@ Py_EL_Grid CreateELGrid(
 					if (RhoE_func_opt.is_none()) 
 					{
 						DEBUG1("RhoE_func_opt is none");
-						return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, 0, 0, marker, std::integral_constant<bool, true>{});
+						return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, 0, 0, marker, 
+							std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCUU>{});
 					}
 					else {
 						if (RhoL_func_opt.is_none()) 
@@ -125,20 +174,25 @@ Py_EL_Grid CreateELGrid(
 							auto _RhoL_func = [&](T t_e, T t_l)->T {
 								return 1;
 							};
-							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, _RhoL_func, marker, std::integral_constant<bool, false>{});
+							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, _RhoL_func, marker,
+								std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{});
 						}
 						else {
-							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, RhoL_func, marker, std::integral_constant<bool, false>{});
+							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, RhoL_func, marker, 
+								std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{});
 						}
 					}
 				}
 				else {
 					DEBUG1("nl determined by function");
-					auto Nl_func = [nl_size,&Nl_func_or_size](auto t_e) {return pybind11::cast<size_t>(Nl_func_or_size(t_e)); };
+					auto Nl_func = [nl_size,&Nl_func_or_size](auto t_e)->size_t {
+						return pybind11::cast<double>(Nl_func_or_size(t_e)); 
+					};
 					if (RhoE_func_opt.is_none()) 
 					{
 						DEBUG1("RhoE_func_opt is none");
-						return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, 0, 0, marker, std::integral_constant<bool, true>{});
+						return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, 0, 0, marker, 
+							std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCUU>{});
 					}
 					else {
 						if (RhoL_func_opt.is_none()) {
@@ -146,10 +200,12 @@ Py_EL_Grid CreateELGrid(
 							auto _RhoL_func = [&](T t_e, T t_l)->T {
 								return 1;
 							};
-							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, _RhoL_func, marker, std::integral_constant<bool, false>{});
+							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, _RhoL_func, marker, 
+								std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{});
 						}
 						else {
-							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, RhoL_func, marker, std::integral_constant<bool, false>{});
+							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, RhoL_func, marker, 
+								std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{});
 						}
 					}
 				}
@@ -198,9 +254,14 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 		.def_property_readonly("dtype",&Py_EL_Grid::dtype,"type of grid")
 		.def_property_readonly("ptypes",&Py_EL_Grid::ptypes,"number of particles")
 		.def("__repr__",&Py_EL_Grid::repr)
-		.def("plotting",&Py_EL_Grid::getPlot,
-			"return tuple of segments (X0,X1,Y0,Y1)\n"
-			"where Xi/Yi -- array of points\n"
+		.def_property_readonly("body", &Py_EL_Grid::getBody)
+		.def("plot",&Py_EL_Grid::getPlot,
+			"return array of shape (N,2,2):\n"
+			"[ [[x_start_i,y_start_i],[x_end_i,y_end_i]],...]\n"
+			"arrays could be plottted with matplotlib:\n"
+			"lc = matplotlib.collections.LineCollection(result of this function)\n"
+			"fig, ax = plt.subplots()\n"	
+			"ax.add_collection(lc)\n"
 			"if is_internal true, then l from 0 to 1, else from 0, l(e)", py::arg_v("is_internal",false)
 		).def("LE", &Py_EL_Grid::getLE,
 			"return tuple (E array,L(E) array)"

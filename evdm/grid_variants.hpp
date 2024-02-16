@@ -6,11 +6,193 @@
 #include "utils/variant_tools.hpp"
 namespace evdm{
 
-    enum class GridEL_variants {
+    enum class GridEL_type {
         GridCUU, GridCVV
     };
+    
 
+    template <typename T,GridEL_type>
+    struct Grid_types;
 
+    template <typename T>
+    struct Grid_types<T, GridEL_type::GridCUU> {
+        typedef grob::Point<grob::Rect<T>, grob::Rect<T>> bin_t;
+        typedef grob::GridUniformHisto<T> GridE;
+        typedef grob::GridUniformHisto<T> GridL;
+        typedef grob::GridRangeLight<size_t> Range;
+        typedef grob::MultiGrid< Range,
+            grob::ConstValueVector<
+            grob::MultiGrid<GridE, std::vector<GridL>>
+            >
+        > GridEL_t;
+
+        /// @brief greates GridCUU grid
+        /// @tparam NL_E_Lambda 
+        /// @param ptypes number of m-states
+        /// @param Emin  minimum enegy
+        /// @param Ne number of bins in E grid
+        /// @param Nl_E_func lambda : number of bins in L grid, depending on E
+        /// @return
+        template <typename NL_E_Lambda>
+        inline static GridEL_t construct(size_t ptypes, T Emin, size_t Ne, NL_E_Lambda&& Nl_E_func) {
+
+            auto E_Grid = GridE(Emin, 0, std::max((size_t)2, Ne + 1));
+            return grob::mesh_grids(grob::GridRangeLight<size_t>(ptypes),
+                grob::make_grid_f(E_Grid,
+                    [&](size_t i) {
+                        T t_e = 1 - E_Grid[i].center() / Emin;
+                        return GridL(0.0, 1.0,
+                            std::max((size_t)2, (size_t)Nl_E_func(t_e) + 1)
+                        );
+                    }
+                )
+            );
+        }
+        inline const char* type() {
+            return "GridCUU";
+        }
+    };
+
+    template <typename T>
+    struct Grid_types<T, GridEL_type::GridCVV> {
+        typedef grob::Point<grob::Rect<T>, grob::Rect<T>> bin_t;
+        typedef grob::GridVectorHisto<T> GridE;
+        typedef grob::GridVectorHisto<T> GridL;
+        typedef grob::GridRangeLight<size_t> Range;
+        typedef grob::MultiGrid< Range,
+            grob::ConstValueVector<
+            grob::MultiGrid<GridE, std::vector<GridL>>
+            >
+        > GridEL_t;
+
+        /// @brief  greates GridCVV grid
+        /// @param ptypes number of m-states
+        /// @param Emin minimum enegy
+        /// @param Ne number of bins in E grid
+        /// @param E_density_view lambda : function of t ( where t in [0,1]), 
+        /// which indicates density of buins in E grid
+        /// @param Nl_E_func lambda : number of bins in L grid, depending on E 
+        /// @param L_density_view lambda : function of (E,t), where E - energy, 
+        /// t - density param, which indicates density of buins in L grid
+        /// @return 
+        template <typename E_density_view_t, typename NL_E_Lambda, typename L_density_view_t>
+        static GridEL_t construct(size_t ptypes, T Emin, size_t Ne, E_density_view_t&& E_density_view,
+            NL_E_Lambda&& Nl_E_func, L_density_view_t&& L_density_view) {
+
+            //std::cout << "Emin = " << Emin << std::endl;
+            auto E_Grid = GridE(
+                grob::density_vector_nt<T>(Emin, 0,
+                    E_density_view,
+                    std::max((size_t)2, Ne + 1))
+            );
+
+            size_t i = E_Grid.pos(-0.5); // try to find and shift nearest  to 0.5 point
+            if (std::abs(E_Grid.unhisto()[i] + 0.5) > std::abs(E_Grid.unhisto()[i + 1] + 0.5)) {
+                i = i + 1;
+            }
+            E_Grid.unhisto()[i] = -0.5;
+            //std::cout << "Egird = " << E_Grid << std::endl;
+            return grob::mesh_grids(grob::GridRangeLight<size_t>(ptypes),
+                grob::make_grid_f(E_Grid,
+                    [&](size_t i) {
+                        auto _E = 1 - E_Grid[i].center() / Emin;
+                        //std::cout << "_E = " << _E << ", Emin = " << Emin << std::endl;
+                        return GridL(
+                            grob::density_vector_nt<T>(0.0f, 1.0f,
+                                [&](auto l) {
+                                    return L_density_view(_E, l);
+                                },
+                                std::max((size_t)2, (size_t)Nl_E_func(_E) + 1)
+                            )
+                        );
+                    }
+                )
+            );
+        }
+        inline const char* type() {
+            return "GridCVV";
+        }
+    };
+
+    template <typename T, GridEL_type GridEL_type_ >
+    struct GridEL : public Grid_types<T, GridEL_type_>::GridEL_t 
+    {
+        using Helper = Grid_types<T, GridEL_type_>;
+        using GridELbase = typename Grid_types<T, GridEL_type_>::GridEL_t;
+        using GridELbase::GridELbase;
+        using GridE = typename Helper::GridE;
+        using GridL = typename Helper::GridL;
+
+        GridEL(GridELbase m_grid) :GridELbase(std::move(m_grid)) {}
+        using Constructor = Grid_types<T, GridEL_type_>;
+        
+        inline size_t size1()const {
+            return this->inner(0).size();
+        }
+        inline size_t ptypes()const {
+            return this->grid().size();
+        }
+        inline size_t size_e()const {
+            return this->inner(0).grid().size();
+        }
+    };
+
+    struct printing_sizes {
+        size_t verticals;
+        size_t horisontals;
+        static constexpr size_t bottom = 1;
+        constexpr inline size_t size() const{
+            return verticals + horisontals + bottom;
+        }
+    };
+    template <typename T, GridEL_type GridEL_type_>
+    printing_sizes GridEL_printing_size(GridEL<T, GridEL_type_> const & _el_grid)
+    {
+        auto const& grid = _el_grid.inner(0);
+        return printing_sizes{
+            grid.grid().size() + 1,
+            grid.size()
+        };
+    }
+
+    template <typename T, GridEL_type GridEL_type_,typename NormFunctype,typename Array_t>
+    void GridEL_printing_fill(
+        GridEL<T, GridEL_type_> const& _el_grid,
+        NormFunctype && LE_or_1_func,
+        Array_t&& X0, Array_t&& X1,
+        Array_t&& Y0, Array_t&& Y1,
+        printing_sizes _sizes)
+    {
+        auto const & _grid = _el_grid.inner(0);
+        
+        size_t max_size = _sizes.size();
+        size_t array_index = 0;
+        auto append_value = [&](T e0, T e1, T l0, T l1) {
+            if (array_index < max_size) {
+                X0[array_index] = e0;
+                X1[array_index] = e1;
+                Y0[array_index] = LE_or_1_func(e0) * l0;
+                Y1[array_index] = LE_or_1_func(e1) * l1;
+                array_index++;
+            }
+        };
+
+        append_value(_grid.grid().front().left, _grid.grid().back().right, 0, 0);
+        append_value(_grid.grid().front().left, _grid.grid().front().left, 0, 1);
+
+        for (size_t i = 0; i < _grid.grid().size(); ++i) {
+            auto _e0 = _grid.grid()[i].left;
+            auto _e1 = _grid.grid()[i].right;
+            append_value(_e1, _e1, 0, 1);
+            for (size_t j = 0; j < _grid.inner(i).size(); ++j) {
+                auto l1 = _grid.inner(i)[j].right;
+                append_value(_e0, _e1, l1, l1);
+            }
+        }
+    }
+};
+
+/*
     template <typename T>
     struct GridEL{
         typedef grob::Point<grob::Rect<T>,grob::Rect<T>> bin_t;
@@ -79,7 +261,7 @@ namespace evdm{
             );
         }
 
-        /*
+        ***
         /// @brief greates GridCUU grid
         /// @tparam NL_E_Lambda 
         /// @param ptypes number of m-states
@@ -102,7 +284,7 @@ namespace evdm{
                     );
                 }
             );
-        }*/
+        }*//*
 
         /// @brief  greates GridCVV grid
         /// @param ptypes number of m-states
@@ -148,41 +330,6 @@ namespace evdm{
         }
 
 
-        /*
-        /// @brief  greates GridCVV grid
-        /// @param ptypes number of m-states
-        /// @param Emin minimum enegy
-        /// @param Ne number of bins in E grid
-        /// @param E_density_view lambda : function of t ( where t in [0,1]), 
-        /// which indicates density of bins in E grid
-        /// @param Nl_E_func lambda : number of bins in L grid, depending on E 
-        /// @param L_density_view lambda : function of (E,t), where E - energy, 
-        /// t - density param, which indicates density of buins in L grid
-        /// @return 
-        template <typename Ne_array_t,typename E_density_view_array_t,typename NL_E_array_t ,typename L_density_array_view_t>
-        static GridCVV grid_var_VV(size_t ptypes,double Emin,Ne_array_t const & Ne,E_density_view_array_t const& E_density_view,
-                                    NL_E_array_t const& Nl_E_func,L_density_array_view_t const& L_density_view){
-            
-            return grob::make_grid(grob::GridRangeLight<size_t>(ptypes),
-                [](size_t i){
-                    auto E_Grid = grob::GridVectorHisto<double>(
-                        grob::density_vector_nt<double>(Emin,0,E_density_view[i],std::max(2,Ne[i]+1))
-                    );
-                    return grob::make_grid_f(E_Grid,
-                        [d](auto const & rect_E){
-                            return grob::GridVectorHisto<double>(
-                                grob::density_vector_nt<double>(0.0,1.0,
-                                    std::max(2,Nl_E_func[i](rect_E.center())+1),
-                                    [&rect_E](auto l){
-                                        return L_density_view[i](rect_E.center(),l);
-                                    }
-                                )
-                            );
-                        }
-                    );
-                }
-            );
-        }*/
 
         template <typename Serializator>
         auto Serialize(Serializator && S)const{
@@ -212,11 +359,7 @@ namespace evdm{
 
 
 
-    };
-
-
-
-};
+    };*/
 
 
 #endif//GRID_VARIANTS_HPP

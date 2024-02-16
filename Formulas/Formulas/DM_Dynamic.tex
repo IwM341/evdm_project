@@ -281,6 +281,21 @@
 	 		n(r) = \int{ \cfrac{1}{r} \cfrac{f_1(e,l) }{8\pi T(e,l)} de \, d\asin{\cfrac{l}{rv}} }
 	 	\end{equation}
 	 	
+	 	Если нужно генерировать распределение, то $L$ --- генерируется равномерно, т.е.
+	 	\begin{eqnarray}
+			L = (l_0 + (l_1-l_0)\xi)L_{max}(e) 		
+	 	\end{eqnarray}
+	 	где $l_i = L/L_{max}{e}$ --- приведенный момент импульса, а $\xi$ --- случайная величина в интервале $[0,1]$.
+	 	
+	 	А энергия генеируется НЕРАВНОМЕРНО:
+	 	\begin{eqnarray}
+	 		e = e_0 + (e_1-e_0)\cdot u \\
+	 		u = \cfrac{2\xi}{(1-b)+\sqrt{(1-b)^2+4b\xi}} \\
+	 		b = \cfrac{L_{max}(e_0)-L_{max}(e_0)}{L_{max}(e_0)+L_{max}(e_0)}
+	 	\end{eqnarray}
+	 	
+	 	
+	 	
 	 	\item Предположение 2: равномерное распределение внутри бина по $dedl^2$:
 	 	
 	 	В этом случае 
@@ -292,6 +307,16 @@
 	 	\begin{equation}
 	 		n(r) = \int{\cfrac{f_2(e,l) }{4\pi T(e,l)} de \, d\sqrt{v^2-\frac{l^2}{r^2}} }
 	 	\end{equation}
+	 	
+	 	Генерация $L$:
+	 	\begin{eqnarray}
+	 		L = \sqrt{l^2_0 + (l^2_1-l^2_0)\xi}L_{max}(e) 		
+	 	\end{eqnarray}
+	 	\begin{eqnarray}
+	 		e = e_0 + (e_1-e_0)\cdot u \\
+	 		u = \cfrac{\xi(3 + b^2)}{(1-b)^2+(1-b)\sqrt[3]{(1-b)^3+2\xi b(3 + b^2)} + \sqrt[3]{\cdots}^2} \\
+	 		b = \cfrac{L_{max}(e_0)-L_{max}(e_0)}{L_{max}(e_0)+L_{max}(e_0)}
+	 	\end{eqnarray}
 	 	
 	 	При этом важно учитывать пределы интегрирования не только исходя из размеров бина $[e_0,e_1],[\overline{l}_0,\overline{l}_1]$ но и из области определения подинтегральных фунций: $e<\varphi(r), l<rv = \sqrt{r^2(\varphi(r)-e)}$. Эти ограничения 
 	 	
