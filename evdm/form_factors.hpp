@@ -340,7 +340,7 @@ namespace evdm{
         template <typename T>
         void rescale(T sc) {
             std::visit([](auto const& Poly) ->std::string {
-                return Poly
+                return Poly;
             }, as_variant());
         }
     };

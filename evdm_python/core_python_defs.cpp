@@ -17,3 +17,4 @@ template <>
 const char* type_name<size_t>() {
 	return "size_t";
 }
+

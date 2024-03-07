@@ -22,7 +22,7 @@ Py_ScatterFactor qexp_factor(float b, bool y_inv,
 struct Py_ScatterEvent : public evdm::ScatterEvent {
 	std::string _name;
 	bool unique;
-	Py_ScatterEvent(pybind11::array n_e, Py_ScatterFactor const & _factor, std::string_view name,bool unique);
+	Py_ScatterEvent(pybind11::handle n_e, Py_ScatterFactor const & _factor, const char * name,bool unique);
 	static void add_to_python_module(pybind11::module_& m);
 };
 

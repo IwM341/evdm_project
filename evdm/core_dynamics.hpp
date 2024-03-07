@@ -29,10 +29,26 @@ namespace evdm {
                 Gen_vt< Gen_t> mU0, Gen_vt< Gen_t> Vdisp,float pow3_r,
                 size_t  Nmk, Gen_vt< Gen_t> weight = 1 ) {
         
-        auto const& Temp = mDistrib.body();
+        auto const& Temp = mDistrib.body().Temp;
         auto mHisto_full = mDistrib.as_histo();
-        auto mHisto = mHisto_full.inner_slize(ptype);
-        return CaptureImpl(G, se, Temp, mHisto, mk, dm, mi, pow3_r, mU0, Vdisp, mDistrib.body().Vesc, Nmk, weight);
+        auto mHisto = mHisto_full.inner_slice(ptype);
+        return CaptureImpl(G, se, Temp, mHisto, mk, dm, mi, pow3_r, mU0, Vdisp,
+            mDistrib.body().VescFunc,mDistrib.body().Vesc, Nmk, weight);
+    }
+
+    template <typename DistrT, typename Body_vt,
+        typename GridEL_vt, GridEL_type grid_type, typename Gen_t>
+    std::pair<double, double> Scatter(
+        GridMatrix<DistrT, Body_vt, GridEL_vt, grid_type>& mMatrix,
+        size_t ptype_in, size_t ptype_out, ScatterEvent const& se, Gen_t&& G,
+        float mk, float dm, float mi,
+        size_t  Nmk,size_t Nmk_per_traj, Gen_vt< Gen_t> weight = 1) {
+
+        auto const& Temp = mMatrix.body().Temp;
+        auto mHisto_full = mMatrix.as_histo_bank(ptype_in, ptype_out);
+        //auto mHisto = mHisto_full.inner_slice(ptype);
+        //return CaptureImpl(G, se, Temp, mHisto, mk, dm, mi, pow3_r, mU0, Vdisp,
+        //    mDistrib.body().VescFunc, mDistrib.body().Vesc, Nmk, weight);
     }
 
     template <typename Body_vt, typename GridEL_vt, GridEL_type grid_type>
@@ -91,7 +107,7 @@ namespace evdm {
                         is_static,
                         el_bin,B,LE,
                         _err, traj_bins, 
-                        n_e_maxn_l_max)
+                        n_e_max,n_l_max)
                 );
             }
         }

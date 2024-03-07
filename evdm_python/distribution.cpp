@@ -2,7 +2,7 @@
 #include <evdm/print_distrib.hpp>
 #include "debugdef.hpp"
 #include <evdm/measure.hpp>
-
+#include "grob_python.hpp"
 Py_EL_Grid Py_Distribution::getGrid()const {
 	return std::visit([](const auto& distrib) {
 		return Py_EL_Grid(distrib.Grid);
@@ -30,9 +30,17 @@ Py_Distribution Py_Distribution::as_type(const char* type_n)const
 {
 	std::string_view _dtype = type_n;
 	if (_dtype == "float")
+#ifdef DISTRIB_USE_FLOAT
 		return as_type_t<float>();
+#else
+		throw pybind11::type_error("unsupported distrib type 'float'");
+#endif
 	else if (_dtype == "double") {
+#ifdef DISTRIB_USE_DOUBLE
 		return as_type_t<double>();
+#else
+		throw pybind11::type_error("unsupported distrib type 'double'");
+#endif
 	}
 	else {
 		throw pybind11::type_error("wrong data type: " + std::string(type_n) + ", expect float or double");
@@ -43,7 +51,7 @@ double Py_Distribution::count(int ptype)const
 {
 
 	return std::visit([ptype](const auto& distrib)->double {
-		if (ptype > distrib.grid().grid().size()) {
+		if (ptype  > (int)distrib.grid().grid().size()) {
 			throw pybind11::index_error("ptype is more than ptypes number");
 		}
 		auto H1 = distrib.as_histo();
@@ -52,6 +60,64 @@ double Py_Distribution::count(int ptype)const
 		return distrib.count(ptype);
 			
 	},m_distrib);
+}
+
+pybind11::tuple Py_Distribution::get_r_dense(
+	pybind11::handle ptypes,
+	double r_min, double  r_max, size_t Nr,
+	size_t Nperbin,
+	pybind11::handle opt_dense_funct) const
+{
+	int Ntypes = getGrid().ptypes();
+	auto check_ptype = [Ntypes](size_t p) {
+		if (p < Ntypes)
+			return p;
+		else {
+			throw pybind11::value_error("ptypes contain incorrect index");
+		}
+	};
+	std::vector<size_t> m_ptypes;
+	try {
+		for (auto it : ptypes) {
+			m_ptypes.push_back(check_ptype(it.cast<size_t>()));
+		}
+	}
+	catch (...) {
+		m_ptypes.clear();
+		int p = ptypes.cast<int>();
+		if (p == -1) {
+			m_ptypes.resize(Ntypes);
+			for (size_t i = 0; i < Ntypes; ++i)
+				m_ptypes[i] = i;
+		}
+		else {
+			m_ptypes.push_back(check_ptype(p));
+		}
+	}
+	auto dense_function = [opt_dense_funct](double t_r) {
+		return opt_dense_funct.call(t_r).cast<double>();
+	};
+	bool is_given_dense = !opt_dense_funct.is_none();
+
+	grob::GridVector<double> rGrid =
+		is_given_dense ?
+		grob::density_vector_nt(r_min, r_max, dense_function, Nr) :
+		grob::GridVector<double>(r_min, r_max, Nr);
+
+	return  std::visit(
+		[&m_ptypes,Nperbin,rgrid = std::move(rGrid)]
+		(auto const& distrib)->pybind11::tuple {
+			using Gen_t = decltype(distrib.get_grid_vtype());
+			auto r_dence_func = distrib.r_dens(
+				m_ptypes, evdm::xorshift<Gen_t>{},
+				std::move(rgrid),
+				Nperbin
+			);
+			return make_python_function_1D(r_dence_func);
+		},
+		m_distrib
+	);
+	
 }
 
 pybind11::tuple Py_Distribution::plot(size_t ptype) const
@@ -101,9 +167,17 @@ Py_Distribution CreatePyDistrib(
 	};
 	std::string_view _dtype = dtype;
 	if (_dtype == "float") {
+#ifdef DISTRIB_USE_FLOAT
 		return Creator(Py_EL_Grid::m_type_marker<float>{});
+#else
+		throw pybind11::type_error("unsupported distrib value type 'float'");
+#endif
 	} else if(_dtype == "double"){
+#ifdef DISTRIB_USE_DOUBLE
 		return Creator(Py_EL_Grid::m_type_marker<double>{});
+#else
+		throw pybind11::type_error("unsupported distrib value type 'double'");
+#endif
 	} else {
 		throw pybind11::type_error("wrong data type: " + std::string(_dtype) + ", expect float or double");
 	}
@@ -189,8 +263,19 @@ void Py_Distribution::add_to_python_module(pybind11::module_& m)
 				py::arg_v("ptype", -1))
 		.def("as_type", &Py_Distribution::as_type, py::arg("dtype"),
 			"creating Distrib with another dtype")
-		.def("copy", &Py_Capture::copy)
-		.def_property_readonly("grid",&Py_Distribution::getGrid);
+		.def("copy", &Py_Distribution::copy)
+		.def_property_readonly("grid",&Py_Distribution::getGrid)
+		.def("rdens",&Py_Distribution::get_r_dense,
+			"return density function, i.e. d^N/d^3r\n"
+			"ptypes -- array or int: considered ptypes\n"
+			"rmin, rmax -- min and max radius in r distribution\n"
+			"Nr -- number of points in r grid from rmin to rmax\n"
+			"(Nb) -- number of MK iterations per bin for integration\n"
+			"(rden) -- optional density function of r points location",
+			py::arg_v("ptypes",-1), 
+			py::arg_v("rmin", 0), py::arg_v("rmax", 1), py::arg_v("Nr", 100),
+			py::arg_v("Nb", 10000), py::arg_v("rden", py::none())
+		);
 	
 	py::class_<Py_DistribMeasure>(m, "Metric")
 		.def(
@@ -207,5 +292,5 @@ void Py_Distribution::add_to_python_module(pybind11::module_& m)
 			py::arg_v("p_deg", 1),
 			py::arg_v("ptype", -1)
 		)
-		.def("__call__", &Py_DistribMeasure::call);
+		.def("__call__", &Py_DistribMeasure::call,"compare two distribs");
 }

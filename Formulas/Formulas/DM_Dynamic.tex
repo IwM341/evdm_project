@@ -48,9 +48,10 @@
 	
 		\subsubsection{Траектории.}
 	При расчете траектории, делаем замену
-	\begin{equation*}
+	\begin{equation}
 		u = \cfrac{u_{-}+u_{+}}{2} - \cfrac{u_{+}-u_{-}}{2}cos(\theta)
-	\end{equation*}
+		\label{eq:tr_in_func}
+	\end{equation}
 	\begin{equation*}
 		\dot{\theta} = 2\sqrt{ \cfrac{u\varphi(u)-eu-l^2}{(u-u_{-})(u-u_{+})} }
 	\end{equation*}
@@ -79,11 +80,31 @@
 				r_{\pm} = \cfrac{1 \pm \sqrt{1 - 4el^2} }{2e}
 			\end{equation*}
 			
-			Внешняя часть периода траектории равна
-			\begin{equation}
+			Внешняя часть периода траектории равна при условии, что 
+			\begin{eqnarray}
 				T_{ex}(e,l) = \cfrac{\pi}{2e^{3/2}} + \cfrac{\sqrt{1-e-l^2}}{e} - 
-				\cfrac{\atan{\cfrac{2\sqrt{e}\sqrt{1-e-l^2}}{1-2e}}}{2e^{3/2}}
-			\end{equation}
+				\cfrac{\atan{\cfrac{2\sqrt{e}\sqrt{1-e-l^2}}{1-2e}}}{2e^{3/2}} 
+				\\
+				Если e > 0.5
+				\label{eq:TexLessHalf}
+			\end{eqnarray}
+			\begin{eqnarray}
+				T_{ex}(e,l) =  \cfrac{\sqrt{1-e-l^2}}{e} + 
+				\cfrac{\atan{\cfrac{2\sqrt{e}\sqrt{1-e-l^2}}{2e-1}}}{2e^{3/2}} 
+				\\
+				Если e < 0.5
+				\label{eq:TexGreatHalf}
+			\end{eqnarray}
+			
+			
+			\begin{figure}[!h]
+				\begin{center}
+					\includegraphics[scale=0.5]{imags/graphT.jpg}
+				\end{center}
+				\caption{$T_{ex}(e,l)$, красный --- по \ref{eq:TexLessHalf}, синий --- по \ref{eq:TexGreatHalf}, зелёный --- правильныйб, $l=0.2$}
+				\label{graph:Tex}
+			\end{figure}
+			
 			при маленьких $e$ верно, что
 			\begin{equation}
 				T_{ex}(e,l) = \cfrac{\pi}{2e^{3/2}} - 
@@ -123,7 +144,15 @@
 				\theta = G(y,\pi (1 -(1 - \tau)z ) ) \\
 				z = \cfrac{T_{ex}(e,l)}{T(e)}
 			\end{eqnarray*}
+			\item Решение внутри
 			
+			Если $r_{max} < 1$, то всё тривиально, однако если $r_{max} > 1$, траектория гибридная. Во внутренней части её период является разрывной фенкцией параметров $e, l$. 
+			Однако непрерывной является фунция $T_{\theta} = T_{in}/\theta_1$, где $\theta_1$ --- угол, соответствующий $r = 1$ в \ref{eq:tr_in_func}. $\theta_1$ тоже разрывен, но он равен
+			\begin{equation}
+				\cos{\theta_1} = -\cfrac{2-u_0-u_1}{u_1-u_0} = 
+				-\cfrac{(2-u_0-u_1))}{\sqrt{(u_1-u_0)^2}} 
+			\end{equation}
+			И числитель и подкоренное значение знаменателя этой дроби является непрерывными по параметрам.
 		\end{itemize}
 	\end{enumerate}
 	
@@ -135,6 +164,89 @@
 	
 	Далее: при интерполяции периода по сетке $el$, озможно, что каждый бин придется разбить на более маленькие части для более точной интерполяции периода. Для этого квадратный бин можно разделить на части (сделаем это по переменным $e$ и $\xi = \sqrt{1-l^2/l_m^2}$)
 	
+	Итак, Алгоритм для интерполяции внутреннего преиода:
+	\begin{itemize}
+		\item Интерполяция $u_1^2-u_0^2$ и $u_0^2+u_1^2$
+		\item можно интерполировать переменныые $r_1^2-r_0^2$ и $r_1^2+r_0^2$
+		\item Получение $r_0$ и $r_1$
+		\item Нахождение $\theta$
+		\item Интерполяция $T_{\theta in}$ 
+		\item Вычисление $T_{in}$
+	\end{itemize}
+	
+	Вообще мажно интерполировать ещё одну величину, равную
+	\begin{equation}
+		\cfrac{du_{e pm}}{\sqrt{1 - l^2}} = \cfrac{u_{pm} - u_l(e)}{\sqrt{1 - l^2}}  \rightarrow  ( l = L/L_{max}(e),  l \rightarrow 1)  \rightarrow  \pm \cfrac{L_{max}}{\sqrt{-1/2F''(u_e)}}
+	\end{equation}
+	Единственная проблема будет тогда, когда есть большое расхождение межде двумя радиусами, т.е. когда $l^2 \rightarrow 0$, поэтому такую интерполяцию нежелательно проводить при малых $l$.
+	Предлагается использовать эту интерполяцию при условии, что в бине $l_{max} > 0.8$, иначе использовать простую интерполяцию $u_p$ и $u_m$
+	
+	Но и тут есть проблема, возникающая при $L^2 \approx 1-e$. Разложим $F(u)$ вблизи $u = 1$.
+	 \begin{equation}
+		F(u) = 1 - \frac{1}{2} (u-1) - \frac{F_2}{2}(u-1)^2
+	 	]\label{eq:Fu_more_1}
+	 \end{equation}
+	 Решая $F(u) - eu - l^2 = 0$, получим:
+	\begin{equation*}
+	 	u_{1,0} = 1 + q_e \pm \sqrt{q_e^2 + 2y}
+	\end{equation*}
+	где
+	\begin{eqnarray*}
+		q_e = \cfrac{1-2e}{-2F_2}\\
+		L^2 = (1-e) + F_2z
+	\end{eqnarray*}
+	
+	Проблемная область поиска $\theta_1$ та, где $u_1 \rightarrow 1$, тогда $u_1 = 1 + \delta_1$. Когда $u_0$ отлично от $1$, можно использовать приближение:
+	\begin{equation*}
+		\cos {\theta_1} = -\cfrac{1-u_0-\delta_1}{1-u_0+\delta_1} = -\cfrac{1-x}{1+x} \rightrightarrows \theta_1 =  \pi - \arcsin {\cfrac{2\sqrt{x}}{1+x} } (x < 1), \arcsin {\cfrac{2\sqrt{x}}{1+x} } (x > 1)
+	\end{equation*} 
+	где $x = \delta_1/(1-u_0)$
+	
+	В случае, если ещё и $u_0 \rightarrow 1$ т.е. $u_0 = 1 - \delta_0$
+	\begin{equation*}
+		\cos {\theta_1} = -\cfrac{1-u_0-\delta_1}{1-u_0+\delta_1} = 
+		-\cfrac{\delta_0-\delta_1}{\delta_0+\delta_1}
+		\approx \cfrac{q_e}{\sqrt{q_e^2 + 2z}}
+	\end{equation*}
+	Если $\cos {\theta_1}$ разделить на эту дробь, то результат можно уже интерполировать.
+	Также можно интерполировать 
+	\begin{equation*}
+		du2q = \left(\cfrac{u_1-u_0}{\sqrt{q^2+2z}}\right)^2 = \cfrac{(r_1-r_0)^2(r_1+r_0)^2}{q2z}
+	\end{equation*}
+	\begin{equation*}
+		suq = \cfrac{u_1+u_0 - 2}{q}
+	\end{equation*}
+	
+	При $e < 1/2$, $\delta_1$ известно, поэтому будем интерполировать величину
+	\begin{equation*}
+		\cfrac{\delta_0}{\sqrt{q_e^2+2z} - q_e} = 
+		\delta_0\cdot\cfrac{q_e+\sqrt{q_e^2+2z}}{2z}
+	\end{equation*}
+	
+	При $e > 1/2$, Находится величина $\delta_1$. С помощтю интерполяции.
+	\begin{equation*}
+		\cfrac{\delta_1}{\sqrt{q_e^2+2z} + q_e} = 
+		\delta_1\cdot\cfrac{\sqrt{q_e^2+2z }- q_e}{2z}
+	\end{equation*}
+	
+	Тут хотелось бы иметь гарантии, что $q_e^2 + 2z > 0$. Посмотрим, что тут у нас. Итак, это подкоренное выражение пропорционально величине $L_m'^2(e) - L^2$ для разложения функции $F(u)$ в \ref{eq:Fu_more_1}, где $L_m'^2(e)$ --- квадрат максимального момента. Нам надо, чтобы $L_m'^2(e) > L_m^2(e)$ Мы знаем, что
+	\begin{equation*}
+		 L_m^2(e) = F(u_e) - u_e \cdot e
+	\end{equation*}
+	при условии что 
+	\begin{equation*}
+		F'(u_e) - e = 0
+	\end{equation*}
+	в таком случае
+	\begin{equation*}
+		\cfrac{du_e}{de} = \cfrac{1}{F''}
+	\end{equation*}
+	а
+	\begin{equation*}
+		\cfrac{dL_m^2(e)}{de} = (F'(u_e) - e) \cfrac{du_e}{de} - u_e = -u_e
+	\end{equation*}
+	Как мы узнаем, $-F''$ --- убывающая положительная функция при $\rho'(r) < 0$. Поэтому для реального потенциала $du_e/de > du_e'/de$ поэтому $u_e > u_e'$ поэтому $dL_m^2(e)/de < dL_m'^2(e)/de$. 
+	Но на всякий случай лучше заменить $\sqrt{q_e^2+2z}$, что равно $\sqrt{\cfrac{2}{-F_2}(L_e'^2-L^2)}$ на $\sqrt{\cfrac{2}{-F_2}(L_m^2-L^2)}$ при $e > 1/2$
 	
 	\subsubsection{Потенциал.}
 	Свяжем величины: безразмерный потенциал $\varphi(r)$, безразмерный радиус $r$, безразмерная масса $M(r)$ (такая, что $M(1) = 1$), безразмерная плотность $\rho(r)$.
@@ -184,11 +296,21 @@
 			\deriv{}{u} = \cfrac{1}{2r}\deriv{}{r}\\
 			F'(u) = \cfrac{1}{2r}\deriv{}{r}(r^2\varphi(r)) = 
 			\varphi(r) + \cfrac{r\varphi'(r)}{2} = \varphi(r) -\cfrac{r^2}{2} Q(r) \\
-			F''(u) = \cfrac{1}{4}
+			F_2 = F''(u) = \cfrac{1}{4}
 			\left( \varphi''(r) + 3\cfrac{\varphi'(r)}{r}\right) = -\cfrac{1}{4}\left(3\rho(r) + Q(r)\right)
 		\end{eqnarray}
 		Видно, что $F(u)$ --- выпуклая вниз и монотонная функция, поскольку $F''(u) < 0$, а $F'(\infty) = 0$ и производная убывает, то $F'(u) > 0$
-		
+		Также заметим, что
+		\begin{equation*}
+			\cfrac{dF_2}{dr} = -\frac{3}{4}\left(
+			\rho'(r) + \cfrac{\rho(r)}{r} - \cfrac{\int_0^r{3\rho(r')r'^2dr'}}{r^4}
+			\right) = 
+			\frac{3}{4r}\left(
+				\cfrac{\int_0^r{3(\rho(r')- \rho(r))r'^2dr'}}{r^3}
+				- r\rho'(r)
+			\right)
+		\end{equation*}
+		пожтому, если $\rho(r)$ --- убывающая функция (что довольно естественно), то $F''(u)$ --- возрастающая функция.
 	\end{itemize}
 	
 	В случае если $u_p, u > 1$ (т.е. $e < 1/2$) Мы заменим функцию $F(u)$ на полином
@@ -255,8 +377,7 @@
 	Учтем также, что
 	\begin{equation}
 		\label{eq:velocity_dens}
-		d^{3}\vec{v} = 
-		2\pi dEd\sqrt{v^2-\frac{L^2}{r^2}} d\vec{n} = \pi ded\sqrt{v^2-\frac{l^2}{r^2}} d\vec{n}.
+		d^{3}\vec{v}  = 2\pi ded\sqrt{v^2-\frac{l^2}{r^2}} d\vec{n}.
 	\end{equation}
 	 
 	 Причем, поскольку радиальная скорость $v_r$ и тангенциальная $v_{t}$ фиксированны, для $d\vec{n}$ остается только выбор направления для тангенциальной скорости ($\int{d\vec{n}} = 1$).
@@ -264,7 +385,7 @@
 	 Отсюда получаем, что
 	 
 	 \begin{equation}
-	 	n(r) = \int{ \cfrac{dN}{4\pi T(e,l) de dl^2} de d\sqrt{v^2-\frac{l^2}{r^2}}}
+	 	n(r) = \int{ \cfrac{dN}{2\pi T(e,l) de dl^2} de d\sqrt{v^2-\frac{l^2}{r^2}}}
 	 \end{equation}
 	 
 	 \begin{enumerate}
@@ -278,7 +399,7 @@
 	 	И тогда получим
 	 	\begin{equation}
 	 		\label{eq:n_r}
-	 		n(r) = \int{ \cfrac{1}{r} \cfrac{f_1(e,l) }{8\pi T(e,l)} de \, d\asin{\cfrac{l}{rv}} }
+	 		n(r) = \int{ \cfrac{1}{r} \cfrac{f_1(e,l) }{4\pi T(e,l)} de \, d\asin{\cfrac{l}{rv}} }
 	 	\end{equation}
 	 	
 	 	Если нужно генерировать распределение, то $L$ --- генерируется равномерно, т.е.
@@ -305,7 +426,7 @@
 	 	
 	 	И тогда получим
 	 	\begin{equation}
-	 		n(r) = \int{\cfrac{f_2(e,l) }{4\pi T(e,l)} de \, d\sqrt{v^2-\frac{l^2}{r^2}} }
+	 		n(r) = \int{\cfrac{f_2(e,l) }{2\pi T(e,l)} de \, d\sqrt{v^2-\frac{l^2}{r^2}} }
 	 	\end{equation}
 	 	
 	 	Генерация $L$:
@@ -318,9 +439,28 @@
 	 		b = \cfrac{L_{max}(e_0)-L_{max}(e_0)}{L_{max}(e_0)+L_{max}(e_0)}
 	 	\end{eqnarray}
 	 	
-	 	При этом важно учитывать пределы интегрирования не только исходя из размеров бина $[e_0,e_1],[\overline{l}_0,\overline{l}_1]$ но и из области определения подинтегральных фунций: $e<\varphi(r), l<rv = \sqrt{r^2(\varphi(r)-e)}$. Эти ограничения 
+	 		
+	 	Интеграл легче всего взять методом монте-карло (это не очень затратно и просто реализуется).
 	 	
-	 	Интеграл легче всего взять методом монте-карло (это не очень затратно и просто реализуется)	 	
+	 	При этом важно учитывать пределы интегрирования не только исходя из размеров бина $[e_0,e_1],[\overline{l}_0,\overline{l}_1]$ но и из области определения подинтегральных фунций: $e<\varphi(r), l<rv = \sqrt{r^2(\varphi(r)-e)}$.
+	 	
+	 	Чтобы упростить вычисление, $e$ мы будем генерировать также, с тем же весом, однако $l$ необходимо получать в новых пределах, для этого меру бина в каждой МК итерации нужно умножать на 
+	 	\begin{equation*}
+	 		m(e) = \cfrac{l_{max}'-l_{min}}
+	 		{l_{max}-l_{min}}
+	 	\end{equation*}
+	 	где 
+	 	\begin{equation*}
+	 		l_{max}' = \sqrt{r^2(\varphi(r)-e)}
+	 	\end{equation*}
+	 	
+	 	Ещё одно замечание касаемо этого ограничения: пределы интегрирования $e$ тоже необходимо скорректировать.
+	 	
+	 	\begin{eqnarray}
+	 		L_{min/max}(e) = L_0 + \cfrac{e-e_0}{e_1-e_0} \cdot (L_1-L_0)
+	 		\\
+	 		L^2_{restrict}(e) = r^2(\varphi(r)-e)	 		
+	 	\end{eqnarray}
 	 	
 	 \end{enumerate}
 	 

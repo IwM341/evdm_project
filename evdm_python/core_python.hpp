@@ -5,6 +5,8 @@
 #include <pybind11/numpy.h>
 #include <tuple>
 #include <set>
+#include "value_types.hpp"
+
 template <typename T>
 const char* type_name();
 
@@ -23,60 +25,18 @@ struct index_sequence_contain<std::integer_sequence<_T, Is...>, I> :
 	std::disjunction<std::integral_constant<bool,(Is==I)>...> {};
 
 
-#ifdef BODY_MODEL_USE_FLOAT
-	#ifdef BODY_MODEL_USE_DOUBLE
-		using body_types = std::tuple<float, double>;
-	#else
-		using body_types = std::tuple < float > ;
-	#endif
-#elif defined(BODY_MODEL_USE_DOUBLE)
-	using body_types = std::tuple<double>;
-#else
-static_assert("Body Model should have at lest 1 type: float or double");
-#endif
-
-#ifdef GRID_EL_USE_FLOAT
-#ifdef GRID_EL_USE_DOUBLE
-using grid_types = std::tuple<float, double>;
-#else
-using grid_types = std::tuple < float >;
-#endif
-#elif defined(GRID_EL_USE_DOUBLE)
-using grid_types = std::tuple<double>;
-#else
-static_assert("el grid should have at lest 1 type: float or double");
-#endif
-
-#ifdef GRID_EL_USE_CUU
-#ifdef GRID_EL_USE_CVV
-using grid_pos_types = 
-	std::integer_sequence<
-		evdm::GridEL_type, 
-		evdm::GridEL_type::GridCUU,
-		evdm::GridEL_type::GridCVV
-	>;
-#else
-using grid_pos_types =
-	std::integer_sequence<
-		evdm::GridEL_type,
-		evdm::GridEL_type::GridCUU
-	>;
-#endif
-#elif defined(GRID_EL_USE_CVV)
-using grid_pos_types =
-	std::integer_sequence<
-		evdm::GridEL_type,
-		evdm::GridEL_type::GridCVV
-	>;
-#else
-static_assert("el grid should be lest of 1 type: CUU or CVV");
-#endif
-
 struct Py_BodyModel {
-	std::variant<
-		evdm::BodyModel<float>,
-		evdm::BodyModel<double>
-	> m_body;
+	BodyModel_Variant_t	m_body;
+#ifdef BODY_MODEL_USE_DOUBLE
+	using max_vtype = double;
+#else
+	using max_vtype = float;
+#endif // DISTRIB_USE_DOUBLE
+#ifdef BODY_MODEL_USE_FLOAT
+	using min_vtype = float;
+#else
+	using min_vtype = double;
+#endif // DISTRIB_USE_DOUBLE
 
 	template <typename T>
 	Py_BodyModel(evdm::BodyModel<T> m_body) :m_body(std::move(m_body)) {}
@@ -99,22 +59,11 @@ struct Py_BodyModel {
 	pybind11::tuple getPhi()const;
 	pybind11::tuple getM()const;
 	pybind11::tuple getQ()const;
-
 	static void add_to_python_module(pybind11::module_& m);
 };
 
 struct Py_EL_Grid {
-	std::variant<
-		//           B vtype, GEL vtype
-		evdm::EL_Grid<float,float, evdm::GridEL_type::GridCUU>,
-		evdm::EL_Grid<float, double, evdm::GridEL_type::GridCUU>,
-		evdm::EL_Grid<double, float, evdm::GridEL_type::GridCUU>,
-		evdm::EL_Grid<double, double, evdm::GridEL_type::GridCUU>,
-		evdm::EL_Grid<float, float, evdm::GridEL_type::GridCVV>,
-		evdm::EL_Grid<float, double, evdm::GridEL_type::GridCVV>,
-		evdm::EL_Grid<double, float, evdm::GridEL_type::GridCVV>,
-		evdm::EL_Grid<double, double, evdm::GridEL_type::GridCVV>
-	> m_grid;
+	ELGrid_Variant_t m_grid;
 	
 	size_t size()const;
 	size_t ptypes()const;
@@ -136,13 +85,14 @@ struct Py_EL_Grid {
 		RhoE_ft && RhoE_func_or_false,
 		RhoL_ft && RhoL_func_or_false,
 		m_type_marker<GEL_t>,
-		std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCUU>):
+		std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCUU>,
+		evdm::TrajPoolInitParams_t TrajPoolInit = evdm::TrajPoolInitParams_t()):
 			m_grid(
 				evdm::EL_Grid <T, GEL_t, evdm::GridEL_type::GridCUU>(BM,
 					evdm::Grid_types<GEL_t, evdm::GridEL_type::GridCUU>::construct(
 						ptypes, (T) - BM->Phi[0], Ne, Nl_func
 					),
-					2 * Ne
+					2 * Ne, TrajPoolInit
 				)
 			){}
 	template <typename T, typename FuncType_NL, typename GEL_t, 
@@ -153,56 +103,41 @@ struct Py_EL_Grid {
 		RhoE_ft&& RhoE_func_or_false,
 		RhoL_ft&& RhoL_func_or_false,
 		m_type_marker<GEL_t>,
-		std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>) :
+		std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>,
+		evdm::TrajPoolInitParams_t TrajPoolInit = evdm::TrajPoolInitParams_t()) :
 			m_grid(
 				evdm::EL_Grid <T, GEL_t, evdm::GridEL_type::GridCVV>(BM,
 					evdm::Grid_types <GEL_t, evdm::GridEL_type::GridCVV>::construct(
 						ptypes, (T) - BM->Phi[0], Ne, RhoE_func_or_false,
 						Nl_func, RhoL_func_or_false
-					),2*Ne
+					),4*Ne, TrajPoolInit
 				)
 			) {}
 
 	Py_BodyModel getBody()const;
 	pybind11::array getPlot(bool is_internal) const;
 	pybind11::tuple getLE() const;
+
+	pybind11::tuple getRminRmax(double e, double l_undim) const;
+
+	pybind11::list getTrajTFuncs(pybind11::handle output_param_name, bool LE_mult = false) const;
+	std::function<double(double,double)> getTraj_callFunc(pybind11::handle output_param_name) const;
+	std::function<double(double)> getLE_callFunc() const;
+
 	static void add_to_python_module(pybind11::module_& m);
 };
 
-#define DeclareClassVariants(AliasName,evdm_class_name) \
-using AliasName = std::variant<\
-	evdm::evdm_class_name<float, float, float, evdm::GridEL_type::GridCUU>,\
-	evdm::evdm_class_name<float, float, double, evdm::GridEL_type::GridCUU>,\
-	evdm::evdm_class_name<float, double, float, evdm::GridEL_type::GridCUU>,\
-	evdm::evdm_class_name<float, double, double, evdm::GridEL_type::GridCUU>,\
-	evdm::evdm_class_name<float, float, float, evdm::GridEL_type::GridCVV>,\
-	evdm::evdm_class_name<float, float, double, evdm::GridEL_type::GridCVV>,\
-	evdm::evdm_class_name<float, double, float, evdm::GridEL_type::GridCVV>,\
-	evdm::evdm_class_name<float, double, double, evdm::GridEL_type::GridCVV>,\
-\
-	evdm::evdm_class_name<double, float, float, evdm::GridEL_type::GridCUU>,\
-	evdm::evdm_class_name<double, float, double, evdm::GridEL_type::GridCUU>,\
-	evdm::evdm_class_name<double, double, float, evdm::GridEL_type::GridCUU>,\
-	evdm::evdm_class_name<double, double, double, evdm::GridEL_type::GridCUU>,\
-	evdm::evdm_class_name<double, float, float, evdm::GridEL_type::GridCVV>,\
-	evdm::evdm_class_name<double, float, double, evdm::GridEL_type::GridCVV>,\
-	evdm::evdm_class_name<double, double, float, evdm::GridEL_type::GridCVV>,\
-	evdm::evdm_class_name<double, double, double, evdm::GridEL_type::GridCVV>\
->;
-
-DeclareClassVariants(DistribVariants, Distribution)
-DeclareClassVariants(MatrixVariants, GridMatrix)
 
 
 struct Py_Distribution {
-	DistribVariants m_distrib;
+	Distrib_Variant_t m_distrib;
 
 	template <typename T,typename Initializer_t>
 	Py_Distribution(Py_EL_Grid const& mGridEL,
 		Py_EL_Grid::m_type_marker<T> _type,
 		Initializer_t&& init) :
 		m_distrib(
-			std::visit([&init](auto const& _grid)->DistribVariants {
+			std::visit([&init](auto const& _grid)->Distrib_Variant_t {
 				return evdm::make_Distribution<T>(_grid, init);
 			}, mGridEL.m_grid)
 		)
@@ -225,7 +160,14 @@ struct Py_Distribution {
 	
 	std::string repr()const;
 	Py_Distribution as_type(const char* type_n)const;
+	
 	double count(int ptype = -1)const;
+	pybind11::tuple get_r_dense(
+		pybind11::handle ptypes,
+		double r_min,double  r_max,size_t Nr,
+		size_t Nperbin,
+		pybind11::handle opt_dense_funct) const;
+
 	pybind11::tuple plot(size_t ptype)const;
 	static void add_to_python_module(pybind11::module_& m);
 };
@@ -316,14 +258,14 @@ struct Py_Capture : public Py_Distribution {
 	Py_Capture operator_plus(Py_Capture const& _another) const;
 };
 struct Py_Matrix{
-	MatrixVariants m_matrix;
+	Matrix_Variant_t m_matrix;
 	std::vector<scatter_event_info> events;
 
 	template <typename T>
 	Py_Matrix(Py_EL_Grid const& mGridEL,
 		Py_EL_Grid::m_type_marker<T> _type):
 		m_matrix(
-			std::visit([](auto const& _grid)->MatrixVariants {
+			std::visit([](auto const& _grid)->Matrix_Variant_t {
 				return evdm::make_Matrix<T>(_grid);
 			}, mGridEL.m_grid)
 		)

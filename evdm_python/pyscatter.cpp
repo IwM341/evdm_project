@@ -50,6 +50,8 @@ pybind11::tuple Py_CaptureProccess(
 			else if (gen_dtype == "double") {
 				return evdm::Capture(mDistrib, ptype, sc_event, evdm::xorshift64f<double>{},
 					M_DM, deltaM, NucleiM, body_halo_v, dm_v_disp, r_pow, Nmk, weight);
+			}	else {
+				throw pybind11::type_error("unknown data type, expect 'float' or 'double'");
 			}
 		}, CaptAccum.m_distrib);
 	return pybind11::make_tuple(sum, dsum);
@@ -57,8 +59,10 @@ pybind11::tuple Py_CaptureProccess(
 
 void add_scatter_funcs_to_python_module(pybind11::module_& m)
 {
+	Py_ScatterFactor::add_to_python_module(m);
+	Py_ScatterEvent::add_to_python_module(m);
 	namespace py = pybind11;
-	m.def("Capture", Py_CaptureProccess,
+	m.def("CalcCapture", Py_CaptureProccess,
 		"Calculates capture, add event to capture vector,"
 		" returns tuple (capture,mk sigma)\n"
 		"capt_vector -- Capture histogramm\n"
@@ -118,12 +122,24 @@ void Py_ScatterFactor::add_to_python_module(pybind11::module_& m) {
 		});
 }
 
+evdm::ScatterEvent Py_MakeScatterEvent(
+	pybind11::handle n_e, 
+	Py_ScatterFactor const& _factor) 
+{
+	pybind11::array_t<float> Conc = n_e.cast<pybind11::array_t<float>>();
+	if (Conc.size() < 2) {
+		Conc.resize({2});
+		Conc.mutable_at(1) = Conc.at(0);
+	}
+	return evdm::ScatterEvent(Conc.size(), (float*)Conc.data(), _factor.to_ff());
+}
+
 Py_ScatterEvent::Py_ScatterEvent(
-	pybind11::array n_e, 
+	pybind11::handle n_e, 
 	Py_ScatterFactor const &_factor, 
-	std::string_view name,
+	const char* name,
 	bool unique
-): evdm::ScatterEvent(n_e.size(),(float * ) n_e.data(),_factor.to_ff()),
+): evdm::ScatterEvent(Py_MakeScatterEvent(n_e,_factor)),
 	_name(name), unique(unique)
 {
 
@@ -135,14 +151,16 @@ void Py_ScatterEvent::add_to_python_module(pybind11::module_& m)
 	py::class_<Py_ScatterEvent>(m, "ScatterEvent")
 		.def(
 			py::init<
-				pybind11::array, 
+				pybind11::handle, 
 				Py_ScatterFactor const&,
-				std::string_view
+				const char*,
+				bool
 			>(),
 			"creating ScatterEvent\n"
 			"n_e -- relative to n_p concentration of event,"
 			" where n_p - concentration of nuclons\n"
 			"sf -- ScatterFactor instance\n"
+			"name -- optional name of event\n"
 			"unique -- if true, sum of capture with same event names wil be blocked",
 			py::arg("n_e"),
 			py::arg("sf"),

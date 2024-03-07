@@ -14,6 +14,16 @@
           "name": "pybind11_DIR",
           "value": "D:/Soft/cpp_packages/pybind11/build_msvc/share/cmake/pybind11",
           "type": "PATH"
+        },
+        {
+          "name": "BODY_MODEL_USE_DOUBLE",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "GRID_EL_USE_DOUBLE",
+          "value": "False",
+          "type": "BOOL"
         }
       ]
     }

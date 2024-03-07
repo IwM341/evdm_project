@@ -4,7 +4,7 @@
 #include "../core.hpp"
 #include <grob/grid.hpp>
 #include <grob/grid_objects.hpp>
-
+#include <numbers>
 
 
 namespace evdm {
@@ -58,29 +58,34 @@ namespace evdm {
 	/// <param name="max_xi"></param>
 	/// <returns></returns>
 	template <class Gen_t>
-	inline MCResult<vec3<Gen_vt<Gen_t>>> Gauss3_BeyondD(
+	inline MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> Gauss3_BeyondD(
 		Gen_t&& G, Gen_vt<Gen_t> Vdisp, 
-		Gen_vt<Gen_t> p = 0.8,
-		Gen_vt<Gen_t> max_xi = 8)
+		Gen_vt<Gen_t> p = (Gen_vt < Gen_t>)0.8,
+		Gen_vt<Gen_t> max_xi = (Gen_vt < Gen_t>)8)
 	{
-		using mvec3 = vec3<Gen_vt<Gen_t>>;
+		using T = Gen_vt<Gen_t>;
+		using mvec3 = vec3<T>;
 		if (G() < p) {
 			auto V1 = Vdisp * sqrt(-2 * log(1 - G()));
 			auto V2 = Vdisp * sqrt(-2 * log(1 - G()));
 			auto phi1 = RandomPhi(G);
 			auto phi2 = RandomPhi(G);
-			return { mvec3(V1 * cos(phi1), V1 * sin(phi1), V2 * cos(phi2)),1 };
+			return { 
+				mvec3(V1 * cos(phi1), V1 * sin(phi1), V2 * cos(phi2)),
+				(T)1 
+			};
 		}
 		else {
-			auto r = std::cbrt(G()) * max_xi;
-			auto phi = RandomPhi(G);
-			auto cos_Th = RandomCos(G);
-			auto sin_Th = std::sqrt(1 - cos_Th* cos_Th);
-			auto r_xy = r * sin_Th;
-			auto fac = exp(-r*r / 2) / std::pow(2 * M_PI, 1.5);
+			T r = std::cbrt(G()) * max_xi;
+			T phi = RandomPhi(G);
+			T cos_Th = RandomCos(G);
+			T sin_Th = std::sqrt(1 - cos_Th* cos_Th);
+			T r_xy = r * sin_Th;
+			T fac = exp(-r*r / 2) / std::pow(2 * (T) std::numbers::pi, (T)1.5);
 			return { 
 				Vdisp * mvec3(r_xy * std::sin(phi),r_xy*std::sin(phi),r*cos_Th),
-				fac};
+				fac
+			};
 		}
 	}
 
@@ -95,10 +100,11 @@ namespace evdm {
 
 	template <class Gen_t>
 	/*MK generator of input velocity*/
-	inline MCResult<vec3<Gen_vt<Gen_t>>> HaloVelocity(Gen_t&& G,Gen_vt<Gen_t> VescTmp,
-		Gen_vt<Gen_t> Vdisp, Gen_vt<Gen_t> mU0) {
-
-		auto ksi = sqrt(-2 * log(E0I1_G(G())));
+	inline MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> HaloVelocity(Gen_t&& G,Gen_vt<Gen_t> VescTmp,
+		Gen_vt<Gen_t> Vdisp, Gen_vt<Gen_t> mU0) 
+	{
+		using T = Gen_vt<Gen_t>;
+		auto ksi = sqrt(-2 * std::log( E0I1_G(G)) );
 		auto phi = RandomPhi(G)/2;
 
 
@@ -116,11 +122,12 @@ namespace evdm {
 		
 		auto n = RandomNvec(G);
 		
-		return MCResult<vec3<Gen_vt<Gen_t>>>(n * (v * Vdisp), sinTheta * v * sqrt(M_PI / 2));
+		return MCResult<vec3<T>,T>(n * (v * Vdisp), 
+			sinTheta * v * sqrt((T)std::numbers::pi / 2));
 	}
 	template <class Gen_t>
 	/*MK generator of input velocity*/
-	inline MCResult<vec3< Gen_vt<Gen_t>>> HaloVelocityConstrained(
+	inline MCResult<vec3< Gen_vt<Gen_t>>, Gen_vt<Gen_t>> HaloVelocityConstrained(
 		Gen_t&& G, Gen_vt<Gen_t> VescTmp, Gen_vt<Gen_t> Vmin, Gen_vt<Gen_t> Vmax,
 		Gen_vt<Gen_t>  Vdisp, Gen_vt<Gen_t>  mU0)
 	{
@@ -143,7 +150,7 @@ namespace evdm {
 		number_t max_theta = acos(cosThMin);
 		number_t min_theta = acos(cosThMax);
 
-		number_t rd_th = (max_theta - min_theta) / M_PI;
+		number_t rd_th = (max_theta - min_theta) / (number_t)std::numbers::pi;
 
 		number_t theta = min_theta + (max_theta - min_theta) * G();
 
@@ -156,12 +163,15 @@ namespace evdm {
 		auto v = sqrt(u * u + ve * ve);
 		auto n = RandomNvec(G);
 
-		return { n * (v * Vdisp), ksi_rd * rd_th * sinTheta * v * sqrt(M_PI / 2) };
+		return { n * (v * Vdisp), 
+			ksi_rd * rd_th * sinTheta * v * sqrt((number_t)std::numbers::pi/ 2) 
+		};
 	}
 
 	template <class Gen_t,typename VectorT>
 	/*MK generator of output nu'*/
-	inline MCResult<vec3<Gen_vt<Gen_t>>> NuOut(Gen_t && G, const  VectorT& Vcm, const VectorT& Nu,
+	inline MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> NuOut(
+		Gen_t && G, const  VectorT& Vcm, const VectorT& Nu,
 		Gen_vt<Gen_t> Vesc, Gen_vt<Gen_t> VescMin, 
 		Gen_vt<Gen_t>  mp, Gen_vt<Gen_t>  mk, Gen_vt<Gen_t> deltaE = 0) {
 
@@ -190,16 +200,16 @@ namespace evdm {
 		std::cout << n_v*n_1 << "\t" << n_v*n_2 << "\t" << n_v*n_v << std::endl<< std::endl;
 		*/
 
-		number_t Nu1_squared = Nu.quad() - deltaE * 2 * mp / (mk * (mp + mk));
+		number_t Nu1_squared = Nu.squaredNorm() - deltaE * 2 * mp / (mk * (mp + mk));
 		if (Nu1_squared <= 0.0)
-			return MC::MCResult<vec3_t>(vec3_t(0, 0, 0), 0);
+			return MCResult<vec3_t, number_t>(vec3_t(0, 0, 0), 0);
 
 		number_t Nu1 = sqrt(Nu1_squared);
 
 		number_t cosTh1max = (Vesc * Vesc - Nu1_squared - VcmN * VcmN) / (2 * VcmN * Nu1);
 
 		if (!(cosTh1max > -1))
-			return MC::MCResult<vec3_t>(vec3_t(0, 0, 0), 0);
+			return MCResult<vec3_t, number_t>(vec3_t(0, 0, 0), 0);
 		else if (cosTh1max >= 1) {
 			cosTh1max = 1;
 		}
@@ -209,7 +219,7 @@ namespace evdm {
 		number_t phi1 = RandomPhi(G);
 
 		const vec3_t vNu1 = Nu1 * (n_v * cosTh1 + n_1 * sinTh1 * cos(phi1) + n_2 * sinTh1 * sin(phi1));
-		return MC::MCResult<vec3_t>(vNu1, (1 + cosTh1max)/2 * Nu1 / VescMin);
+		return MCResult<vec3_t, number_t>(vNu1, (1 + cosTh1max)/2 * Nu1 / VescMin);
 	}
 
 	/// <summary>
@@ -282,27 +292,30 @@ namespace evdm {
 	/// <returns>tuple(\vec{V}_{out},r - location, Vdisp - disp velocity at r)</returns>
 	template <
 		typename Gen_t,
-		typename dF_Type, 
-		typename ScatterFuncType,
+		typename dF_Type,
 		typename VescRFuncType,
 		typename N_FuncType,
 		typename TempRFuncType
 		>
-	inline MCResult<std::tuple<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>, Gen_vt<Gen_t>>, Gen_vt<Gen_t>> Vout1(
+	inline MCResult<
+		std::tuple<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>, Gen_vt<Gen_t>>,
+		Gen_vt<Gen_t>
+	> Vout1(
 		Gen_t&& G,
-		Gen_vt<Gen_t> mp, Gen_vt<Gen_t> mk, Gen_vt<Gen_t> delta_mk, 
+		Gen_vt<Gen_t> mi, Gen_vt<Gen_t> mk, Gen_vt<Gen_t> delta_mk, 
 		dF_Type dF,
 		VescRFuncType const& VescR, 
 		Gen_vt<Gen_t> VescMin,
 		N_FuncType const& nR, 
 		TempRFuncType const& TempR,
 		Gen_vt<Gen_t> Vdisp, Gen_vt<Gen_t> mU0, 
-		Gen_vt<Gen_t> pow_r = 1) {
-
-		Gen_vt<Gen_t> factor = 1;
+		Gen_vt<Gen_t> pow_r = 1) 
+	{
+		using T = Gen_vt<Gen_t>;
+		T factor = 1;
 
 		//generate radius
-		Gen_vt<Gen_t> r_nd = pow(G(), pow_r);//pow(G(),1.0/3.0);
+		T r_nd = pow(G(), pow_r);//pow(G(),1.0/3.0);
 		factor *= (3 * pow_r * pow(r_nd, (3 * pow_r - 1) / pow_r));
 		//gain escape velocity from redius
 		//if(r_nd < 0.3){
@@ -319,34 +332,46 @@ namespace evdm {
 
 		auto n_nd = nR(r_nd);//TODO n_nd as a function of radius
 		factor *= n_nd;
-		auto [V1, f_mlt] = Gauss3_BeyondD(G, std::sqrt(TempR(r_nd) / mp));//TODO: add thermal distribution of nuclei velocity
-		factor *= f_mlt;
+		
+		//thermal generation
+		auto Input_Vel_gen = Gauss3_BeyondD(G, std::sqrt(TempR(r_nd) / mi),0.8,8);
+		
+		factor *= Input_Vel_gen.RemainDensity;
+		vec3<T> V1 = Input_Vel_gen.Result;
 
 		//Vcm - is a vrlocity of momentum center
-		auto Vcm = (V_wimp * mk + V1 * mp) / (mp + mk);
+		vec3<T> Vcm = (V_wimp * mk + V1 * mi) / (mi + mk);
 		//Nu is input velocity of WIMP in cm coordinatesd
-		auto Nu = mp / (mp + mk) * (V_wimp - V1);
+		vec3<T> Nu = mi / (mi + mk) * (V_wimp - V1);
 
 		//Ecm - is kinetic energy in cm
-		auto E_cm = mk * (mp + mk) / mp * Nu.squaredNorm() / 2;
+		auto E_cm = mk * (mi + mk) / mi * Nu.squaredNorm() / 2;
 
 
-
-		auto EnLoss = dF.EnergyLoss(E_cm + delta_mk);
-		factor *= EnLoss.RemainDensity;
+		//Energyloss is used in inelastic processes
+		//auto EnLoss_mc = dF.EnergyLoss(E_cm + delta_mk);
+		T inel_enloss = 0;
+		//factor *= EnLoss_mc.RemainDensity;
 
 		// Generating out velocity
-		auto Numk = NuOut(G, Vcm, Nu, Vesc, VescMin, mp, mk, EnLoss.Result - delta_mk);
-		vec3<Gen_vt<Gen_t>> Nu1 = Numk.Result;
+		auto Numk = NuOut(G, Vcm, Nu, Vesc, VescMin, mi, mk, inel_enloss - delta_mk);
+		vec3<T> Nu1 = Numk.Result;
 		factor *= Numk.RemainDensity;
 
 		// q - exchange momentum
-		auto q = mk * (Nu - Nu1).norm();
+		vec3<T> vec_Q = mk * (Nu - Nu1);
+		auto q_2 = vec_Q.squaredNorm();
+		
+		//
+		vec3<T> vec_V_T_inel = (Nu + Nu1) * (1 - mk / mi) / 2 + delta_mk * vec_Q / q_2;
+		T v_2 = vec_V_T_inel.squaredNorm();
+		//////////
+		// v_2 = \vec_{v}_{inel T}^{\perp 2}
+		// \vec_{v}_{inel T}^{\perp 2} = 1/2( v_x_1 + v_x_2 - v_N_1 - v_N_2)+delta/q^2*q
+		// v_x_1 + v_x_2 - v_N_1 - v_N_2 = (nu+nu1)*(1-mk/mi)
+		////////// 
 
-		factor *= dF.ScatterFactor(q, EnLoss.Result);
-
-		//factor from matrix element
-		factor *= PhiFactor(q);
+		factor *= dF.ScatterFactor(q_2, v_2,inel_enloss);
 
 
 #ifdef VOUT_DEBUG
@@ -373,10 +398,8 @@ namespace evdm {
 		}
 #endif
 		/**/
-
-		return MC::MCResult<std::tuple<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>, Gen_vt<Gen_t>>>(
-			std::tuple<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>, Gen_vt<Gen_t>>(Nu1 + Vcm, r_nd, Vesc),
-			factor);
+		using Tuple_t = std::tuple<vec3<T>, T, T>;
+		return MCResult<Tuple_t,T>(Tuple_t(Nu1 + Vcm, r_nd, Vesc),factor);
 	}
 
 
@@ -400,7 +423,8 @@ namespace evdm {
 		typename Histo_t,
 		typename Rm_type_t,
 		typename Gen_t,
-		typename TempFunc_t>
+		typename TempFunc_t,
+		typename VescFunc_t>
 	inline std::pair<double,double> CaptureImpl(
 		Gen_t&& G,
 		ScatterEvent const & se,
@@ -411,10 +435,12 @@ namespace evdm {
 		Rm_type_t _3p_r,
 		Gen_vt<Gen_t> mU0,
 		Gen_vt<Gen_t> Vdisp,
+		VescFunc_t VescR,
 		Gen_vt<Gen_t> VescMin,
 		size_t Nmk,
 		Gen_vt<Gen_t> weight = 1)
 	{
+		using T = Gen_vt<Gen_t>;
 		double sum = 0;
 		double sum2 = 0;
 		auto const_fact_rd = weight / Nmk;
@@ -422,13 +448,14 @@ namespace evdm {
 		auto action = [&](auto&& dF) {
 			for (size_t i = 0; i < Nmk; ++i) {
 				auto mk_res = Vout1(G,mi, mk, dm, dF, VescR, VescMin, se.n_e, TempR, Vdisp, mU0, _3p_r);
-				auto v_nd = std::get<0>(mk_res.Result) / VescMin;
-				auto r_nd = std::get<1>(mk_res.Result);
-				auto v_esc_nd = std::get<2>(mk_res.Result) / VescMin;
+				vec3<T> v_nd = std::get<0>(mk_res.Result) / VescMin;
+				auto dens = mk_res.RemainDensity;
 
-				auto E_nd = (v_nd * v_nd - v_esc_nd * v_esc_nd);
-				auto L_nd = r_nd * sqrt(v_nd.x() * v_nd.x() + v_nd.y() * v_nd.y());
-				auto dens = mk_res.RemainDensity * const_fact_rd;
+				T r_nd = std::get<1>(mk_res.Result);
+				T  v_esc_nd = std::get<2>(mk_res.Result) / VescMin;
+
+				T E_nd = (v_nd.squaredNorm() - v_esc_nd * v_esc_nd);
+				T L_nd = r_nd * sqrt(v_nd.x() * v_nd.x() + v_nd.y() * v_nd.y());		
 				//double Ewas = H.values[1].values[0];
 				/*
 				auto l = L_nd/H.LE_func(E_nd);
@@ -442,12 +469,13 @@ namespace evdm {
 					dens = dens +0.0;
 					print("E<-4.5");
 				}*/
-				if (H_le_sp_type.putValue(dens, E_nd, L_nd)) {
+				if (H_le_sp_type.put(dens, E_nd, L_nd)) {
 					/*
 					auto H_i_1 = H.Histo.Values[i_h];
 					*/
+					T dens = mk_res.RemainDensity * const_fact_rd;
 					sum += dens;
-					sum2 += dens * dens;
+					sum2 += dens * mk_res.RemainDensity;
 				}/*
 				else{
 					auto l = L_nd/H.LE_func(E_nd);
@@ -476,8 +504,56 @@ namespace evdm {
 
 		return {sum,std::sqrt(sum2- sum * sum )};
 	}
-};
 
+
+	namespace _detail {
+		struct _any_ctype {
+			template <typename T>
+			_any_ctype(T&&) {
+				static_assert("metatype");
+			}
+		};
+		template <typename _histo_type>
+		auto IsGridObject(_histo_type _inst) ->
+			std::tuple<decltype(_inst.Grid, _inst.Values)>;
+
+		auto IsGridObject(_any_ctype _inst) ->
+			std::false_type;
+
+		template <typename T>
+		struct is_grid_object {
+			constexpr static bool value = !std::is_same_v<
+				decltype(IsGridObject(std::declval<T>())),
+				std::false_type
+			>;
+		};
+
+	};
+	template <
+		typename HistoBank_t,
+		typename HistoEvap_t,
+		typename Rm_type_t,
+		typename Gen_t,
+		typename TempFunc_t,
+		typename VescFunc_t
+	>
+	inline void ScatterImpl(HistoBank_t& ScatMat_bank) {
+		constexpr bool count_evap =
+			_detail::is_grid_object<HistoEvap_t>::value;
+
+		const size_t N_in = ScatMat_bank.Grid.size();
+
+		#pragma	omp parallel for
+		for (size_t i = 0; i < N_in; ++i) {
+			auto IJ = ScatMat_bank.Grid.FromLinear(i);
+			auto [e, l] = ScatMat_bank.Grid[IJ];
+			auto& OutHisto = ScatMat_bank.Values[i];
+			//auto 
+		}
+	}
+
+
+};
 
 
 #endif//DYNAMICS_HPP

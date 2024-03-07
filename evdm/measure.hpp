@@ -2,7 +2,8 @@
 #define MEASURE_HPP
 
 #include <grob/grid_objects.hpp>
-
+#include "utils/prng.hpp"
+#include "utils/math_external.hpp"
 namespace evdm{
 
     /**
@@ -38,7 +39,8 @@ namespace evdm{
     template <typename T,typename U>
     inline T dEdL2(bin_dedl_t<T> const & m_bin,
                     U const & Lm0,U const & Lm1){
-        return m_bin.volume()*std::get<1>(m_bin).center()*(Lm0*Lm0*Lm0 + Lm1*Lm1*Lm1)/3;
+        auto [l0, l1] = std::get<1>(m_bin);
+        return std::get<0>(m_bin).volume()*(l1*l1-l0*l0)*(Lm0*Lm0+ Lm0*Lm1 + Lm1*Lm1)/3;
     }
     template <typename T>
     inline T dEd1_up(bin_dedl_t<T> const& m_bin,
@@ -122,23 +124,56 @@ namespace evdm{
     }
 
 
+    /// <summary>
+    /// struct, which indicates no addtional boundaries in EL generation
+    /// </summary>
+    struct _empt_bounds_{};
+
     /// @brief uniform generatin of (E,L) in bin for dEd1 measure 
     /// @param m_bin 
     /// @param b 
     /// @param G 
     /// @param LE 
     /// @return bin generetor lambda: WARNING LE function captured by reference
-    template <typename T,typename U,typename GenType,typename LE_FuncType>
+    template <
+        typename T,typename U,
+        typename GenType,typename LE_FuncType>
     inline auto gen_EL_dEdl(bin_dedl_t<T> const & m_bin,
                                 U const & b,
                                 GenType && G,LE_FuncType && LE)
     {   
         return [G,b,m_bin,&LE](){
-            auto e = std::get<0>(m_bin).interpol_coeff(G());
+            auto xi_e = G();
+            auto e = std::get<0>(m_bin).reduction(xi_e);
             return grob::Point<T,T>{e,
-                    std::get<0>(m_bin).interpol_coeff(G())*LE(-e)};
+                LE(-e)*std::get<1>(m_bin).reduction(G())};
         };
     }
+
+    template <
+        typename T, typename U,
+        typename GenType, 
+        typename LE_FuncType,
+        typename LE_Bound_t>
+    inline auto gen_EL_dEdl_up_bound(bin_dedl_t<T> const& m_bin,
+        U const& b,
+        GenType&& G, LE_FuncType&& LE, LE_Bound_t &&Bound)
+    {
+        return [G, b, m_bin, &LE,&Bound]() {
+            auto e = std::get<0>(m_bin).reduction(G());
+            
+            auto LE_tmp = LE(-e);
+            T Lmax_ordinary = std::get<1>(m_bin).right * LE_tmp;
+            T Lmin_ordinary = std::get<1>(m_bin).left * LE_tmp;
+            T mLmax = std::min(Lmax_ordinary, (T)Bound(-e));
+
+            return MCResult<grob::Point<T, T>, T>{ 
+                { e, Lmin_ordinary + (mLmax- Lmin_ordinary)*G() },
+                (mLmax - Lmin_ordinary) / (Lmax_ordinary - Lmin_ordinary)
+            };
+        };
+    }
+
 
     /// @brief uniform generatin of (E,L) in bin for dEdL measure 
     /// @param m_bin bin [e0,e1]*[l0,l1]
@@ -155,9 +190,34 @@ namespace evdm{
         return [m_bin,&LE,G,b,b1](){
             auto xi = G();
             auto ue =(b >= 1 ? std::sqrt(xi) : xi/(b1 + std::sqrt(b1*b1+b*xi)));
-            auto e = std::get<0>(m_bin).interpol_coeff(ue);
+            auto e = std::get<0>(m_bin).reduction(ue);
             return grob::Point<T,T> {e,
-                    std::get<0>(m_bin).interpol_coeff(G())*LE(-e)};
+                    std::get<0>(m_bin).reduction(G())*LE(-e)};
+        };
+    }
+
+    template <typename T, typename U, 
+        typename GenType, typename LE_FuncType,
+        typename LE_Bound_t>
+    inline auto gen_EL_dEdL_up_bound(bin_dedl_t<T> const& m_bin,
+        U const& b,
+        GenType&& G, LE_FuncType&& LE, LE_Bound_t && Bound)
+    {
+        auto b1 = (1 - b) / 2;
+        return [m_bin, &LE, &Bound,G, b, b1]() {
+            auto xi = G();
+            auto ue = (b >= 1 ? std::sqrt(xi) : xi / (b1 + std::sqrt(b1 * b1 + b * xi)));
+            auto e = std::get<0>(m_bin).reduction(ue);
+
+            auto LE_tmp = LE(-e);
+            T Lmax_ordinary = std::get<1>(m_bin).right * LE_tmp;
+            T Lmin_ordinary = std::get<1>(m_bin).left * LE_tmp;
+            T mLmax = std::min(Lmax_ordinary, (T)Bound(-e));
+
+            return MCResult<grob::Point<T, T>, T>{ 
+                {e, Lmin_ordinary + (mLmax - Lmin_ordinary) * G() },
+                (mLmax - Lmin_ordinary) / (Lmax_ordinary - Lmin_ordinary)
+            };
         };
     }
 
@@ -191,11 +251,56 @@ namespace evdm{
             auto _sqr = std::cbrt(b13 + 2 * xi * b23);
             auto ue = xi* b23/(b12+b1* _sqr+ _sqr* _sqr);
 
-            auto e = std::get<0>(m_bin).interpol_coeff(ue);
+            auto e = std::get<0>(m_bin).reduction(ue);
             auto lx = G();
             return grob::Point<T,T>{e,
                         std::sqrt(l02*(1-lx)+l12*lx)*LE(-e)
                     };
+        };
+    }
+
+    template <typename T, typename U, 
+        typename GenType, typename LE_FuncType,
+        typename LE_Bound_t >
+    inline auto gen_EL_dEdL2_up_bound(
+        bin_dedl_t<T> const& m_bin,
+        U const& b,
+        GenType&& G, LE_FuncType&& LE, LE_Bound_t && Bound)
+    {
+
+        auto b1 = (1 - b);
+        auto b12 = b1 * b1; //(1-b)^2
+        auto b13 = b1 * b12; // (1-b)^3
+
+        auto b23 = (3 + b * b);
+        auto l0 = std::get<1>(m_bin).left;
+        auto l1 = std::get<1>(m_bin).right;
+        auto l02 = l0 * l0;
+        auto l12 = l1 * l1;
+
+
+
+        return [G, m_bin, l02, l12, b1, b12, b13, b23, &LE,&Bound]() {
+            auto xi = G();
+            auto _sqr = std::cbrt(b13 + 2 * xi * b23);
+            auto ue = xi * b23 / (b12 + b1 * _sqr + _sqr * _sqr);
+
+            auto e = std::get<0>(m_bin).reduction(ue);
+            
+            auto LE_tmp = LE(-e);
+            T Lmax_ordinary = l02 * LE_tmp;
+            T Lmin_ordinary = l12 * LE_tmp;
+            T mLmax = std::min(Lmax_ordinary, (T)Bound(-e));
+
+            T Lmax2 = Lmax_ordinary * Lmax_ordinary;
+            T Lmin2 = Lmin_ordinary * Lmin_ordinary;
+            T Lm2 = mLmax * mLmax;
+
+
+            return MCResult<grob::Point<T, T>, T>{ 
+                {e, std::sqrt(Lmin2 + (Lm2 - Lmin2) *G() )},
+                    (Lm2 - Lmin2)/(Lmax2-Lmin2)
+            };
         };
     }
 
@@ -209,22 +314,44 @@ namespace evdm{
     /// <param name="G">generator from 0 to 1, captured by value</param>
     /// <param name="LE">LE L(e)</param>
     /// <returns>bin generetor lambda: WARNING LE function captured by reference</returns>
-    template <typename measure_t, typename T, typename GenType, typename LE_FuncType>
-    inline auto gen_EL(measure_t mes_t,bin_dedl_t<T> const& m_bin, GenType&& G, LE_FuncType&& LE) {
+    template <
+        typename measure_t, typename T, 
+        typename GenType, typename LE_FuncType,
+        typename LE_Bound_t = _empt_bounds_>
+    inline auto gen_EL(
+        measure_t mes_t,bin_dedl_t<T> const& m_bin, 
+        GenType&& G, LE_FuncType&& LE, LE_Bound_t&& Bound = _empt_bounds_{}) {
         auto Lm0 = LE(-std::get<0>(m_bin).left);
         auto Lm1 = LE(-std::get<0>(m_bin).right);
-        auto b = (Lm1- Lm0) / (Lm1 + Lm0);
-        if constexpr (std::is_same_v<measure_t, measure_dEdl>) {
-            return gen_EL_dEdl(m_bin, b,G,LE);
-        }
-        else if (std::is_same_v < measure_t, measure_dEdL>) {
-            return gen_EL_dEdL(m_bin, b, G, LE);
-        }
-        else if (std::is_same_v < measure_t, measure_dEdL2>) {
-            return gen_EL_dEdL2(m_bin, b, G, LE);
+        auto b = (Lm1 - Lm0) / (Lm1 + Lm0);
+
+        if constexpr (std::is_same_v<LE_Bound_t, _empt_bounds_>) {
+            if constexpr (std::is_same_v<measure_t, measure_dEdl>) {
+                return gen_EL_dEdl(m_bin, b, G, LE);
+            }
+            else if (std::is_same_v < measure_t, measure_dEdL>) {
+                return gen_EL_dEdL(m_bin, b, G, LE);
+            }
+            else if (std::is_same_v < measure_t, measure_dEdL2>) {
+                return gen_EL_dEdL2(m_bin, b, G, LE);
+            }
+            else {
+                static_assert(true, "unexpected mesure_t type");
+            }
         }
         else {
-            static_assert(true, "unexpected mesure_t type");
+            if constexpr (std::is_same_v<measure_t, measure_dEdl>) {
+                return gen_EL_dEdl_up_bound(m_bin, b, G, LE,Bound);
+            }
+            else if (std::is_same_v < measure_t, measure_dEdL>) {
+                return gen_EL_dEdL_up_bound(m_bin, b, G, LE, Bound);
+            }
+            else if (std::is_same_v < measure_t, measure_dEdL2>) {
+                return gen_EL_dEdL2_up_bound(m_bin, b, G, LE, Bound);
+            }
+            else {
+                static_assert(true, "unexpected mesure_t type");
+            }
         }
     }
 
@@ -237,31 +364,46 @@ namespace evdm{
     /// <param name="b">bin in el grid. NOTE: the bin should be cut in e, so that l could be from l0 to lmax(r,e)</param>
     /// <param name="G">generator from 0 to 1, captured by value</param>
     /// <param name="LE">LE L(e)</param>
-    /// <returns></returns>
-    template <typename measure_t, typename U,typename T, typename GenType, typename LE_FuncType>
-    inline auto mc_d3v(measure_t mes_t,U r,U Phi_r,bin_dedl_t<T> const& m_bin, GenType&& G,LE_FuncType&& LE) {
-        if constexpr (std::is_same_v<measure_t, measure_dEdL2>) {
-            return [m_bin,r,Phi_r,G,&LE]() {
-                T e = std::get<0>(m_bin).interpol_coeff(G());
-                auto W_e = std::get<0>(m_bin).volume();
-                auto Lmax = r * std::sqrt(Phi_r + e);
-                auto LE_max = LE(-e);
+    /// <param name="is_Bound">any type in case of considering kinematic restriction</param>
+    /// <returns>mk result, grob::point<T,T,T>(e,L/Le,Le) </returns>
+    template < typename U,typename T, typename GenType, typename LE_FuncType>
+    inline auto mc_d3v(U r, U Phi_r, bin_dedl_t<T> const& m_bin, GenType&& G, LE_FuncType&& LE) {
+            
+        return [m_bin, r, Phi_r, G, &LE]() {
+            auto xi = G();
+            T e = std::get<0>(m_bin).reduction(xi);
+            auto W_e = std::get<0>(m_bin).volume();
+            auto LE_max = LE(-e);
 
-                auto _d0 = (LE_max * std::get<1>(m_bin).left) / Lmax;
-                auto _d1 = (LE_max * std::get<1>(m_bin).right) / Lmax;
-                constexpr auto _0 = decltype(_d0)(0);
-                auto _sqr_l0 = std::sqrt(std::max(_0, 1 - _d0 * _d0));
-                auto _sqr_l1 = std::sqrt(std::max(_0, 1 - _d1 * _d1));
-                auto _L_sqr = _sqr_l1 + (_sqr_l0 - _sqr_l1) * G();
-                auto W_L = _sqr_l0 - _sqr_l1;
+            auto Vmax = std::abs(std::sqrt(Phi_r + e));
+            //if (std::isnan(Vmax)) {
+            //    throw std::runtime_error("v is nan!!!");
+            //  }
+            auto Lmax = r * Vmax;
 
-                T L = Lmax * std::sqrt(1- _L_sqr* _L_sqr);
-                return MCResult<grob::Point<T, T>, T>(e,L, W_e* W_L);
-            };
-        }
-        else {
-            static_assert(true, "in d3v correct density is given only with dEdL2 measure");
-        }
+            auto Lmax_undim = (LE_max > 0 ? Lmax / LE_max : 1);
+
+            //if Lmax_undim != 0, then _d0 is just l0*Le/Lmax <=1
+            //if Lmax_undim == 0, then _d0 = 0, _d1 = 1
+            auto [_l0, _l1] = std::get<1>(m_bin);
+
+            auto _d0 = upbound(downbound(_l0 / Lmax_undim, 0), 1);
+            auto _d1 = upbound(_l1 / Lmax_undim, 1);
+
+            auto _sqr_l0 = std::sqrt(1 - _d0 * _d0);
+            auto _sqr_l1 = std::sqrt(1 - _d1 * _d1);
+            auto d_sqr = ((_d1 < 0.5 || _d0 < 0.5) ?
+                (_d1 - _d0) * (_d1 + _d0) / (_sqr_l1 + _sqr_l0) : 
+                _sqr_l0 - _sqr_l1);
+
+            auto _L_sqr = _sqr_l1 + (_sqr_l0 - _sqr_l1) * G();
+            auto W_L = d_sqr * Vmax;
+
+            T l = Lmax_undim * std::sqrt(1- _L_sqr* _L_sqr);
+            return MCResult<grob::Point<T, T,T>, T>(
+                grob::Point<T, T,T>(e, l, LE_max),
+                W_e* W_L);
+        };
     }
 
 }

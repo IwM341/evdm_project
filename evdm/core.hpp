@@ -7,6 +7,8 @@
 #include <Eigen/Dense>
 #include <memory>
 #include "dynamics/dynamics.hpp"
+#include "r_conversion.hpp"
+#include "traj_pool.hpp"
 
 namespace evdm{
 
@@ -96,6 +98,26 @@ namespace evdm{
                 >(body->get_le(Ne_bins))
             ){}
     };
+    
+    struct TrajPoolInitParams_t {
+        bool is_static;
+        float T_error;
+        size_t traj_bins;
+        size_t n_e_max;
+        size_t n_l_max;
+        TrajPoolInitParams_t(
+            bool is_static = true,
+            float T_error = 0.05,
+            size_t traj_bins = 100,
+            size_t n_e_max = 2,
+            size_t n_l_max = 2
+        ) :
+            is_static(is_static),
+            T_error(T_error),
+            traj_bins(traj_bins),
+            n_e_max(n_e_max),
+            n_l_max(n_l_max) {}
+    };
 
     template <typename BodyModel_vt,typename GridEL_vt, GridEL_type _grid_type>
     struct EL_Grid {
@@ -119,19 +141,53 @@ namespace evdm{
         BodyModel<BM_vt> body; ///shared ptr to Body Model
         std::shared_ptr<GridEL_t> Grid; /// shared ptr to grid variants
         std::shared_ptr<typename Body<BM_vt>::LE_func_t > _LE; /// shared ptr to L(E) struct function
+        std::shared_ptr<std::vector<bin_traj_pool_t<GridEL_vt>>> _TrajPools;
 
         template <typename GridType>
-        EL_Grid(BodyModel<BM_vt> const& body, GridType&& EL_Grid, size_t NE_e_size = 100) :
+        EL_Grid(
+            BodyModel<BM_vt> const& body, GridType&& EL_Grid,
+            size_t NE_e_size = 100, TrajPoolInitParams_t TrajPoolInitParams = TrajPoolInitParams_t()) :
             body(body),
             Grid(std::make_shared<GridEL_t>(std::forward<GridType>(EL_Grid))),
             _LE(std::make_shared<typename Body<BM_vt>::LE_func_t>(body->get_le(NE_e_size)))
-        {}
+        {
+            auto const& mEL_Grid = Grid->inner(0);
+            //_TrajPools = std::make_shared<>
+            std::vector<bin_traj_pool_t<GridEL_vt>> mTP;
+            mTP.reserve(mEL_Grid.size());
+            for (auto m_bin : mEL_Grid) {
+                mTP.push_back(
+                    GetTrajPool<GridEL_vt>(
+                        TrajPoolInitParams.is_static,
+                        m_bin, *body, *_LE,
+                        TrajPoolInitParams.T_error,
+                        TrajPoolInitParams.traj_bins,
+                        TrajPoolInitParams.n_e_max,
+                        TrajPoolInitParams.n_l_max
+                    )
+                );
+            }
+            _TrajPools = std::make_shared<
+                std::vector<bin_traj_pool_t<GridEL_vt>>
+            >(std::move(mTP));
+        }
 
         inline EL_Func<BM_vt> getLE()const {
             return EL_Func<BM_vt>(body, _LE);
         }
+        inline auto const & getBodyLE()const {
+            return *_LE;
+        }
         auto LE()const {
             return _LE->i_lm();
+        }
+        auto const & getLE_inner_grid() const {
+            return Grid->inner(0);
+        }
+
+        using TrajPools_t = std::vector<bin_traj_pool_t<GridEL_vt>>;
+        TrajPools_t const& TrajPools() const {
+            return *_TrajPools;
         }
 
     };
@@ -176,8 +232,15 @@ namespace evdm{
         inline auto const &grid()const{
             return *(Grid.Grid);
         }
-        inline auto& body() const {
+        inline auto const& body() const {
+            return *Grid.body;
+        }
+        inline auto body_ptr() const {
             return Grid.body;
+        }
+
+        inline auto const& TrajPools() const {
+            return Grid.TrajPools();
         }
 
         inline auto const& values() const {
@@ -217,9 +280,25 @@ namespace evdm{
                 return Values->block(ptype * N_size, 0, N_size, 1).sum();
             }
         }
+
+        template <typename Gen_t,typename RGrid_t>
+        auto r_dens(std::vector<size_t> ptypes, Gen_t && G, RGrid_t && RGrid,
+                    size_t Nmk_per_bin = 1000) const {
+            return convert_r_density(
+                as_histo(),TrajPools(), 
+                ptypes, Grid.LE(), body().Phi,body()._DD_F_C(1),
+                G, std::forward<RGrid_t>(RGrid), Nmk_per_bin
+            );
+        }
     };
-    template <typename T,typename Init_t, typename Body_vt, typename GridEL_vt, GridEL_type grid_type>
-    auto make_Distribution(EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid, Init_t&& init) {
+    template <
+        typename T,typename Init_t, 
+        typename Body_vt, typename GridEL_vt, 
+        GridEL_type grid_type
+    >
+    auto make_Distribution(
+        EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid, Init_t&& init) 
+    {
         Distribution<T, Body_vt, GridEL_vt, grid_type> Dstr(Grid);
         auto LE = Dstr.Grid.LE();
         if constexpr (!std::is_same_v<bool, std::decay_t<Init_t>>) {
@@ -304,6 +383,23 @@ namespace evdm{
         inline auto as_histo(Index const& _I) const {
             size_t _shift = grid().LinearIndex(_I);
             return grob::make_histo_view(grid(), values().data() + _shift);
+        }
+        inline auto as_histo_bank(size_t ptype_in, size_t ptype_out) {
+            auto const& _grid = grid().inner(0);
+            size_t inner_size = _grid.size();
+            size_t ptypes = grid().grid().size();
+            return grob::make_grid_object_ref(
+                _grid,
+                grob::as_container(
+                    [&_grid, inner_size, ptype_in, ptype_out](size_t i) {
+                    return grob::make_histo_view(_grid,
+                            values().data() + 
+                            ptype_in * _grid.size() * inner_size + 
+                            ptype_out * inner_size
+                        );
+                    }, _grid.size()
+                )
+            );
         }
 
         GridMatrix(GridEL_t const& Grid,

@@ -24,9 +24,17 @@ Py_Matrix Py_Matrix::as_type(const char* type_n) const
 {
 	std::string_view _dtype = type_n;
 	if (_dtype == "float")
+#ifdef DISTRIB_USE_FLOAT
 		return as_type_t<float>();
+#else
+		throw pybind11::type_error("unsupported distrib type 'float'");
+#endif
 	else if (_dtype == "double") {
+#ifdef DISTRIB_USE_DOUBLE
 		return as_type_t<double>();
+#else
+		throw pybind11::type_error("unsupported distrib type 'double'");
+#endif
 	}
 	else {
 		throw pybind11::type_error("wrong data type: " + std::string(type_n) + ", expect float or double");
@@ -50,10 +58,19 @@ Py_Matrix CreatePyMatrix(
 
 	std::string_view _dtype = dtype;
 	if (_dtype == "float") {
+#ifdef DISTRIB_USE_FLOAT
 		return Creator(Py_EL_Grid::m_type_marker<float>{});
+#else
+		throw pybind11::type_error("unsupported distrib type 'float'");
+#endif
+		
 	}
 	else if (_dtype == "double") {
+#ifdef DISTRIB_USE_DOUBLE
 		return Creator(Py_EL_Grid::m_type_marker<double>{});
+#else
+		throw pybind11::type_error("unsupported distrib type 'double'");
+#endif
 	}
 	else {
 		throw pybind11::type_error("wrong data type: " + std::string(_dtype) + ", expect float or double");

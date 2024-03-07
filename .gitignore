@@ -3,6 +3,8 @@ build/
 performance_tests/
 work_test/
 out/
+Formulas/*.html
+evdm/GPUCache
 .vs/
 *.obj
 *.exe

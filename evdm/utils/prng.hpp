@@ -73,7 +73,7 @@ namespace evdm{
     template <typename T,genpol policy>
     struct _bounds_base {
         typedef T value_type;
-        constexpr static genpol bounds = P;
+        constexpr static genpol bounds = policy;
     };
 
     template <typename T = float,genpol policy = genpol::I0E1>
@@ -117,9 +117,21 @@ namespace evdm{
         }
     };
 
+
+    template <typename T, genpol policy = genpol::I0E1>
+    struct universal_xorshift_t : 
+    public std::conditional_t<
+        std::is_same_v<float, T>,
+        xorshift32f<T, policy>,
+        xorshift64f<T, policy>
+    > {};
+
+    template <typename T, genpol policy = genpol::I0E1>
+    using xorshift = universal_xorshift_t<T, policy>;
+
     template <typename Gen_t>
     inline auto E0I1_G(Gen_t&& G) {
-        if constexpr (G.bounds == genpol::E0I1);
+        if constexpr (G.bounds == genpol::E0I1)
             return G();
         else if (G.bounds == genpol::I0E1)
             return 1-G();

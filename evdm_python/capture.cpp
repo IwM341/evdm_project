@@ -19,10 +19,18 @@ inline Py_Capture Py_Capture::as_type(const char* dtype) const
 {
 	std::string_view _dtype = dtype;
 	if (_dtype == "float")
+#ifdef DISTRIB_USE_FLOAT
 		return as_type_t<float>();
+#else
+		throw pybind11::type_error("unsupported distrib type 'float'");
+#endif
 	else if (_dtype == "double") {
+#ifdef DISTRIB_USE_DOUBLE
 		return as_type_t<double>();
+#else
+		throw pybind11::type_error("unsupported distrib type 'double'");
 	}
+#endif
 	else {
 		throw pybind11::type_error("wrong data type: " + std::string(dtype) + ", expect float or double");
 	}
@@ -39,7 +47,8 @@ Py_Capture& Py_Capture::add(Py_Capture const& _another)
 		}
 	}
 	std::visit([](auto& m_d1, const auto& m_d2) {
-		m_d1.values() += m_d2.values();
+		using T = decltype(m_d1.get_vtype());
+		m_d1.values() += m_d2.values().template cast<T>();
 	}, m_distrib, _another.m_distrib);
 	return *this;
 }
@@ -56,7 +65,11 @@ Py_Capture Py_Capture::copy() const
 void Py_Capture::add_to_python_module(pybind11::module_& m) {
 	namespace py = pybind11;
 	py::class_<Py_Capture, Py_Distribution>(m, "Capture")
-		.def(py::init(&CreatePyDistrib),
+		.def(py::init([](
+				Py_EL_Grid const& mGridEL,
+				const char* dtype,
+				pybind11::handle Init) ->Py_Capture
+			{ return CreatePyDistrib(mGridEL, dtype, Init); }),
 			"constructor of Capture(Distrib) class\n"
 			"ELGrid -- Created EL Grid\n"
 			"dtype -- float or double\n"
@@ -75,7 +88,7 @@ void Py_Capture::add_to_python_module(pybind11::module_& m) {
 			"adds to capture extra events capture", 
 			py::arg("second_capture"))
 		.def("__add__", &Py_Capture::operator_plus)
-		.def_property_readonly("events", [](const auto& m_c) {return m_c.get_events(); });
+		.def_property_readonly("events", [](const Py_Capture& m_c) {return m_c.get_events(); });
 }
 
 

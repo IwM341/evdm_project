@@ -31,13 +31,13 @@ void Py_BodyModel::setTemp(pybind11::handle mTemp){
 	
 }
 Py_BodyModel::Py_BodyModel(pybind11::array_t<double> const& RhoValues, double Velocity, pybind11::handle Temp)
-:m_body(evdm::load_body_model<double,evdm::forward_shared>(RhoValues.data(),RhoValues.size(), Velocity))
+:m_body(evdm::load_body_model<Py_BodyModel::max_vtype,evdm::forward_shared>(RhoValues.data(),RhoValues.size(), Velocity))
 {
 	setTemp(Temp);
 }
 
 Py_BodyModel::Py_BodyModel(pybind11::array_t<float> const& RhoValues, float Velocity, pybind11::handle Temp)
-	:m_body(evdm::load_body_model<double, evdm::forward_shared>(RhoValues.data(), RhoValues.size(), Velocity))
+	:m_body(evdm::load_body_model<Py_BodyModel::min_vtype, evdm::forward_shared>(RhoValues.data(), RhoValues.size(), Velocity))
 {
 	setTemp(Temp);
 }
@@ -75,11 +75,21 @@ Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
 			return evdm::load_body_model<evdm::forward_shared>(std::move(values), Velocity);
 		};
 		if (dtype == "double") {
-			m_body = ExtractList(T_t<double>{});
+			#ifdef BODY_MODEL_USE_DOUBLE
+				m_body = ExtractList(T_t<double>{});
+			#else
+			throw pybind11::type_error("in this build 'double' is not supported for body model type");
+			#endif // DISTRIB_USE_DOUBLE
+			
 			return;
 		}
 		else if (dtype == "float") {
+
+#ifdef BODY_MODEL_USE_FLOAT
 			m_body = ExtractList(T_t<float>{});
+#else
+			throw pybind11::type_error("in this build 'float' is not supported for body model type");
+#endif // BODY_MODEL_USE_FLOAT
 			return;
 		}
 		else {
@@ -100,11 +110,21 @@ Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
 			return Rho(x).cast<float>();
 		};
 		if (dtype == "double") {
-			m_body = evdm::make_body_model<double,evdm::forward_shared>(Fd, m_size, Velocity);
+#ifdef BODY_MODEL_USE_DOUBLE
+			m_body = evdm::make_body_model<double, evdm::forward_shared>(Fd, m_size, Velocity);
+#else
+			throw pybind11::type_error("in this build 'double' is not supported for body model type");
+#endif // DISTRIB_USE_DOUBLE
 			return;
 		}
 		else if (dtype == "float") {
+
+#ifdef BODY_MODEL_USE_FLOAT
 			m_body = evdm::make_body_model<float, evdm::forward_shared>(Ff, m_size, Velocity);
+#else
+			throw pybind11::type_error("in this build 'float' is not supported for body model type");
+#endif // BODY_MODEL_USE_FLOAT
+			
 			return;
 		}
 		else {
@@ -163,6 +183,8 @@ pybind11::tuple Py_BodyModel::getQ() const
 		}, m_body);
 }
 
+
+
 Py_BodyModel Create(pybind11::handle Rho, std::optional<size_t> _size, 
 	std::string_view dtype,double Velocity, pybind11::handle mTemp = pybind11::none())
 {	
@@ -186,7 +208,7 @@ void Py_BodyModel::add_to_python_module(pybind11::module_& m)
 	py::class_<Py_BodyModel>(m, "Body")
 		.def(
 			py::init([](pyobj_ref _o, std::optional<size_t> const& _size,
-				double Velocity, std::string_view dtype, pybind11::handle mTemp)
+				double Velocity, pybind11::handle mTemp, std::string_view dtype)
 				{return Create(_o, _size, dtype, Velocity, mTemp); }),
 			"constructs Body from Rho\n"
 			"Rho -- array of values of mass density or function [0,1]->real\n"
@@ -197,8 +219,8 @@ void Py_BodyModel::add_to_python_module(pybind11::module_& m)
 			py::arg("Rho"),
 			py::arg_v("size", std::nullopt),
 			py::arg_v("velocity", 0.7e-3),
-			py::arg_v("dtype", std::string("")),
-			py::arg_v("Temp", pybind11::none())
+			py::arg_v("Temp", pybind11::none()),
+			py::arg_v("dtype", std::string(""))
 		)
 		.def("setTemp", &Py_BodyModel::setTemp, py::arg_v("Temp", pybind11::none()))
 		.def("__repr__", &Py_BodyModel::repr)

@@ -4,19 +4,10 @@
 #include "body_potential.hpp"
 #include <grob/grid_objects.hpp>
 #include <cmath>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <numbers>
+#include "utils/math_external.hpp"
 namespace evdm{
-    template <typename T>
-    inline T pi(){
-        return (T)M_PI;
-    }
-    template <typename T>
-    T unnan(T const & x){
-        return !std::isnan(x) ? x : 0;
-    }
+
 
     namespace __detail{
         
@@ -29,8 +20,8 @@ namespace evdm{
                 T _sqrt_part = std::cbrt(std::sqrt(8*u*u*u+9*z1*z1)+3*z1);
                 return (_sqrt_part*_sqrt_part - 2*u)/_sqrt_part;
             };
-            T c = Tailor_o_Solution(pi<T>())*(1/pi<T>());
-            T x0 = z + (Tailor_o_Solution(z)-c*z)+u*z*(pi<T>()-z)/8;
+            T c = Tailor_o_Solution(pi<T>)*(1/pi<T>);
+            T x0 = z + (Tailor_o_Solution(z)-c*z)+u*z*(pi<T>-z)/8;
             auto Step = [y,z](T x){return x - (x - y*sin(x) - z)/(1 - y*cos(x));};
             return (Step(Step(x0)));
         }
@@ -47,11 +38,9 @@ namespace evdm{
     /// @return 
     template <typename T>
     inline T reT(T const & e,T const & L2){
-        if(e >= (T) 0.5){
-            return 0;
-        }
+        T s_sqre = ssqrt(1 - e - L2);
         if(e < 1e-2){
-            auto z = 2*unnan(std::sqrt(1-e-L2))/(1-2*e);
+            auto z = 2*(s_sqre)/(1-2*e);
             auto z2 = z*z;
             return -z + z*z2*(
                 [](auto x){
@@ -66,8 +55,8 @@ namespace evdm{
             );
         } else {
             auto _e = std::sqrt(e);
-            auto sqr = 2*_e*unnan(std::sqrt(1-e-L2));
-            return (sqr-std::atan(sqr/(1-2*e)))/(2*e*_e);
+            auto sqr = 2*_e*(s_sqre);
+            return (sqr+std::atan((1-2*e)/sqr) - pi<T>/2 )/(2*e*_e);
         }
     }
     /// @brief external trajectory duration
@@ -76,7 +65,13 @@ namespace evdm{
     /// @return 
     template <typename T>
     inline T eT(T const & e,T const & L2){
-        return reT(e,L2)+pi<T>()/(2*e*std::sqrt(e));
+        if (e >= 0.5 && L2 >= (1 - e) - 1e-7) {
+            return 0;
+        }
+        else {
+            return reT(e, L2) + pi<T> / (2 * e * std::sqrt(e));
+        }
+        
     }
     /// @brief full duration of trajectory in 1/r potential
     /// @param e energy

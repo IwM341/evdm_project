@@ -82,20 +82,71 @@ namespace evdm {
             return Funcs[i](std::forward<InitializerLambda>(Init));
         }
 
+        template <typename variant_type, typename _TpForward,size_t...I>
+        variant_type make_variant_alt_impl(size_t i,_TpForward&& _Tuple, std::index_sequence<I...>) {
+            constexpr size_t variantSize = sizeof...(I);
+            std::array<variant_type(*)(_TpForward&& AlterTp), variantSize> Funcs{
+                [](_TpForward&& AlterTp) {
+                    return variant_type(std::get<I>(std::forward<_TpForward>(AlterTp)));
+                }...
+            };
+            return Funcs[i](std::forward<_TpForward>(_Tuple));
+        }
+
     };
     
     /// @brief 
     /// @tparam variant_type std::variant of type
-    /// @tparam InitializerLambda 
-    /// @tparam ...Args 
-    /// @param Init lambda, which have template parametr of type self_type, indicating the return type
+    /// @tparam InitializerLambda
     /// @param index index of std::variant
+    /// @param Init lambda, which have template parametr of type self_type, indicating the return type
     /// @return std::varint = Init(self_type<type>{})
     template <typename variant_type,typename InitializerLambda>
     auto make_variant(size_t index,InitializerLambda && Init){
         return __visit_detail::make_variant_impl<variant_type>(index,Init,
         std::make_index_sequence<std::variant_size<variant_type>::value>{});
     }
+
+    /// <summary>
+    /// make variant from alternatives with particular
+    /// </summary>
+    /// <param name="index">index of alternateive</param>
+    /// <param name="...Alternatives">all alternamtives</param>
+    /// <returns></returns>
+    template <
+        typename...Alt_ts,
+        typename variant_type = std::variant<std::decay_t<Alt_ts>...>
+    >
+    variant_type make_variant_alt(size_t index, Alt_ts &&...Alternatives) {
+        if (index >= sizeof...(Alternatives)) {
+            throw std::out_of_range("in make_variant_alt index out of range");
+        }
+        return __visit_detail::make_variant_alt_impl<variant_type>(
+            index, std::forward_as_tuple(std::forward< Alt_ts>(Alternatives)...),
+            std::make_index_sequence<sizeof...(Alternatives)>{}
+        );
+    }
+
+    /// <summary>
+    /// converts choosen alternative to type
+    /// </summary>
+    /// <tparam name="return_type">return type</tparam>
+    /// <param name="...Alternatives">all alternamtives</param>
+    /// <returns></returns>
+    template <
+        typename return_type,
+        typename...Alt_ts
+    >
+    return_type make_choose_alt(size_t index, Alt_ts &&...Alternatives) {
+        if (index >= sizeof...(Alternatives)) {
+            throw std::out_of_range("in make_variant_alt index out of range");
+        }
+        return __visit_detail::make_variant_alt_impl<return_type>(
+            index, std::forward_as_tuple(std::forward< Alt_ts>(Alternatives)...),
+            std::make_index_sequence<sizeof...(Alternatives)>{}
+        );
+    }
+
 
 
     template <typename VariantWrapper>

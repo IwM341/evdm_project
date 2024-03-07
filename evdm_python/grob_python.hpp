@@ -7,7 +7,7 @@
 #include "debugdef.hpp"
 
 template <typename GridFunction_t>
-auto make_python_function_1D(GridFunction_t const& F) {
+pybind11::tuple make_python_function_1D(GridFunction_t const& F) {
 	namespace py = pybind11;
 	typedef typename GridFunction_t::value_type T;
 	py::array_t<T> Grid(F.Grid.size());

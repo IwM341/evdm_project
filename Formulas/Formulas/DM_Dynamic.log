@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  10 DEC 2023 15:46
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  7 MAR 2024 14:25
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -1081,40 +1081,80 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 [1
 
 {C:/Users/MainUser/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}]
-[2]
+
+LaTeX Warning: Command \CYRE invalid in math mode on input line 88.
+
+
+LaTeX Warning: Command \cyrs invalid in math mode on input line 88.
+
+
+LaTeX Warning: Command \cyrl invalid in math mode on input line 88.
+
+
+LaTeX Warning: Command \cyri invalid in math mode on input line 88.
+
+Missing character: There is no Å in font cmr10!
+Missing character: There is no ñ in font cmr10!
+Missing character: There is no ë in font cmr10!
+Missing character: There is no è in font cmr10!
+
+LaTeX Warning: Command \CYRE invalid in math mode on input line 95.
+
+
+LaTeX Warning: Command \cyrs invalid in math mode on input line 95.
+
+
+LaTeX Warning: Command \cyrl invalid in math mode on input line 95.
+
+
+LaTeX Warning: Command \cyri invalid in math mode on input line 95.
+
+Missing character: There is no Å in font cmr10!
+Missing character: There is no ñ in font cmr10!
+Missing character: There is no ë in font cmr10!
+Missing character: There is no è in font cmr10!
+<imags/graphT.jpg, id=67, 383.18156pt x 378.66469pt>
+File: imags/graphT.jpg Graphic file (type jpg)
+<use imags/graphT.jpg>
+Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
+(pdftex.def)             Requested size: 191.5903pt x 189.33188pt.
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+[2] [3 <./imags/graphT.jpg>] [4]
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 158.
+(hyperref)                removing `math shift' on input line 270.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 158.
+(hyperref)                removing `math shift' on input line 270.
 
-[3]
-
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 205.
-
+[5]
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `subscript' on input line 205.
+(hyperref)                removing `math shift' on input line 327.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 205.
+(hyperref)                removing `subscript' on input line 327.
 
-[4] [5] [6] (DM_Dynamic.aux)
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 327.
+
+[6] [7] [8] (DM_Dynamic.aux)
 Package rerunfilecheck Info: File `DM_Dynamic.out' has not changed.
 (rerunfilecheck)             Checksum: D3BB26A9DA3701B7F1FC00CD46FC94F4;1444.
  ) 
 Here is how much of TeX's memory you used:
- 26120 strings out of 475385
- 501754 string characters out of 2790968
- 842670 words of memory out of 3000000
- 47018 multiletter control sequences out of 15000+600000
+ 26144 strings out of 475385
+ 502085 string characters out of 2790968
+ 843026 words of memory out of 3000000
+ 47030 multiletter control sequences out of 15000+600000
  472907 words of font info for 39 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 81i,13n,83p,488b,628s stack positions out of 10000i,1000n,20000p,200000b,80000s
+ 81i,13n,83p,520b,613s stack positions out of 10000i,1000n,20000p,200000b,80000s
  <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\t
 crm1000.pk> <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/lh/lh-t2a/d
 pi600\labx1000.pk> <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/lh/l
@@ -1124,10 +1164,11 @@ onts/type1/public/amsfonts/cm/cmmi7.pfb><D:/Soft/MikTex/fonts/type1/public/amsf
 onts/cm/cmr10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr5.pfb><D:/S
 oft/MikTex/fonts/type1/public/amsfonts/cm/cmr7.pfb><D:/Soft/MikTex/fonts/type1/
 public/amsfonts/cm/cmsy10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cm
-sy5.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy7.pfb>
-Output written on DM_Dynamic.pdf (6 pages, 173266 bytes).
+sy5.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy7.pfb><D:/Soft/MikTe
+x/fonts/type1/public/amsfonts/symbols/msam10.pfb>
+Output written on DM_Dynamic.pdf (8 pages, 222902 bytes).
 PDF statistics:
- 287 PDF objects out of 1000 (max. 8388607)
- 57 named destinations out of 1000 (max. 500000)
- 77 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 317 PDF objects out of 1000 (max. 8388607)
+ 66 named destinations out of 1000 (max. 500000)
+ 82 words of extra memory for PDF output out of 10000 (max. 10000000)
 

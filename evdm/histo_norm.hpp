@@ -45,7 +45,7 @@ namespace evdm{
 
                         auto rho2 = H2_v/mes2;
 
-                        auto [_m_cube, is_intersec] = grob::intersect(dEdL1, m_dEdL2).first;
+                        auto [_m_cube, is_intersec] = grob::intersect(dEdL1, m_dEdL2);
                         if(is_intersec){
                             sum += std::pow(std::abs(rho1 - rho2), p) *
                                 mu(_m_cube);

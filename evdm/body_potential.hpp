@@ -5,6 +5,8 @@
 #include "utils/integration.hpp"
 #include <cmath>
 #include <algorithm>
+#include <numbers>
+#include <limits>
 namespace evdm{
 
     namespace __detail{
@@ -150,20 +152,42 @@ namespace evdm{
                 return (e > 0.5 ? std::pow(Internal_lm(e),2) : 1-e);
             }
             inline auto lmq(T const &e)const{
-                return (e > 0.5 ? std::pow(Internal_lm(e),2) : 1/(4*e));
+                return (
+                    e > 0.5 ? 
+                    std::pow(Internal_lm(e),2) : 
+                    (e > 0 ?
+                        1 / (4 * e) : 
+                        (std::numeric_limits<T>::max())
+                    )
+                );
             }
 
             inline auto i_lm(T const &e)const{
                 return (e > 0.5 ? Internal_lm(e) : sqrt(1-e));;
             }
             inline auto lm(T const &e)const{
-                return (e > 0.5 ? Internal_lm(e) : 1/(4*e));
+                return (
+                    e > 0.5 ? 
+                    Internal_lm(e) : (
+                        e > 0 ? 
+                        std::sqrt(1/(4*e)) : 
+                        std::sqrt((std::numeric_limits<T>::max()))
+                        )
+                    );
             }
             inline auto i_rm(T const &e)const{
                 return (e > 0.5 ? sqrt(std::abs(Internal_um(e))) : 1);
             }
             inline auto rm(T const &e)const{
-                return (e > 0.5 ? sqrt(std::abs(Internal_um(e))) : 1/(2*e));
+                return (
+                    e > 0.5 ? 
+                    sqrt(std::abs(Internal_um(e))) : 
+                    (
+                        e > 0 ? 
+                        1 / (2 * e) : 
+                        (std::numeric_limits<T>::max())
+                    )
+                );
             }
 
             #define MAKE_FUNC_WRAPPER(func) inline auto func()const{ \
@@ -285,6 +309,9 @@ namespace evdm{
         inline T _DD_F_C(T const &u)const{
             return -(3*Rho_max+1)/4;
         }
+        inline T _DD_F(T const& u) const {
+            return -(3 * Rho(std::sqrt(u)) + 1) / 4;
+        }
         //NOT_CHECKED
         /// @brief finds u, that more than one in quadratic potential
         /// @param e positive energy, e<1/2
@@ -395,22 +422,30 @@ namespace evdm{
         }
         
         /// @brief get grid function of tau(theta/theta1)
+        /// @tparam U type of trajectory function
         /// @param rmin 
         /// @param rmax 
         /// @param Nbins 
         /// @return tuple(theta_max,tau_max,Taus)
+        template <typename U = T>
         inline auto get_internal_traj(T const & rmin,T const & rmax,size_t Nbins)const{
             auto u0 = rmin*rmin;
             auto u1 = rmax*rmax;
             
             auto u_av = (u0+u1)/2;
             auto u_d = (u0-u1)/2;
-            auto pot_cos = (1-u_av)/u_d;
-            auto theta_max = std::acos(
-                pot_cos < -1 ? -1 : (
-                    pot_cos <= 1 ? pot_cos : 1
-                )  
-            );
+            
+            
+
+            T theta_max = std::numbers::pi;
+            if (u1 > 1) {
+                auto pot_cos = (1 - u_av) / u_d;
+                theta_max = std::acos(
+                    pot_cos < -1 ? -1 : (
+                        pot_cos <= 1 ? pot_cos : 1
+                    )
+                );
+            }
 
             auto R = [&](auto theta){
                 return std::sqrt(u_av + u_d*std::cos(theta));
@@ -418,7 +453,12 @@ namespace evdm{
             auto dTau_dTheta = [&](auto theta){
                 return 1/(2*std::sqrt(S(R(theta*theta_max),rmin,rmax)));
             };
-            RFunc2_t Taus(GridR(0,1,Nbins+1),std::vector<T>(Nbins+1));
+
+            using GridR_mod = grob::GridUniform<U>;
+            using RFunc2_t_mod = grob::GridFunction<
+                grob::interpolator_spline1D,
+                GridR_mod, std::vector<U>>;
+            RFunc2_t_mod Taus(GridR_mod(0,1,Nbins+1),std::vector<U>(Nbins+1));
             Taus[0] = 0;
             for(size_t i=1;i<Taus.size();++i){
                 Taus[i] = Taus[i-1] + integrateAB2(dTau_dTheta,Taus.Grid[i-1],Taus.Grid[i],1);
