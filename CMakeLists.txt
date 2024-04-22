@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.4)
+
 set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ version selection")
+
 
 
 option(VERBOSE "" ON)
@@ -10,6 +12,7 @@ endif()
 #types, available in structs. 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/type_properties.cmake)
 #optional
+
 
 
 
@@ -32,9 +35,6 @@ set(SOURCES
 
 include(cmake/CPM.cmake)
 
-#CPMAddPackage("gh:Iwm341/GridObjects")
-
-
 find_package(Eigen3)
 if(NOT Eigen3_FOUND)
     message("Eigen3 not found, download from git")
@@ -50,7 +50,7 @@ endif()
 find_package(Grob)
 if(NOT Grob_FOUND)
     message("Grob not found, download from git")
-    CPMAddPackage("gh:IwM341/GridObject@1.0.1")
+    #CPMAddPackage("gh:IwM341/GridObject@1.0.1")
     find_package(Grob)
 endif()
 
@@ -64,10 +64,10 @@ target_link_libraries(pyevdm Eigen3::Eigen)
 target_include_directories(pyevdm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 ## grob lib, will be downloaded with cpm_cmake
-#set(GROB_INCLUDE_DIR "D:/Tmp/GridObject_1/include")
+set(GROB_INCLUDE_DIR "D:/Tmp/GridObject_1/include")
 target_include_directories(pyevdm PRIVATE ${GROB_INCLUDE_DIR})
 
-target_link_libraries(pyevdm Grob::grob)
+#target_link_libraries(pyevdm Grob::grob)
 ##
 
 pybind11_extension(pyevdm)
@@ -84,10 +84,16 @@ endif()
 set(PYMODULE_DIR ${CMAKE_BINARY_DIR}/evdm)
 set(PYMODULE_SRC_DIR ${CMAKE_SOURCE_DIR}/evdm_python_package_files)
 file(COPY ${PYMODULE_SRC_DIR}/evdm DESTINATION ${PYMODULE_DIR})
+#file(COPY ${PYMODULE_SRC_DIR}/evdm-stubs DESTINATION ${PYMODULE_DIR})
+
+
+##after development delete
+file(REMOVE ${PYMODULE_DIR}/evdm/_cpp_lib/pyevdm.py)
+##
+
 message(PROJECT_VERSION = ${PROJECT_VERSION})
 configure_file(${PYMODULE_SRC_DIR}/pyproject.toml.in ${PYMODULE_DIR}/pyproject.toml)
 
 set_target_properties(pyevdm PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${PYMODULE_DIR}/evdm/_cpp_lib
 )
-##

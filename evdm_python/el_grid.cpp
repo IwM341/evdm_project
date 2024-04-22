@@ -407,7 +407,7 @@ Py_EL_Grid CreateELGrid(
 				};
 				auto RhoL_func = [&](T t_e,T t_l)->T 
 				{
-					return pybind11::cast<T>(RhoE_func_opt(t_e,t_l));
+					return pybind11::cast<T>(RhoL_func_opt(t_e,t_l));
 				};
 				int nl_size = -1;
 				try {
@@ -503,17 +503,21 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 	constexpr auto val_ref_pol = py::return_value_policy::reference_internal;
 	py::class_<Py_EL_Grid>(m, "GridEL")
 		.def(py::init(&CreateELGrid),
-			"constructs eELGrid\n"
-			"body -- instance of Body class\n"
-			"ptypes -- number of particle types\n"
-			"Ne -- number of bins of E axis\n"
-			"Nl_func -- if number then number of bins of L axis,"
+			"constructs E-L Grid\n\n"
+			"Parameters:\n"
+			"___________\n"
+			"body : Body\n\tinstance of Body class\n"
+			"ptypes : int\n\tnumber of particle types.\n"
+			"Ne : int\n\t number of bins of E axis.\n"
+			"Nl_func : int | function\n\tif number then number of bins of L axis,"
 			"else a function from [0.0,1.0]->int,"
 			"indicating number of bins in L grid depending on e,"
-			"where 0.0 correspond to Emin = phi(0), and 1.0 -- to Emax = 0\n"
-			"RhoE [optional] -- bin density of e axis RhoE : e in [0.0,1.0]->float\n"
-			"RhoE [optional] -- bin density of l axis RhoL : (e,l) in [0.0,1.0]x[0.0,1.0]->float\n"
-			"dtype -- float or double",
+			"where 0.0 correspond to Emin = phi(0), and 1.0 -- to Emax = 0.\n"
+			"RhoE : function\n\t"
+			"[optional] bin density of e axis RhoE : e in [0.0,1.0]->float.\n"
+			"RhoL : function\n\t"
+			"[optional] bin density of l axis RhoL : (e,l) in [0.0,1.0]x[0.0,1.0]->float.\n"
+			"dtype : string\n\tfloat or double.",
 			py::arg("body"),
 			py::arg("ptypes"),
 			py::arg("Ne"),
@@ -528,13 +532,17 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 		.def("__repr__", &Py_EL_Grid::repr)
 		.def_property_readonly("body", &Py_EL_Grid::getBody)
 		.def("plot", &Py_EL_Grid::getPlot,
-			"return array of shape (N,2,2):\n"
+			"gives array of shape (N,2,2):\n"
 			"[ [[x_start_i,y_start_i],[x_end_i,y_end_i]],...]\n"
 			"arrays could be plottted with matplotlib:\n"
 			"lc = matplotlib.collections.LineCollection(result of this function)\n"
 			"fig, ax = plt.subplots()\n"
 			"ax.add_collection(lc)\n"
-			"if is_internal true, then l from 0 to 1, else from 0, l(e)", py::arg_v("is_internal", false)
+			"if is_internal true, then l from 0 to 1, else from 0, l(e).\n\n"
+			"Parameters:\n"
+			"___________\n"
+			"is_internal : bool\n\tif true, plot in internal representation.",
+			py::arg_v("is_internal", false)
 		)
 		.def("LE", &Py_EL_Grid::getLE,
 			"return tuple (E array,L(E) array)"
@@ -556,6 +564,6 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 			"T0,T1,Tin0,Tin1,Tout,rmin,rmax,theta,Tinth", val_ref_pol,
 			py::arg_v("pname", "T")
 		).def("rmp",&Py_EL_Grid::getRminRmax,
-			"reurns (rmin,rmax)(e,l_undim)",
+			"returns (rmin,rmax)(e,l_undim)",
 			py::arg("e"), py::arg("l"));
 }

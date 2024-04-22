@@ -140,6 +140,23 @@ namespace evdm{
             _P_V.rescale(x);
         }
     };
+    
+    struct FunctionalElasticFormFactor : ElasticFactorBase {
+        float (*Func)(float, float);
+
+        inline FunctionalElasticFormFactor(decltype(Func) mFunc) :Func(mFunc) {}
+
+        inline float ScatterFactor(float q_2, float v_2, float Eloss) const{
+            return Func(q_2, v_2);
+        }
+        inline std::string repr()const {
+            std::ostringstream S;
+            S << "functional form factor with ScatterFactor = <function at ";
+            S << reinterpret_cast<void*>(Func);
+            S << ">";
+            return S.str();
+        }
+    };
 
     namespace __index_detail{
         template<size_t i,typename IndexSeq>
@@ -252,7 +269,8 @@ namespace evdm{
     template <size_t...I>
     struct QexpFactors<std::index_sequence<I...>> :public std::variant<
             QexpFactor<I,false>...,QexpFactor<I,true>...,
-            QexpFactor_v<I,false>...,QexpFactor_v<I,true>...
+            QexpFactor_v<I,false>...,QexpFactor_v<I,true>...,
+            FunctionalElasticFormFactor
         >{
         typedef std::index_sequence<I...> PolySizes;
 
@@ -260,7 +278,8 @@ namespace evdm{
 
         typedef std::variant<
             QexpFactor<I,false>...,QexpFactor<I,true>...,
-            QexpFactor_v<I,false>...,QexpFactor_v<I,true>...
+            QexpFactor_v<I,false>...,QexpFactor_v<I,true>...,
+            FunctionalElasticFormFactor
         > Base;
 
         typedef std::variant<QexpFactor<I>...> Base_v0;
@@ -325,6 +344,9 @@ namespace evdm{
         QexpFactors(bool y_inv,double b,Array1_t const & coeffs_v0,Array2_t const & coeffs_v1): 
         Base(vmove(MakeBase_v1(y_inv,b,coeffs_v0,coeffs_v1))){}
 
+        QexpFactors(float (*ScatFunc)(float,float)) :
+            Base(FunctionalElasticFormFactor(ScatFunc)) {}
+
         inline Base & as_variant(){
             return static_cast<Base &>(*this);
         }
@@ -341,6 +363,21 @@ namespace evdm{
         void rescale(T sc) {
             std::visit([](auto const& Poly) ->std::string {
                 return Poly;
+            }, as_variant());
+        }
+        float eval_slow(float y, float v2T) const{
+            return std::visit([y, v2T](const auto& Poly) {
+                if constexpr (
+                    std::same_as<
+                        std::decay_t<decltype(Poly)>,
+                        FunctionalElasticFormFactor
+                    >) {
+                    return Poly.ScatterFactor(4 * y / 1, v2T, 0);
+                }
+                else {
+                    return Poly.ScatterFactor(4 * y / Poly.b_2, v2T, 0);
+                }
+                
             }, as_variant());
         }
     };

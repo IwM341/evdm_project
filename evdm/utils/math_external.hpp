@@ -15,10 +15,12 @@ namespace evdm {
 		return !std::isnan(x) ? x : 0;
 	}
 
+	/// @brief if x < up_x, x, else up_x
 	template <typename T,typename U>
 	inline constexpr T upbound(T  x,U up_x ) {
 		return x< up_x ? x : up_x;
 	}
+	/// @brief if x > down_x, x, else down_x
 	template <typename T, typename U>
 	inline constexpr T downbound(T  x, U down_x) {
 		return x > down_x ? x : down_x;

@@ -192,7 +192,7 @@ namespace evdm{
             auto ue =(b >= 1 ? std::sqrt(xi) : xi/(b1 + std::sqrt(b1*b1+b*xi)));
             auto e = std::get<0>(m_bin).reduction(ue);
             return grob::Point<T,T> {e,
-                    std::get<0>(m_bin).reduction(G())*LE(-e)};
+                    std::get<1>(m_bin).reduction(G())*LE(-e)};
         };
     }
 
@@ -329,10 +329,10 @@ namespace evdm{
             if constexpr (std::is_same_v<measure_t, measure_dEdl>) {
                 return gen_EL_dEdl(m_bin, b, G, LE);
             }
-            else if (std::is_same_v < measure_t, measure_dEdL>) {
+            else if constexpr (std::is_same_v < measure_t, measure_dEdL>) {
                 return gen_EL_dEdL(m_bin, b, G, LE);
             }
-            else if (std::is_same_v < measure_t, measure_dEdL2>) {
+            else if constexpr (std::is_same_v < measure_t, measure_dEdL2>) {
                 return gen_EL_dEdL2(m_bin, b, G, LE);
             }
             else {
@@ -343,10 +343,10 @@ namespace evdm{
             if constexpr (std::is_same_v<measure_t, measure_dEdl>) {
                 return gen_EL_dEdl_up_bound(m_bin, b, G, LE,Bound);
             }
-            else if (std::is_same_v < measure_t, measure_dEdL>) {
+            else if constexpr (std::is_same_v < measure_t, measure_dEdL>) {
                 return gen_EL_dEdL_up_bound(m_bin, b, G, LE, Bound);
             }
-            else if (std::is_same_v < measure_t, measure_dEdL2>) {
+            else if constexpr (std::is_same_v < measure_t, measure_dEdL2>) {
                 return gen_EL_dEdL2_up_bound(m_bin, b, G, LE, Bound);
             }
             else {

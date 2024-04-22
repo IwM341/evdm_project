@@ -12,18 +12,19 @@ size_t Py_BodyModel::size()const {
 }
 
 void Py_BodyModel::setTemp(pybind11::handle mTemp){
-	std::visit([&mTemp](auto & mb) {
-		if (pybind11::array_t<double>::check_(mTemp)) {
+	auto _mtemp = mTemp.cast<pybind11::array>();
+	std::visit([&_mtemp](auto & mb) {
+		if (pybind11::array_t<double>::check_(_mtemp)) {
 			mb->setTemp(
 				make_py_array_slice(
-					mTemp.cast< pybind11::array_t<double>>()
+					_mtemp.cast< pybind11::array_t<double>>()
 				)
 			);
 		}
-		else if (pybind11::array_t<float>::check_(mTemp)) {
+		else if (pybind11::array_t<float>::check_(_mtemp)) {
 			mb->setTemp(
 				make_py_array_slice(
-					mTemp.cast< pybind11::array_t<float >>()
+					_mtemp.cast< pybind11::array_t<float >>()
 				)
 			);
 		}
@@ -80,8 +81,6 @@ Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
 			#else
 			throw pybind11::type_error("in this build 'double' is not supported for body model type");
 			#endif // DISTRIB_USE_DOUBLE
-			
-			return;
 		}
 		else if (dtype == "float") {
 
@@ -90,7 +89,6 @@ Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
 #else
 			throw pybind11::type_error("in this build 'float' is not supported for body model type");
 #endif // BODY_MODEL_USE_FLOAT
-			return;
 		}
 		else {
 			throw pybind11::type_error("wrong data type: " + std::string(dtype) + ", expect float or double");
@@ -115,7 +113,6 @@ Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
 #else
 			throw pybind11::type_error("in this build 'double' is not supported for body model type");
 #endif // DISTRIB_USE_DOUBLE
-			return;
 		}
 		else if (dtype == "float") {
 
@@ -123,9 +120,7 @@ Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
 			m_body = evdm::make_body_model<float, evdm::forward_shared>(Ff, m_size, Velocity);
 #else
 			throw pybind11::type_error("in this build 'float' is not supported for body model type");
-#endif // BODY_MODEL_USE_FLOAT
-			
-			return;
+#endif // BODY_MODEL_USE_FLOA
 		}
 		else {
 			throw pybind11::type_error("wrong data type: " + std::string(dtype) + ", expect float or double");
@@ -205,17 +200,21 @@ void Py_BodyModel::add_to_python_module(pybind11::module_& m)
 	
 	namespace py = pybind11;
 	using pyobj_ref = pybind11::object const&;
-	py::class_<Py_BodyModel>(m, "Body")
+	py::class_<Py_BodyModel>(m, "Body",
+		"class contatingin information of density and gravitational potential as functions of r"
+		)
 		.def(
 			py::init([](pyobj_ref _o, std::optional<size_t> const& _size,
 				double Velocity, pybind11::handle mTemp, std::string_view dtype)
 				{return Create(_o, _size, dtype, Velocity, mTemp); }),
-			"constructs Body from Rho\n"
-			"Rho -- array of values of mass density or function [0,1]->real\n"
-			"size -- if Rho is func then size is the number of points\n"
-			"velocity -- velocity of body inside halo\n"
-			"dtype -- string, float or double\n"
-			"Temp -- optional temperature array, default - 0\n",
+			"constructs Body from Rho\n\n"
+			"Parameters:\n"
+			"___________\n"
+			"Rho : array or F\n\tvalues of mass density or density function [0,1]->real.\n"
+			"size : int\n\tif Rho is function then size is the number of points.\n"
+			"velocity : float\n\tvelocity of body relative to halo.\n"
+			"dtype : string\n\tfloat or double.\n"
+			"Temp : array\n\t optional temperature array of body.\n",
 			py::arg("Rho"),
 			py::arg_v("size", std::nullopt),
 			py::arg_v("velocity", 0.7e-3),

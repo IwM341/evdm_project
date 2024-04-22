@@ -184,21 +184,42 @@ namespace evdm{
             CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(u1z),
             _minus_F2_inv(-1/_F2) {}
 
-        
+        template <bool return_umin_umax_theta = false >
         inline auto theta1(Tr_Type e, Tr_Type l_undim, Tr_Type Lme) const {
             using T = Tr_Type;
+            using ExtraRet_t = std::tuple<T, T, T>;
+
             auto L = l_undim * Lme;
             auto L2 = L * L;
             
+            //_minus_F2_inv is positive
             auto z = ((1 + e)-L2) * _minus_F2_inv;
+
             bool small_z = z < 1e-3;
 
 
             T pot_cos;
+            auto ThetaMG = [](auto pot_cos) {
+                return std::acos(
+                pot_cos < -1 ? -1 : (
+                    pot_cos <= 1 ? pot_cos : 1
+                    )
+                ); 
+            };
+
             auto q_e = (1 + 2 * e) * _minus_F2_inv / 2;
             if (q_e <=0) {
                 if (z < 1e-6) {
-                    return pi<T>;
+                    if constexpr(!return_umin_umax_theta)
+                        return pi<T>;
+                    else {
+                        auto u1_min_u0 = dul(e, l_undim)*std::sqrt(1- l_undim* l_undim);
+                        auto u1_plus_u0 = su(e, l_undim);
+                        return ExtraRet_t(
+                            (u1_plus_u0 - u1_min_u0) / 2,
+                            (u1_plus_u0 + u1_min_u0) / 2, 
+                            pi<T>);
+                    }
                 }
                 auto sqr_qe = std::sqrt(q_e * q_e + 2 * z);
                 auto sqr_safe = Lme * 
@@ -213,11 +234,28 @@ namespace evdm{
                     auto m_asin = bad_delta?
                         0 :
                         std::asin(2 * std::sqrt(x) / (1 + x));
-                    return (bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
+                    auto RetTh = (bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
+                    if constexpr (!return_umin_umax_theta)
+                        return RetTh;
+                    else {
+                        return ExtraRet_t(
+                            downbound(1 - delta0, 0),
+                            1 + delta1, 
+                            RetTh);
+                    }
                 }
                 else {
                     auto d_delta = dusq(e, l_undim) * q_e;
                     pot_cos = d_delta / (delta0+ delta1);
+
+                    if constexpr (!return_umin_umax_theta)
+                        return ThetaMG(pot_cos);
+                    else {
+                        return ExtraRet_t(
+                            downbound(1 - delta0, 0),
+                            1 + delta1,
+                            ThetaMG(pot_cos));
+                    }
                 }
             }
             else {
@@ -230,11 +268,27 @@ namespace evdm{
                     auto m_asin = bad_delta?
                         0 :
                         std::asin(2 * std::sqrt(x) / (1 + x));
-                    return ( bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
+                    auto RetTh = ( bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
+                    if constexpr (!return_umin_umax_theta)
+                        return RetTh;
+                    else {
+                        return ExtraRet_t(
+                            downbound(1 - delta0, 0),
+                            1 + delta1,
+                            RetTh);
+                    }
                 }
                 else {
                     auto d_delta = dusq(e, l_undim) * q_e;
                     pot_cos = d_delta / (delta0 + delta1);
+                    if constexpr (!return_umin_umax_theta)
+                        return ThetaMG(pot_cos);
+                    else {
+                        return ExtraRet_t(
+                            downbound(1 - delta0, 0),
+                            1 + delta1,
+                            ThetaMG(pot_cos));
+                    }
                 }
             }
             
@@ -255,16 +309,22 @@ namespace evdm{
                 if (u02 > 2)
                     return pi<T>;
                 pot_cos = (sum_u-2) / delta_u;
-            }*/
+            }*//*
             auto ThetaM = std::acos(
                 pot_cos < -1 ? -1 : (
                     pot_cos <= 1 ? pot_cos : 1
                     )
             );
-            return ThetaM;
+            return ThetaM;*/
         }
         inline auto operator()(Tr_Type e, Tr_Type l_undim, Tr_Type Lme) const {
             auto ThetaM = theta1(e, l_undim, Lme);
+            return tinth(e, l_undim) * ThetaM;
+        }
+        inline auto tin_theta(Tr_Type e, Tr_Type l_undim) const {
+            return tinth(e, l_undim);
+        }
+        inline auto tin_full(Tr_Type e, Tr_Type l_undim, Tr_Type ThetaM) const {
             return tinth(e, l_undim) * ThetaM;
         }
     };
@@ -284,6 +344,11 @@ namespace evdm{
         inline auto operator()(T e, T l_undim) const {
             T L = l_undim * LE_i(-e);
             return eT(-e, L * L); 
+        }
+        template <typename T>
+        inline auto operator()(T e, T l_undim, T Lmax) const {
+            T L = l_undim * Lmax;
+            return eT(-e, L * L);
         }
     };
     template <typename T,typename LEF_t,typename U>

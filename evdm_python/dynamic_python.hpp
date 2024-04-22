@@ -13,34 +13,28 @@ struct Py_ScatterFactor : public evdm::FormFactor_t {
 	inline  const evdm::FormFactor_t& to_ff()const {
 		return *this;
 	}
+	double eval(double y,double v2_T = 0)const {
+		return eval_slow(y, v2_T);
+	}
+	pybind11::object _opt_functur;
 };
-Py_ScatterFactor qexp_factor(float b, bool y_inv,
-	pybind11::array_t<float> P_0_coeffs, pybind11::array_t<float> P_V_coeffs);
-Py_ScatterFactor qexp_factor(float b, bool y_inv,
-	pybind11::array_t<float> P_0_coeffs);
-
 struct Py_ScatterEvent : public evdm::ScatterEvent {
-	std::string _name;
+	std::string name;
 	bool unique;
-	Py_ScatterEvent(pybind11::handle n_e, Py_ScatterFactor const & _factor, const char * name,bool unique);
-	static void add_to_python_module(pybind11::module_& m);
-};
-
-
-struct Py_TrajectoryInfo {
-	
-	static void add_to_python_module(pybind11::module_& m);
-};
-
-struct Py_AnnihilationInfo {
+	Py_ScatterEvent(
+		pybind11::handle n_e, Py_ScatterFactor const & _factor, 
+		const char * name,bool unique);
 	static void add_to_python_module(pybind11::module_& m);
 };
 
 
 
-pybind11::tuple Py_CaptureProccess(
+
+
+pybind11::tuple Py_CaptureProcess(
 	Py_Capture& CaptAccum,
-	int ptype,
+	int ptype_in,
+	int ptype_out,
 	float M_DM,
 	float deltaM,
 	float NucleiM,
@@ -48,14 +42,22 @@ pybind11::tuple Py_CaptureProccess(
 	float body_halo_v,
 	float dm_v_disp,
 	size_t Nmk,
-	std::string gen_dtype = "float",
 	float r_pow = 2, // the r sistribution
-	float weight = 1 // result will be multiplyed by weught
+	float weight = 1 // result will be multiplyed by weight
 	);
-void Scatter(std::vector<std::pair<int,int>> ptypes_in_out, 
-	const Py_ScatterEvent& sc_event, 
-	Py_TrajectoryInfo const& TrajInfo , 
-	Py_Matrix& CaptAccum);
+void Py_ScatterProcess(
+	Py_Matrix & ScatterAccum,
+	int ptype_in, int ptype_out, 
+	float M_DM,
+	float deltaM,
+	float NucleiM,
+	const Py_ScatterEvent& sc_event,
+	size_t Nmk,
+	size_t Nmk_per_traj,
+	bool count_evap,
+	float weight,
+	pybind11::handle update_function
+);
 
 void add_scatter_funcs_to_python_module(pybind11::module_& m);
 

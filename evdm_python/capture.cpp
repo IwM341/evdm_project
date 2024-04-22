@@ -1,8 +1,10 @@
 #include "core_python.hpp"
+#include <pybind11/stl.h>
 
 std::string scatter_event_info::repr()const
 {
-	return "(" + name + " + W_m_" + std::to_string(ptype) + ": " +
+	return "(" + name + " + W_m_" + std::to_string(ptype_in)
+		+ "->" + std::to_string(ptype_in) + ": " +
 		std::to_string(Nmk) +
 		" ["+ std::to_string(amount)+"]"+ ")";
 }
@@ -41,7 +43,8 @@ Py_Capture& Py_Capture::add(Py_Capture const& _another)
 		if (event.unique) {
 			for (const auto & _event2 : _another.events) {
 				if (event == _event2) {
-					throw pybind11::value_error("trying to combine captures with intersecting events");
+					throw pybind11::value_error("trying to combine"
+						"captures with intersecting events");
 				}
 			}
 		}
@@ -70,15 +73,26 @@ void Py_Capture::add_to_python_module(pybind11::module_& m) {
 				const char* dtype,
 				pybind11::handle Init) ->Py_Capture
 			{ return CreatePyDistrib(mGridEL, dtype, Init); }),
-			"constructor of Capture(Distrib) class\n"
-			"ELGrid -- Created EL Grid\n"
-			"dtype -- float or double\n"
-			"init -- initialiser fuinction (density)"
-			" of 3 args: (ptype,e,l),\n"
-			"default -- None, meaning zero dirtribution",
+			"constructor of Capture(Distrib) class\n\n"
+			"Parameters:\n"
+			"___________\n"
+			"ELGrid : GridEL\n\tgrid, where distribution is created.\n"
+			"dtype : string\n\t'float' or 'double'.\n"
+			"init : lambda\n\tinitialiser fuinction (density)"
+			"of 3 args: (ptype,e,l), "
+			"default - None, meaning zero dirtribution.",
 			py::arg("ELGrid"),
 			py::arg_v("dtype", "float"),
 			py::arg_v("init", py::none()))
+		.def(py::init(&CreateDistribFromNumpy),
+			"constructor of Capture(Distrib) class\n\n"
+			"Parameters:\n"
+			"___________\n"
+			"ELGrid : GridEL\n\tgrid, where distribution is created.\n"
+			"values : array\n\tnumpy array of values.\n",
+			py::arg("ELGrid"),
+			py::arg("values")
+		)
 		.def("as_type", &Py_Distribution::as_type, 
 			"creating Capture with another dtype",
 			py::arg("dtype")
@@ -88,7 +102,8 @@ void Py_Capture::add_to_python_module(pybind11::module_& m) {
 			"adds to capture extra events capture", 
 			py::arg("second_capture"))
 		.def("__add__", &Py_Capture::operator_plus)
-		.def_property_readonly("events", [](const Py_Capture& m_c) {return m_c.get_events(); });
+		.def_property_readonly("events", 
+			[](const Py_Capture& m_c) {return m_c.get_events(); });
 }
 
 

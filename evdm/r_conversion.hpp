@@ -2,6 +2,7 @@
 #define R_CONVERSION_HPP
 #include "measure.hpp"
 #include <grob/grid_objects.hpp>
+#include "utils/progress_bar.hpp"
 #include "utils/math_external.hpp"
 #include <numbers>
 #include <utility>
@@ -39,7 +40,8 @@ namespace evdm{
         Phi_Func_t const & Phi,
         _F2_t _F2,
         Gen_t G,
-        RGrid_t r_grid,size_t Nmk_per_bin = 10)
+        RGrid_t r_grid,size_t Nmk_per_bin = 10,
+        progress_omp_function<> m_prog_bar_func = progress_omp_function<>())
     {
         const size_t Nrg = r_grid.size();
         auto RDens = grob::make_function(std::move(r_grid),
@@ -90,7 +92,11 @@ namespace evdm{
             return bin1;
         };
         
-        //#pragma omp omp_in_parallel for private(G)
+
+
+        progress_omp_bar<> m_prog_bar(m_prog_bar_func, Nrg, 
+            std::max((int)Nrg / 100,(int)1));
+        #pragma omp omp_in_parallel for private(G)
         for (size_t ird = 0; ird < Nrg; ++ird) {
             auto& dense_accum = RDens[ird];
             T r = RDens.Grid[ird];
@@ -137,7 +143,7 @@ namespace evdm{
                             Trajects[IJ_LinIndex], LEf);
 
                         auto PeriodFunc = [&](auto e, auto l, auto Lmax) {
-                            return TinFunc(e, l, Lmax) + ToutFunc(e, l);
+                            return TinFunc(e, l, Lmax) + ToutFunc(e, l, Lmax);
                         };
 
                         /*checks*/ {
@@ -170,6 +176,7 @@ namespace evdm{
                     }
                 }
             }
+            m_prog_bar.next();
             /*FORMULA DEBUG,REMOVE*/
         //r_next_label:;
             /*FORMULA DEBUG,REMOVE*/

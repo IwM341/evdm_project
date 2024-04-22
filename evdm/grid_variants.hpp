@@ -4,11 +4,23 @@
 #include <grob/grid_gen.hpp>
 #include <variant>
 #include "utils/variant_tools.hpp"
+#include <concepts>
 namespace evdm{
 
     enum class GridEL_type {
         GridCUU, GridCVV
     };
+
+    template <GridEL_type _value>
+    struct GridEL_type_t {
+        constexpr static GridEL_type value = _value;
+    };
+    
+    template <typename mGridEL_type_t>
+    concept GridEL_type_C = requires{
+        {mGridEL_type_t::value}->std::same_as<GridEL_type>;
+    };
+
     
 
     template <typename T,GridEL_type>

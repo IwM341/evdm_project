@@ -183,6 +183,27 @@ struct variant_type_t<Converter_tp_t, std::tuple<Tuples...>> {
 using BodyModel_Variant_t = 
 	std::variant< evdm::BodyModel<float>>;
 //variant_type_t<convert_body_tp, BodtyModel_tp_t>;
+
+
+#define _GRID_EL_TMPL_ <class _T1,class _T2,evdm::GridEL_type _m_grid_t>
+#define _GRID_EL_PARS_ _T1,_T2,_m_grid_t
+
+#define _DISTRIB_TMPL_ <class _T1,class _T2,class _T3,evdm::GridEL_type _m_grid_t>
+#define _DISTRIB_PARS_ _T1,_T2,_T3,_m_grid_t
+
+#define _MATRIX_TMPL_ <class _T1,class _T2,class _T3,evdm::GridEL_type _m_grid_t>
+#define _MATRIX_PARS_ _T1,_T2,_T3,_m_grid_t
+
+template <
+	typename Mat_vt, typename Body_vt,
+	typename Grid_vt, typename mGrid_type
+> using Matrix_Pair = 
+	std::pair<
+		evdm::GridMatrix<Mat_vt, Body_vt, Grid_vt, mGrid_type::value>,
+		evdm::Distribution<Mat_vt, Body_vt, Grid_vt, mGrid_type::value>
+	>;
+
+
 using ELGrid_Variant_t =
 	std::variant< 
 		evdm::EL_Grid<float, float, evdm::GridEL_type::GridCUU>,
@@ -192,16 +213,45 @@ using Distrib_Variant_t =
 	std::variant< 
 		evdm::Distribution<float, float, float, evdm::GridEL_type::GridCUU>,
 		evdm::Distribution<float,float, float, evdm::GridEL_type::GridCVV>>;
+
+template <
+	typename Mat_vt, typename Body_vt, 
+	typename Grid_vt, evdm::GridEL_type GT 
+> using Matrix_Pair_Inst =
+std::pair<
+	evdm::GridMatrix<Mat_vt, Body_vt, Grid_vt, GT>,
+	evdm::Distribution<Mat_vt, Body_vt, Grid_vt, GT>
+>;
+
+
+
+template <typename Matrix_Pair_Inst_t>
+struct MatrixTypeInfo;
+
+template <
+	typename Mat_vt, typename Body_vt,
+	typename Grid_vt, evdm::GridEL_type GT 
+>
+struct MatrixTypeInfo<Matrix_Pair_Inst<Mat_vt, Body_vt, Grid_vt, GT>> {
+	using matrix_vtype = Mat_vt;
+	using body_vtype = Body_vt;
+	using grid_vtype = Grid_vt;
+	static constexpr evdm::GridEL_type grid_type = GT;
+};
+
+
 //variant_type_t<convert_distrib_tp, distrib_tp_t>;
 using Matrix_Variant_t =
-	std::variant< evdm::GridMatrix<float, float, float, evdm::GridEL_type::GridCUU>,
-				  evdm::GridMatrix<float, float, float, evdm::GridEL_type::GridCVV>>;
+	std::variant< 
+	Matrix_Pair_Inst<float, float, float, evdm::GridEL_type::GridCUU>,
+	Matrix_Pair_Inst<float, float, float, evdm::GridEL_type::GridCVV>
+>;
 // variant_type_t<convert_matrix_tp, distrib_tp_t>;
 
 
 /*
 std::variant<
-		//           B vtype, GEL vtype
+		//           B vtype, GEL gridtype
 		evdm::EL_Grid<float,float, evdm::GridEL_type::GridCUU>,
 		evdm::EL_Grid<float, double, evdm::GridEL_type::GridCUU>,
 		evdm::EL_Grid<double, float, evdm::GridEL_type::GridCUU>,

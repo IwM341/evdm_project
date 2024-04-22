@@ -3,6 +3,10 @@
 #include "debugdef.hpp"
 #include <evdm/measure.hpp>
 #include "grob_python.hpp"
+#include <pybind11/functional.h>
+#include "progress_log.hpp"
+#include <pybind11/stl.h>
+
 Py_EL_Grid Py_Distribution::getGrid()const {
 	return std::visit([](const auto& distrib) {
 		return Py_EL_Grid(distrib.Grid);
@@ -66,7 +70,8 @@ pybind11::tuple Py_Distribution::get_r_dense(
 	pybind11::handle ptypes,
 	double r_min, double  r_max, size_t Nr,
 	size_t Nperbin,
-	pybind11::handle opt_dense_funct) const
+	pybind11::handle opt_dense_funct,
+	pybind11::handle update_function) const
 {
 	int Ntypes = getGrid().ptypes();
 	auto check_ptype = [Ntypes](size_t p) {
@@ -104,14 +109,17 @@ pybind11::tuple Py_Distribution::get_r_dense(
 		grob::density_vector_nt(r_min, r_max, dense_function, Nr) :
 		grob::GridVector<double>(r_min, r_max, Nr);
 
+	evdm::progress_omp_function ProgF = 
+		make_progress_func(update_function);
+	
 	return  std::visit(
-		[&m_ptypes,Nperbin,rgrid = std::move(rGrid)]
+		[&m_ptypes,Nperbin,rgrid = std::move(rGrid), ProgF]
 		(auto const& distrib)->pybind11::tuple {
 			using Gen_t = decltype(distrib.get_grid_vtype());
 			auto r_dence_func = distrib.r_dens(
 				m_ptypes, evdm::xorshift<Gen_t>{},
 				std::move(rgrid),
-				Nperbin
+				Nperbin, ProgF
 			);
 			return make_python_function_1D(r_dence_func);
 		},
@@ -144,6 +152,33 @@ pybind11::tuple Py_Distribution::plot(size_t ptype) const
 			TrIndexes.mutable_data(), m_sizes
 		);
 		return pybind11::make_tuple(Vertexes, TrIndexes, Values);
+	}, m_distrib);
+}
+
+pybind11::array Py_Distribution::get_array(pybind11::handle  self, int ptype,bool raw)
+{
+	return std::visit(
+		[ptype, self, raw]_DISTRIB_TMPL_(
+			evdm::Distribution<_DISTRIB_PARS_> &distr
+		)->pybind11::array {
+		using T = decltype(distr.get_vtype());
+		if (!raw) {
+			Eigen::VectorBlock<Eigen::VectorX<T>> m_block = distr.block(ptype);
+			auto shape = pybind11::array::ShapeContainer({ m_block.size() });
+			auto strides = pybind11::array::ShapeContainer({ sizeof(T) });
+			return pybind11::array_t<T>(
+				pybind11::buffer_info(m_block.data(), shape, strides), self
+				);
+		}
+		else {
+			Eigen::VectorX<T> & m_block = distr.raw_vector();
+			auto shape = pybind11::array::ShapeContainer({ m_block.size() });
+			auto strides = pybind11::array::ShapeContainer({ sizeof(T) });
+			return pybind11::array_t<T>(
+				pybind11::buffer_info(m_block.data(), shape, strides), self
+				);
+		}
+		
 	}, m_distrib);
 }
 
@@ -181,6 +216,35 @@ Py_Distribution CreatePyDistrib(
 	} else {
 		throw pybind11::type_error("wrong data type: " + std::string(_dtype) + ", expect float or double");
 	}
+}
+
+Py_Distribution CreateDistribFromNumpy(
+	Py_EL_Grid const& mGridEL,pybind11::array X) 
+{
+	if (X.dtype().kind() == 'f') {
+		if (X.dtype().itemsize() == sizeof(float)) {
+#ifdef DISTRIB_USE_FLOAT
+			return Py_Distribution(mGridEL, (float*)X.mutable_data(), X.size());
+#else
+			throw pybind11::type_error("unsupported distrib type 'float'");
+#endif
+		}
+		else if (X.dtype().itemsize() == sizeof(double))
+		{
+#ifdef DISTRIB_USE_DOUBLE
+			return Py_Distribution(mGridEL, (double*)X.mutable_data(), X.size());
+#else
+			throw pybind11::type_error("unsupported distrib type 'double'");
+#endif
+		}
+		else {
+			throw pybind11::type_error("error: unsupported len of data type of array");
+		}
+	}
+	else {
+		throw pybind11::type_error("error: unsupported data type of array");
+	}
+	
 }
 
 double compare_distribs(
@@ -244,50 +308,82 @@ void Py_Distribution::add_to_python_module(pybind11::module_& m)
 	using pyobj_ref = py::object const&;
 	py::class_<Py_Distribution>(m, "Distrib")
 		.def(py::init(&CreatePyDistrib),
-			"constructor of Distrib class\n" 
-			"ELGrid -- Created EL Grid\n"
-			"dtype -- float or double\n"
-			"init -- initialiser fuinction (density)"
-			" of 3 args: (ptype,e,l),\n"
-			"default -- None, meaning zero dirtribution",
+			"constructor of Distrib class\n\n"
+			"Parameters:\n"
+			"___________\n"
+			"ELGrid : GridEL\n\tgrid, where distribution is created.\n"
+			"dtype : string\n\t'float' or 'double'.\n"
+			"init : lambda\n\tinitialiser fuinction (density)"
+			"of 3 args: (ptype,e,l), "
+			"default - None, meaning zero dirtribution.",
 			py::arg("ELGrid"),
 			py::arg_v("dtype", "float"),
-			py::arg_v("init" , py::none()))
-		.def("plot",&Py_Distribution::plot,
-			 "returns tuple: (vertexes,triangles,values)\n"
-			"where vertexes -- (N,2) shape array of vert coords,\n"
-			"triangles -- triangles (N,3) shape array of indexes\n"
-			"values -- values corresponding to vertexes", py::arg("ptype"))
+			py::arg_v("init", py::none()))
+		.def(py::init(&CreateDistribFromNumpy),
+			"constructor of Distrib class\n\n"
+			"Parameters:\n"
+			"___________\n"
+			"ELGrid : GridEL\n\tgrid, where distribution is created.\n"
+			"values : array\n\tnumpy array of values.\n",
+			py::arg("ELGrid"),
+			py::arg("values")
+		)
+		.def("plot", &Py_Distribution::plot,
+			"returns tuple: (vertexes,triangles,values)\n"
+			"where vertexes - (N,2) shape array of vert coords,\n"
+			"triangles - triangles (N,3) shape array of indexes\n"
+			"values - values corresponding to vertexes.\n\n"
+			"Parameters:\n"
+			"___________\n"
+			"ptype : int\n\twimp type.",
+			py::arg("ptype"))
 		.def("count", &Py_Distribution::count,
-			 "calculates number of particles",
-				py::arg_v("ptype", -1))
+			"calculates number of particles",
+			py::arg_v("ptype", -1))
 		.def("as_type", &Py_Distribution::as_type, py::arg("dtype"),
 			"creating Distrib with another dtype")
 		.def("copy", &Py_Distribution::copy)
-		.def_property_readonly("grid",&Py_Distribution::getGrid)
-		.def("rdens",&Py_Distribution::get_r_dense,
-			"return density function, i.e. d^N/d^3r\n"
-			"ptypes -- array or int: considered ptypes\n"
-			"rmin, rmax -- min and max radius in r distribution\n"
-			"Nr -- number of points in r grid from rmin to rmax\n"
-			"(Nb) -- number of MK iterations per bin for integration\n"
-			"(rden) -- optional density function of r points location",
-			py::arg_v("ptypes",-1), 
+		.def_property_readonly("grid", &Py_Distribution::getGrid)
+		.def("rdens", &Py_Distribution::get_r_dense,
+			"git density function, i.e. d^N/d^3r\n\n"
+			"Parameters:\n"
+			"___________\n"
+			"ptypes : array or int\n\t considered ptypes.\n"
+			"rmin : float\n\tmin radius in r distribution.\n"
+			"rmax : float\n\tmax radius in r distribution.\n"
+			"Nr : int\n\tnumber of points in r grid from rmin to rmax.\n"
+			"Nb : int\n\tnumber of MK iterations per bin for integration, default - 10000.\n"
+			"rden : function\n\toptional density function of r points location.\n"
+			"bar : progressbar\n\toptional progress bar update function.",
+			py::arg_v("ptypes", -1),
 			py::arg_v("rmin", 0), py::arg_v("rmax", 1), py::arg_v("Nr", 100),
-			py::arg_v("Nb", 10000), py::arg_v("rden", py::none())
+			py::arg_v("Nb", 10000), py::arg_v("rden", py::none()),
+			py::arg_v("bar", py::none())
+		)
+		.def("to_numpy", [](py::handle self, int ptype,bool is_raw)->py::array {
+			return py::cast<Py_Distribution&>(self).get_array(self, ptype,is_raw);
+		},
+			"gives numpy array view to distribution\n\n"
+			"Parameters:\n"
+			"___________\n"
+			"ptype : int\n\twimp type, default -1, meaning all.\n"
+			"is_raw : bool\n\tgives distribution array with padding.",
+			py::arg_v("ptype",-1), py::arg_v("is_raw", false)
 		);
 	
 	py::class_<Py_DistribMeasure>(m, "Metric")
 		.def(
 			py::init<std::string, double, int >(),
-			"Creating Lp Metric of distributions\n"
-			"using: M(D1,D2), constructor arguments:\n"
-			"Mes --\n"
-			"\t'dEdl': measure differential is dE and dl, where l = L/Lmax(E)\n"
-			"\t'dEdL': measure differential is dE and dL\n"
-			"\t'dEdL2': measure differential is dE and dL^2 = 2LdL\n"
-			"p_deg -- value of p parameter of Lp norm\n"
-			"ptype -- undex of particles to compare, if -1, than summ of all particles",
+			"Creation Lp Metric of distributions\n"
+			"use: M(D1,D2), constructor arguments:\n\n"
+			"Parameters:\n"
+			"___________\n"
+			"Mes : Measure\n"
+			"\t'dEdl' - measure differential is dE and dl, where l = L/Lmax(E)\n"
+			"\t'dEdL' - measure differential is dE and dL\n"
+			"\t'dEdL2' - measure differential is dE and dL^2 = 2LdL.\n"
+			"p_deg : float\n\tvalue of p parameter of Lp norm.\n"
+			"ptype : int\n\tindex of particles to compare, if -1, than summ of all particles.",
 			py::arg_v("Mes", "dEdL"),
 			py::arg_v("p_deg", 1),
 			py::arg_v("ptype", -1)

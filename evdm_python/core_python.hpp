@@ -142,6 +142,16 @@ struct Py_Distribution {
 			}, mGridEL.m_grid)
 		)
 	{}
+	
+	template <typename T>
+	Py_Distribution(Py_EL_Grid const& mGridEL,
+		T * _data,size_t _size,size_t padding = 128) :
+		m_distrib(
+			std::visit([&](auto const& _grid)->Distrib_Variant_t {
+				return evdm::make_Distribution_data<T>(_grid, _data,_size,padding);
+				}, mGridEL.m_grid)
+		)
+	{}
 
 	template <typename T,typename Bt,typename Gt, evdm::GridEL_type g_type>
 	Py_Distribution(
@@ -161,20 +171,27 @@ struct Py_Distribution {
 	std::string repr()const;
 	Py_Distribution as_type(const char* type_n)const;
 	
+	pybind11::array get_array(pybind11::handle self, int ptype,bool raw = false);
+
 	double count(int ptype = -1)const;
 	pybind11::tuple get_r_dense(
 		pybind11::handle ptypes,
-		double r_min,double  r_max,size_t Nr,
+		double r_min, double  r_max, size_t Nr,
 		size_t Nperbin,
-		pybind11::handle opt_dense_funct) const;
+		pybind11::handle opt_dense_funct,
+		pybind11::handle update_function) const;
 
 	pybind11::tuple plot(size_t ptype)const;
+
 	static void add_to_python_module(pybind11::module_& m);
 };
 Py_Distribution CreatePyDistrib(
 	Py_EL_Grid const& mGridEL,
 	const char* dtype,
 	pybind11::handle Init
+);
+Py_Distribution CreateDistribFromNumpy(
+	Py_EL_Grid const& mGridEL, pybind11::array X
 );
 double compare_distribs(
 	Py_Distribution const& D1,
@@ -194,18 +211,26 @@ struct Py_DistribMeasure {
 
 struct scatter_event_info {
 	std::string name;
-	size_t ptype;
+	size_t ptype_in;
+	size_t ptype_out;
 	double amount;
 	double Nmk;
 	bool unique;
-	inline scatter_event_info():name(""), ptype(0),amount(0), Nmk(0), unique(false) {}
-	inline scatter_event_info(std::string name, size_t ptype,double amount, double Nmk):
-		name(name), ptype(ptype), amount(amount), Nmk(Nmk){}
+	inline scatter_event_info():
+		name(""), ptype_in(0), ptype_out(0), amount(0), Nmk(0), unique(false) {}
+	inline scatter_event_info(
+		std::string name, size_t ptype_in, size_t ptype_out,double amount, double Nmk,
+		bool unique = true):
+		name(name), ptype_in(ptype_in), ptype_out(ptype_out),
+		amount(amount), Nmk(Nmk),unique(unique){}
+
 	inline bool operator == (const scatter_event_info& event) const {
-		return name == event.name && ptype == event.ptype;
+		return name == event.name && ptype_in == event.ptype_in 
+			&& ptype_out == event.ptype_out;
 	}
 	inline bool operator < (const scatter_event_info& event) const {
-		return (name < event.name) || (ptype < event.ptype);
+		return (name < event.name) || (ptype_in < event.ptype_in)
+			|| ((ptype_out < event.ptype_out));
 	}
 	inline bool operator > (const scatter_event_info& event) const {
 		return event < *this;
@@ -222,9 +247,11 @@ struct scatter_event_info {
 		double a1,double a2) {
 		return scatter_event_info(
 			E1.name,
-			E1.ptype,
+			E1.ptype_in,
+			E1.ptype_out,
 			a1 * E1.amount + a2 * E2.amount,
-			1 / (a1 * a1 / E1.Nmk + a2 * a2 / E2.Nmk)
+			1 / (a1 * a1 / E1.Nmk + a2 * a2 / E2.Nmk),
+			E1.unique || E2.unique
 		);
 	}
 	std::string repr()const;
@@ -266,21 +293,41 @@ struct Py_Matrix{
 		Py_EL_Grid::m_type_marker<T> _type):
 		m_matrix(
 			std::visit([](auto const& _grid)->Matrix_Variant_t {
-				return evdm::make_Matrix<T>(_grid);
+				return std::make_pair(
+					evdm::make_Matrix<T>(_grid),
+					evdm::make_Distribution<T>(
+						_grid,false
+					)
+				);
 			}, mGridEL.m_grid)
 		)
 	{}
 
 	template <typename T, typename Bt, typename Gt, evdm::GridEL_type g_type>
 	Py_Matrix(evdm::GridMatrix<T, Bt, Gt, g_type> const& mat) :
-		m_matrix(mat) {}
+		m_matrix(
+			std::make_pair(
+				mat, 
+				evdm::make_Distribution<T>(
+					mat.Grid, [](size_t i) {return (T)0.0; }
+				)
+			)
+		){}
+
+	template <typename T, typename Bt, typename Gt, evdm::GridEL_type g_type>
+	Py_Matrix(
+		evdm::GridMatrix<T, Bt, Gt, g_type> const& mat,
+		evdm::Distribution<T, Bt, Gt, g_type> const& distrib
+	) :
+		m_matrix(std::make_pair(mat, distrib)) {}
+
 
 	Py_EL_Grid getGrid()const;
 
 	template <typename T>
 	Py_Matrix as_type_t() const {
-		return std::visit([](auto const& mat) {
-				return Py_Matrix(mat.as_type<T>());
+		return std::visit([&](auto const& mat) {
+				return Py_Matrix(mat.first.as_type<T>(),mat.second.as_type<T>());
 			}, m_matrix);
 	}
 
@@ -293,6 +340,8 @@ struct Py_Matrix{
 	Py_Matrix as_type(const char* type_n)const;
 
 	Py_Distribution total_probs()const;
+
+	pybind11::array get_matrix(pybind11::handle self,int p_in,int p_out,bool raw);
 
 	
 	

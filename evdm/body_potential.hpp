@@ -50,7 +50,7 @@ namespace evdm{
         RFunc2_t Q;
         RFunc2_t Phi;
         
-        RFunc2_t VescFunc;
+        RFunc2_t VescFunc; /// sqrt(phi(r))
         RFunc1_t Temp;
 
 
@@ -138,7 +138,7 @@ namespace evdm{
             
             B.Vesc = VescMax;
             for (size_t i = 0; i < B.Phi.size(); ++i) {
-                B.VescFunc[i] = std::sqrt(B.Phi[i]) * VescMax;
+                B.VescFunc[i] = std::sqrt(B.Phi[i]);
             }
 
             return B;

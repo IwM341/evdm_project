@@ -12,7 +12,6 @@
 
 namespace evdm{
 
-    
     template <typename T>
     using BodyModel = std::shared_ptr<Body<T>>;
 
@@ -205,16 +204,43 @@ namespace evdm{
     }
 
 
-
     template <typename T,typename Body_vt,typename GridEL_vt, GridEL_type grid_type>
     struct Distribution{
         using GEL_vt = GridEL_vt;
         using GridEL_t = EL_Grid<Body_vt,GEL_vt, grid_type>;
         
         GridEL_t Grid;
-        std::shared_ptr<Eigen::VectorX<T>> Values;
-        
+        typedef Eigen::VectorX<T> _Vec_t;
+        typedef Eigen::VectorBlock<Eigen::VectorX<T>> Vec_t;
+        //using const_Vec_t = Eigen::VectorX<T>::ConstSegmentReturnType;
+        typedef Eigen::VectorBlock<const Eigen::VectorX<T>> const_Vec_t;
+    private: 
+        std::shared_ptr<Eigen::VectorX<T>> _Values;
+        Vec_t _ValuesView;
+        const_Vec_t _const_ValuesView;
+        size_t padding;
 
+        static Eigen::VectorX<T> process_vector(Eigen::VectorX<T> X,size_t _size,size_t padding) {
+            size_t delta = _size % padding;
+            if (X.size() >= _size && X.size() % padding == 0) {
+                return std::move(X);
+            }
+            else {
+                Eigen::VectorX<T> _X(delta ? _size + padding - delta : _size);
+                _X.setZero();
+                _X.segment(0, X.size()).noalias() = X;
+                return std::move(_X);
+            }
+        }
+
+    public:
+
+        
+        void check_ptype(int ptype) const{
+            if (!(ptype < grid().grid().size())) {
+                throw std::runtime_error("ptype should be less than max ptypes");
+            }
+        }
         static constexpr Body_vt get_body_vtype() {
             static_assert("Distribution::get_body_vtype() is not callable");
         };
@@ -228,11 +254,18 @@ namespace evdm{
         static constexpr GridEL_type get_grid_type() {
             return grid_type;
         }
+        
+        inline _Vec_t& raw_vector() {
+            return *_Values;
+        }
+        inline _Vec_t const& raw_vector()const {
+            return *_Values;
+        }
 
         inline auto const &grid()const{
             return *(Grid.Grid);
         }
-        inline auto const& body() const {
+        inline Body<Body_vt> const& body() const {
             return *Grid.body;
         }
         inline auto body_ptr() const {
@@ -243,11 +276,11 @@ namespace evdm{
             return Grid.TrajPools();
         }
 
-        inline auto const& values() const {
-            return *Values;
+        inline Vec_t values() {
+            return _ValuesView;
         } 
-        inline auto & values() {
-            return *Values;
+        inline const_Vec_t values() const {
+            return _const_ValuesView;
         }
         inline auto as_histo() {
             return grob::make_histo_view(grid(), values());
@@ -256,38 +289,80 @@ namespace evdm{
             return grob::make_histo_view(grid(), values());
         }
 
-        Distribution(GridEL_t const &Grid,
-                     Eigen::VectorX<T> Values = {}) : 
-            Grid(Grid),Values(std::make_shared< Eigen::VectorX<T>>(std::move(Values))){
-                if(this->Values->size() == 0){
-                    this->Values->resize(Grid.Grid->size());
-                    this->Values->setZero();
-                }
-            }
+        Distribution(GridEL_t const &Grid, Eigen::VectorX<T> Values = {},size_t padding = 128) : 
+            Grid(Grid),_Values(std::make_shared< Eigen::VectorX<T>>(process_vector(std::move(Values), grid().size(), padding))),
+            _ValuesView(_Values->segment(0,grid().size())),
+            _const_ValuesView( static_cast<const Eigen::VectorX<T> & >(*_Values).segment(0, grid().size()))
+        {}
         
         template <typename U>
         Distribution<U, Body_vt, GridEL_vt, grid_type> as_type() const {
-            return Distribution<U, Body_vt, GridEL_vt, grid_type>(Grid,Values->template cast<U>());
+            return Distribution<U, Body_vt, GridEL_vt, grid_type>(
+                Grid,_Values->template cast<U>()
+                );
         }
 
         T count(int ptype)const {
             if (ptype < 0) {
-                return Values->sum();
+                return _const_ValuesView.sum();
             }
             else {
+                check_ptype(ptype);
                 size_t N_size = grid().inner(0).size();
                 //Eigen::VectorXf Values;
-                return Values->block(ptype * N_size, 0, N_size, 1).sum();
+                return _const_ValuesView.segment(ptype * N_size,N_size).sum();
+            }
+        }
+        void CopyBroadcast(size_t ptype_src, size_t ptype_dst,T weight = 1) {
+            check_ptype(ptype_src);
+            check_ptype(ptype_dst);
+            size_t N_size = grid().inner(0).size();
+            _ValuesView.segment(ptype_dst * N_size, N_size) =
+                _ValuesView.segment(ptype_src * N_size, N_size);
+        }
+        void SummBroadcast(size_t ptype_src, size_t ptype_dst, T weight = 1) {
+            check_ptype(ptype_src);
+            check_ptype(ptype_dst);
+            size_t N_size = grid().inner(0).size();
+            _ValuesView.segment(ptype_dst * N_size, N_size) +=
+                _ValuesView.segment(ptype_src * N_size, N_size)* weight;
+        }
+        Eigen::VectorBlock<Eigen::VectorX<T>> block(int ptype) {
+            size_t N_size = grid().inner(0).size();
+            if (ptype >= 0) {
+                check_ptype(ptype);
+                return _Values->segment(ptype * N_size, N_size);
+            }
+            else {
+                return _ValuesView;
+            }
+            
+        }
+        const Eigen::VectorBlock<const Eigen::VectorX<T>> block(int ptype) const{
+            size_t N_size = grid().inner(0).size();
+            if (ptype >= 0) {
+                check_ptype(ptype);
+                return static_cast<const Eigen::VectorX<T> &>(*_Values).
+                    segment(ptype * N_size, N_size);
+            }
+            else {
+                return _const_ValuesView;
             }
         }
 
         template <typename Gen_t,typename RGrid_t>
-        auto r_dens(std::vector<size_t> ptypes, Gen_t && G, RGrid_t && RGrid,
-                    size_t Nmk_per_bin = 1000) const {
+        auto r_dens(
+            std::vector<size_t> ptypes, Gen_t && G, RGrid_t && RGrid,
+            size_t Nmk_per_bin = 1000,
+            progress_omp_function<> m_prog_bar_func = progress_omp_function<>()
+        ) const {
+            for (auto ptype : ptypes) {
+                check_ptype(ptype);
+            }
             return convert_r_density(
                 as_histo(),TrajPools(), 
                 ptypes, Grid.LE(), body().Phi,body()._DD_F_C(1),
-                G, std::forward<RGrid_t>(RGrid), Nmk_per_bin
+                G, std::forward<RGrid_t>(RGrid), Nmk_per_bin, m_prog_bar_func
             );
         }
     };
@@ -337,16 +412,67 @@ namespace evdm{
         );
     }
 
+    template <
+        typename T,
+        typename Body_vt, typename GridEL_vt,
+        GridEL_type grid_type
+    >
+    auto make_Distribution_data(
+        EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid, 
+        T * _data,size_t _size,size_t padding
+    ) {
+        size_t _size_grid = Grid.Grid->size();
+        size_t _new_size = _size_grid + padding - _size_grid % padding;
+        Eigen::VectorX<T> X(_new_size);
+        X.setZero();
+        size_t _copy_size = std::min(_size, _new_size);
+        Eigen::Map<Eigen::VectorXf, Eigen::Unaligned> Data_Map(_data, _copy_size);
+        X.segment(0, _copy_size) = Data_Map;
+        return Distribution<T, Body_vt, GridEL_vt,grid_type>(
+            Grid,
+            std::move(X)
+        );
+    }
+
     template <typename T>
     using Matrix_t = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
 
-    template <typename T, typename Body_vt, typename GridEL_vt, GridEL_type grid_type>
+    template <typename T, typename Body_vt, 
+        typename GridEL_vt, GridEL_type grid_type>
     struct GridMatrix{
         using GEL_vt = GridEL_vt;
         using GridEL_t = EL_Grid<Body_vt, GEL_vt, grid_type>;
 
         GridEL_t Grid;
-        std::shared_ptr<Matrix_t<T>> Values;
+
+        typedef Matrix_t<T> _Mat_t;
+        typedef Eigen::Block<Matrix_t<T>> Mat_t;
+        //using const_Vec_t = Eigen::VectorX<T>::ConstSegmentReturnType;
+        typedef Eigen::Block<const Matrix_t<T>> const_Mat_t;
+    private:
+        std::shared_ptr<_Mat_t> _Values;
+        Mat_t _ValuesView;
+        const_Mat_t _const_ValuesView;
+        size_t padding;
+
+
+    static _Mat_t process_matrix(
+            _Mat_t X, size_t _N, 
+            size_t padding) {
+        size_t delta = _N % padding;
+        if (X.cols() >= _N && X.size() % padding == 0) {
+            return std::move(X);
+        }
+        else {
+            size_t _N_true = delta ? _N + padding - delta : _N;
+            _Mat_t _X(_N_true, _N_true);
+            _X.setZero();
+            _X.block(0,0, X.cols(), X.rows()).noalias() = X;
+            return std::move(_X);
+        }
+    }
+
+    public:
 
 
         static constexpr Body_vt get_body_vtype() {
@@ -363,39 +489,68 @@ namespace evdm{
             return grid_type;
         }
 
+
+        void check_ptype(int ptype) const {
+            if (!(ptype < grid().grid().size())) {
+                throw std::runtime_error("ptype should be less than max ptypes");
+            }
+        }
+
+
+        inline Body<Body_vt> const& body() const {
+            return *Grid.body;
+        }
+        inline auto body_ptr() const {
+            return Grid.body;
+        }
         inline auto const& grid()const {
             return *(Grid.Grid);
         }
-        inline auto const& values() const {
-            return *Values;
+        inline Mat_t values() {
+            return _ValuesView;
         }
-        inline auto& values() {
-            return *Values;
+        inline const_Mat_t values() const {
+            return _const_ValuesView;
+        }
+        inline _Mat_t & raw_matrix() {
+            return *_Values;
+        }
+        inline _Mat_t const& raw_matrix() const{
+            return *_Values;
         }
 
         template <typename Index>
         inline auto as_histo(Index const & _I) {
-            size_t _size = grid().size();
             size_t _shift = grid().LinearIndex(_I);
-            return grob::make_histo_view(grid(), values().data() + _shift);
+            return grob::make_histo_view(grid(), _ValuesView.col(_shift));
         }
+        
         template <typename Index>
-        inline auto as_histo(Index const& _I) const {
+        inline auto as_histo(Index const& _I) const{
             size_t _shift = grid().LinearIndex(_I);
-            return grob::make_histo_view(grid(), values().data() + _shift);
+            return grob::make_histo_view(grid(), _ValuesView.col(_shift));
         }
+
+        inline auto as_histo_i(size_t i) {
+            return grob::make_histo_view(grid(), _ValuesView.col(i));
+        }
+        inline auto as_histo_i(size_t i) const {
+            return grob::make_histo_view(grid(), _ValuesView.col(i));
+        }
+
         inline auto as_histo_bank(size_t ptype_in, size_t ptype_out) {
-            auto const& _grid = grid().inner(0);
-            size_t inner_size = _grid.size();
-            size_t ptypes = grid().grid().size();
+            check_ptype(ptype_in);
+            check_ptype(ptype_out);
+            auto const& _grid = grid().inner(0); //geom grid without ptypes
+            size_t inner_size = _grid.size(); //size of geom grid
+            size_t ptypes = grid().grid().size(); //number of ptypes
             return grob::make_grid_object_ref(
                 _grid,
                 grob::as_container(
-                    [&_grid, inner_size, ptype_in, ptype_out](size_t i) {
-                    return grob::make_histo_view(_grid,
-                            values().data() + 
-                            ptype_in * _grid.size() * inner_size + 
-                            ptype_out * inner_size
+                    [&_grid, m_block = block(ptype_in, ptype_out)](size_t i)mutable {
+                        auto m_col = m_block.col(i);
+                        return grob::make_histo_view(_grid,
+                            grob::vector_view(m_col.data(), m_col.size())
                         );
                     }, _grid.size()
                 )
@@ -403,17 +558,90 @@ namespace evdm{
         }
 
         GridMatrix(GridEL_t const& Grid,
-            Matrix_t<T> Values = {}) :
-            Grid(Grid), Values(std::make_shared< Matrix_t<T>>(std::move(Values))) {
-            if (this->Values->size() == 0) {
-                Values = Matrix_t<T>(Grid.Grid->size(),Grid.Grid->size());
-                this->Values->setZero();
-            }
-        }
+            Matrix_t<T> Values = {},size_t padding = 128) :
+            Grid(Grid), _Values(
+                std::make_shared< Matrix_t<T>>(
+                    process_matrix(std::move(Values), Grid.Grid->size(), padding)
+                )), 
+            _ValuesView(_Values->block(0, 0, grid().size(), grid().size())),
+            _const_ValuesView(
+                static_cast<_Mat_t const &>(*_Values)
+                    .block(0, 0, grid().size(), grid().size())
+            ) {}
 
         template <typename U>
         GridMatrix<U, Body_vt, GridEL_vt, grid_type> as_type() const {
-            return GridMatrix<U, Body_vt, GridEL_vt, grid_type>(Grid, Values->template cast<U>());
+            return GridMatrix<U, Body_vt, GridEL_vt, grid_type>(
+                Grid, _Values->template cast<U>()
+            );
+        }
+
+        void CopyBroadcast(
+            size_t ptype_in_src, size_t ptype_out_src, 
+            size_t ptype_in_dst, size_t ptype_out_dst , T weight = 1) {
+
+            check_ptype(ptype_in_src);
+            check_ptype(ptype_out_src);
+            check_ptype(ptype_in_dst);
+            check_ptype(ptype_out_dst);
+
+            size_t N_size = grid().inner(0).size();
+            
+            _ValuesView.block(ptype_out_dst * N_size, ptype_in_src* N_size,N_size, N_size) =
+                _ValuesView.block(ptype_out_src * N_size, ptype_in_src * N_size, N_size, N_size)
+                *weight;
+        }
+        void SummBroadcast(
+            size_t ptype_in_src, size_t ptype_out_src,
+            size_t ptype_in_dst, size_t ptype_out_dst, T weight = 1) {
+
+            check_ptype(ptype_in_src);
+            check_ptype(ptype_out_src);
+            check_ptype(ptype_in_dst);
+            check_ptype(ptype_out_dst);
+
+            size_t N_size = grid().inner(0).size();
+
+            _ValuesView.block(ptype_out_dst * N_size, ptype_in_src * N_size, N_size, N_size) =
+                _ValuesView.block(ptype_out_src * N_size, ptype_in_src * N_size, N_size, N_size)
+                * weight;
+        }
+
+        inline Eigen::Block<Matrix_t<T>> block(int ptype_in, int ptype_out){
+
+            
+
+            size_t N_size = grid().inner(0).size();
+            size_t N_size_full = grid().size();
+            if (ptype_in < 0 || ptype_out < 0) {
+                return _ValuesView;
+            }
+            else {
+                check_ptype(ptype_in);
+                check_ptype(ptype_out);
+                return raw_matrix().block(
+                    ptype_out * N_size, ptype_in * N_size,
+                    N_size, N_size
+                );
+            }
+        }
+        inline Eigen::Block<const Matrix_t<T>> block(int ptype_in, int ptype_out)const{
+
+            
+            
+            size_t N_size = grid().inner(0).size();
+            size_t N_size_full = grid().size();
+            if (ptype_in < 0 || ptype_out < 0) {
+                return _const_ValuesView;
+            }
+            else {
+                check_ptype(ptype_in);
+                check_ptype(ptype_out);
+                return raw_matrix().block(
+                    ptype_out * N_size, ptype_in * N_size,
+                    N_size, N_size
+                );
+            }
         }
     };
 
