@@ -1,7 +1,7 @@
 #include "core_python.hpp"
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
-#include <evdm/core.hpp>
+#include <evdm/core/core_body.hpp>
 #include <pybind11/stl.h>
 #include "debugdef.hpp"
 #include "grob_python.hpp"
@@ -194,6 +194,8 @@ Py_BodyModel Create(pybind11::handle Rho, std::optional<size_t> _size,
 	}
 	
 }
+
+
 
 void Py_BodyModel::add_to_python_module(pybind11::module_& m)
 { 

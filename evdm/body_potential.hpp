@@ -148,9 +148,11 @@ namespace evdm{
             RFunc2_t Internal_lm;
             RFunc2_t Internal_um;
 
+            /// @brief Lmax^2(e>0, internal
             inline auto i_lmq(T const &e)const{
                 return (e > 0.5 ? std::pow(Internal_lm(e),2) : 1-e);
             }
+            /// @brief Lmax^2(e>0), external trajs
             inline auto lmq(T const &e)const{
                 return (
                     e > 0.5 ? 
@@ -161,10 +163,11 @@ namespace evdm{
                     )
                 );
             }
-
+            /// @brief Lmax(e>0) internal
             inline auto i_lm(T const &e)const{
                 return (e > 0.5 ? Internal_lm(e) : sqrt(1-e));;
             }
+            /// @brief Lmax^2(e>0) external
             inline auto lm(T const &e)const{
                 return (
                     e > 0.5 ? 
@@ -175,9 +178,11 @@ namespace evdm{
                         )
                     );
             }
+            /// @brief emax(e>0) internal
             inline auto i_rm(T const &e)const{
                 return (e > 0.5 ? sqrt(std::abs(Internal_um(e))) : 1);
             }
+            /// @brief emax(e>0) external
             inline auto rm(T const &e)const{
                 return (
                     e > 0.5 ? 
@@ -422,6 +427,7 @@ namespace evdm{
         }
         
         /// @brief get grid function of tau(theta/theta1)
+        /// tau_max = real Tin/theta_max
         /// @tparam U type of trajectory function
         /// @param rmin 
         /// @param rmax 

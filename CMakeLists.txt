@@ -30,7 +30,9 @@ set(SOURCES
     ${P_SOURCES_DIR}/distribution.cpp
     ${P_SOURCES_DIR}/capture.cpp
     ${P_SOURCES_DIR}/matrix.cpp
-    ${P_SOURCES_DIR}/pyscatter.cpp
+    ${P_SOURCES_DIR}/pyscatter_process.cpp
+    ${P_SOURCES_DIR}/pycapture_process.cpp
+    ${P_SOURCES_DIR}/pydynamics.cpp
 )
 
 include(cmake/CPM.cmake)

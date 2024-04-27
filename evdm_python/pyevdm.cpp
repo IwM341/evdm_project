@@ -2,7 +2,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <Eigen/Eigen>
-#include <evdm/core.hpp>
 #include "core_python.hpp"
 #include "debugdef.hpp"
 #include "dynamic_python.hpp"

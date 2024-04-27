@@ -261,5 +261,75 @@ namespace evdm{
         }
     }
 
+    template <typename T, GridEL_type _grid_type>
+    tri_sizes GridEl_TriSizes_1order(
+        GridEL<T, _grid_type> const& _el_grid
+    ) {
+        auto const& grid = _el_grid.inner(0);
+        return {
+            grid.size()*4,
+            grid.size()*2
+        };
+    }
+
+    template <
+        typename HistoValuesType, typename LE_Functype,
+        typename ValueArray, typename XArray_t, typename YArray_t, 
+        typename TriangleArray,typename measure_t = measure_dEdL
+    >
+    void DirstributionPrinting_1order(
+        HistoValuesType const& Ni,
+        size_t ptype,
+        LE_Functype&& LE,
+        ValueArray&& Values,
+        XArray_t && XArray,
+        YArray_t&& YArray,
+        TriangleArray&& Triangles,
+        const tri_sizes m_trs,
+        measure_t m_measure_inst = {}
+    ) {
+        using T = std::decay_t<decltype(Ni.Values[0])>;
+
+        auto const& grid = Ni.Grid.inner(0);
+        size_t _ptype_stride = Ni.Grid.grid().size();
+        auto & m_Vals = Ni.Values;
+        
+        size_t bin_index = 0;
+        for (auto m_bin : grid) {
+            auto [e0, e1] = std::get<0>(m_bin);
+            auto [l0, l1] = std::get<1>(m_bin);
+            auto Lm0 = LE(-e0);
+            auto Lm1 = LE(-e1);
+            auto L00 = l0 * Lm0;
+            auto L01 = l1 * Lm0;
+            auto L10 = l0 * Lm1;
+            auto L11 = l1 * Lm1;
+
+            size_t I0 = 4 * bin_index;
+
+            XArray[I0] = e0;
+            XArray[I0+1] = e0;
+            XArray[I0+2] = e1;
+            XArray[I0+3] = e1;
+
+            YArray[I0] = L00;
+            YArray[I0 + 1] = L01;
+            YArray[I0 + 2] = L10;
+            YArray[I0 + 3] = L11;
+            for (size_t i = 0; i < 3; ++i) {
+                Triangles[6 * bin_index + i] = I0 + i;
+            }
+            for (size_t i = 0; i < 3; ++i) {
+                Triangles[6 * bin_index+3 + i] = I0 + i + 1;
+            }
+            T m_dens = m_Vals[_ptype_stride * ptype + bin_index]/
+                mes_down(measure_t{}, m_bin, Lm0, Lm1);
+            for (size_t i = 0; i < 4; ++i) {
+                Values[4 * bin_index+i] = m_dens;
+            }
+            ++bin_index;
+        }
+    }
+
 };
 #endif//PRINT_GRID_HPP

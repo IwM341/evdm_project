@@ -6,6 +6,7 @@
 #include <pybind11/functional.h>
 #include "progress_log.hpp"
 #include <pybind11/stl.h>
+#include <format>
 
 Py_EL_Grid Py_Distribution::getGrid()const {
 	return std::visit([](const auto& distrib) {
@@ -128,7 +129,64 @@ pybind11::tuple Py_Distribution::get_r_dense(
 	
 }
 
-pybind11::tuple Py_Distribution::plot(size_t ptype) const
+pybind11::tuple Py_Distribution::plot1o(size_t ptype,std::string_view m_measure) const
+{
+	return std::visit([ptype, m_measure]<_DISTRIB_TMPL_>(
+	const evdm::Distribution<_DISTRIB_PARS_>& _distrib) {
+
+	if (ptype > _distrib.grid().grid().size()) {
+		throw pybind11::index_error("ptype is more than ptypes number");
+	}
+	typedef decltype(_distrib.get_vtype()) T;
+	typedef decltype(_distrib.get_grid_vtype()) GT;
+
+	evdm::tri_sizes m_sizes = evdm::GridEl_TriSizes_1order(*_distrib.Grid.Grid);
+
+	using shape = pybind11::array::ShapeContainer;
+
+	pybind11::array_t<GT> XArray(shape({ (int)m_sizes.pts }));
+	pybind11::array_t<GT> YArray(shape({ (int)m_sizes.pts }));
+
+	pybind11::array_t<int> TrIndexes(shape({ (int)m_sizes.trs, 3 }));
+	pybind11::array_t<T> Values(m_sizes.pts);
+
+	size_t measure_var = 0;
+	if (m_measure == "1" || m_measure == "" || m_measure == "") {
+		measure_var = 0;
+	} else if (m_measure == "dEdl" || m_measure == "El" || m_measure == "E-l") {
+		measure_var = 1;
+	}else if (m_measure == "dEdL" || m_measure == "EL" || m_measure == "default") {
+		measure_var = 2;
+	} else if (m_measure == "dEdL2" || m_measure == "dEdL^2" || m_measure == "EL2") {
+		measure_var = 3;
+	} else {
+		using namespace std::string_literals;
+		throw pybind11::value_error(
+			std::format("unexpected measure type '{}', "
+				"expect '', 'dEdl', 'dEdL' or 'dEdL2'",m_measure)
+		);
+	}
+	auto m_mes_variant = evdm::make_variant_alt(
+		measure_var,
+		evdm::measure_1{}, evdm::measure_dEdl{}, evdm::measure_dEdL{}, evdm::measure_dEdL2{}
+	);
+	std::visit([&](auto m_variant) {
+		evdm::DirstributionPrinting_1order(
+			_distrib.as_histo(), ptype, _distrib.Grid.LE(),
+			Values.mutable_data(),
+			XArray.mutable_data(),
+			YArray.mutable_data(),
+			TrIndexes.mutable_data(), m_sizes,
+			m_variant
+		);
+	}, m_mes_variant);
+	
+	return pybind11::make_tuple(XArray, YArray, TrIndexes, Values);
+	
+	}, m_distrib);
+}
+
+pybind11::tuple Py_Distribution::plot2o(size_t ptype) const
 {
 	return std::visit([ptype](const auto& _distrib) {
 		if (ptype > _distrib.grid().grid().size()) {
@@ -158,7 +216,7 @@ pybind11::tuple Py_Distribution::plot(size_t ptype) const
 pybind11::array Py_Distribution::get_array(pybind11::handle  self, int ptype,bool raw)
 {
 	return std::visit(
-		[ptype, self, raw]_DISTRIB_TMPL_(
+		[ptype, self, raw]<_DISTRIB_TMPL_>(
 			evdm::Distribution<_DISTRIB_PARS_> &distr
 		)->pybind11::array {
 		using T = decltype(distr.get_vtype());
@@ -327,15 +385,33 @@ void Py_Distribution::add_to_python_module(pybind11::module_& m)
 			"values : array\n\tnumpy array of values.\n",
 			py::arg("ELGrid"),
 			py::arg("values")
-		)
-		.def("plot", &Py_Distribution::plot,
-			"returns tuple: (vertexes,triangles,values)\n"
-			"where vertexes - (N,2) shape array of vert coords,\n"
+		).def("plot", &Py_Distribution::plot1o,
+			"returns tuple: (X,Y,triangles,values)\n"
+			"where X,Y - arrays of vertises x and y coords,\n"
 			"triangles - triangles (N,3) shape array of indexes\n"
 			"values - values corresponding to vertexes.\n\n"
 			"Parameters:\n"
 			"___________\n"
-			"ptype : int\n\twimp type.",
+			"ptype : int\n\twimp type.\n"
+			"mes : str\n\t measure of bins (standart is dEdL, no measure - '1' or '')\n\n"
+			"to plot using matplotlib type:\n\t"
+			"import matplotlib.tri as mtri\n\t"
+			"plt.tricontourf(triang,Z)\n\t"
+			"plt.triplot(triang,color = 'black')",
+			py::arg("ptype"), py::arg_v("mes","dEdL"))
+		.def("plot2", &Py_Distribution::plot2o,
+			"returns tuple: (vertexes,triangles,values)\n"
+			"where vertexes - (N,2) shape array of vert coords,\n"
+			"triangles - triangles (N,3) shape array of indexes\n"
+			"values - values corresponding to vertexes.\n\t"
+			"Parameters:\n"
+			"___________\n"
+			"ptype : int\n\twimp type.\n\n"
+			"to plot using plotly type:\n\n"
+			"fig = figf.create_trisurf(vert[:,0],vert[:,1], np.log(np.abs(-vals)),\n\t"
+                "colormap=\"Portland\",\n\t"
+                "simplices=trs,\n\t"
+                "title=\"title\")",
 			py::arg("ptype"))
 		.def("count", &Py_Distribution::count,
 			"calculates number of particles",

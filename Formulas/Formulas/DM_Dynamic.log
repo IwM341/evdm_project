@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  21 MAR 2024 18:12
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  27 APR 2024 21:01
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -1122,36 +1122,42 @@ Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 [2] [3 <./imags/graphT.jpg>] [4]
+<imags/diagramm1.png, id=98, 462.528pt x 346.896pt>
+File: imags/diagramm1.png Graphic file (type png)
+<use imags/diagramm1.png>
+Package pdftex.def Info: imags/diagramm1.png  used on input line 256.
+(pdftex.def)             Requested size: 416.27133pt x 312.2035pt.
+ [5 <./imags/diagramm1.png>]
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 270.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 270.
-
-[5]
-
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 327.
+(hyperref)                removing `math shift' on input line 300.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `subscript' on input line 327.
+(hyperref)                removing `math shift' on input line 300.
+
+[6]
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 357.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 327.
+(hyperref)                removing `subscript' on input line 357.
 
-[6] [7] [8] (DM_Dynamic.aux)
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 357.
+
+[7] [8] [9] (DM_Dynamic.aux)
 Package rerunfilecheck Info: File `DM_Dynamic.out' has not changed.
 (rerunfilecheck)             Checksum: D3BB26A9DA3701B7F1FC00CD46FC94F4;1444.
  ) 
 Here is how much of TeX's memory you used:
- 26144 strings out of 475385
- 502085 string characters out of 2790968
- 843026 words of memory out of 3000000
- 47030 multiletter control sequences out of 15000+600000
+ 26158 strings out of 475385
+ 502313 string characters out of 2790968
+ 843180 words of memory out of 3000000
+ 47039 multiletter control sequences out of 15000+600000
  472907 words of font info for 39 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  81i,13n,83p,520b,613s stack positions out of 10000i,1000n,20000p,200000b,80000s
@@ -1166,9 +1172,9 @@ oft/MikTex/fonts/type1/public/amsfonts/cm/cmr7.pfb><D:/Soft/MikTex/fonts/type1/
 public/amsfonts/cm/cmsy10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cm
 sy5.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy7.pfb><D:/Soft/MikTe
 x/fonts/type1/public/amsfonts/symbols/msam10.pfb>
-Output written on DM_Dynamic.pdf (8 pages, 223654 bytes).
+Output written on DM_Dynamic.pdf (9 pages, 251405 bytes).
 PDF statistics:
- 317 PDF objects out of 1000 (max. 8388607)
- 66 named destinations out of 1000 (max. 500000)
- 82 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 333 PDF objects out of 1000 (max. 8388607)
+ 69 named destinations out of 1000 (max. 500000)
+ 87 words of extra memory for PDF output out of 10000 (max. 10000000)
 

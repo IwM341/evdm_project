@@ -1,6 +1,9 @@
-#ifndef VALUE_TYPES_HPP
-#define VALUE_TYPES_HPP
-#include <evdm/core.hpp>
+#pragma once
+
+#include <evdm/core/core_body.hpp>
+#include <evdm/core/core_grid.hpp>
+#include <evdm/core/core_distrib.hpp>
+#include <evdm/core/core_matrix.hpp>
 #include <variant>
 
 #define BODY_MODEL_USE_FLOAT
@@ -185,13 +188,13 @@ using BodyModel_Variant_t =
 //variant_type_t<convert_body_tp, BodtyModel_tp_t>;
 
 
-#define _GRID_EL_TMPL_ <class _T1,class _T2,evdm::GridEL_type _m_grid_t>
+#define _GRID_EL_TMPL_ class _T1,class _T2,evdm::GridEL_type _m_grid_t
 #define _GRID_EL_PARS_ _T1,_T2,_m_grid_t
 
-#define _DISTRIB_TMPL_ <class _T1,class _T2,class _T3,evdm::GridEL_type _m_grid_t>
+#define _DISTRIB_TMPL_ class _T1,class _T2,class _T3,evdm::GridEL_type _m_grid_t
 #define _DISTRIB_PARS_ _T1,_T2,_T3,_m_grid_t
 
-#define _MATRIX_TMPL_ <class _T1,class _T2,class _T3,evdm::GridEL_type _m_grid_t>
+#define _MATRIX_TMPL_ class _T1,class _T2,class _T3,evdm::GridEL_type _m_grid_t
 #define _MATRIX_PARS_ _T1,_T2,_T3,_m_grid_t
 
 template <
@@ -263,6 +266,7 @@ std::variant<
 	>
 */
 
+/*
 #define DeclareClassVariants(AliasName,evdm_class_name) \
 using AliasName = std::variant<\
 	evdm::evdm_class_name<float, float, float, evdm::GridEL_type::GridCUU>,\
@@ -286,4 +290,4 @@ using AliasName = std::variant<\
 
 DeclareClassVariants(DistribVariants, Distribution)
 DeclareClassVariants(MatrixVariants, GridMatrix)
-#endif//VALUE_TYPES_HPP
+*/

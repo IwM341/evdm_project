@@ -1,6 +1,5 @@
 #ifndef CORE_PYTHON_HPP
 #define CORE_PYTHON_HPP
-#include <evdm/core.hpp>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <tuple>
@@ -60,6 +59,7 @@ struct Py_BodyModel {
 	pybind11::tuple getM()const;
 	pybind11::tuple getQ()const;
 	static void add_to_python_module(pybind11::module_& m);
+
 };
 
 struct Py_EL_Grid {
@@ -125,6 +125,19 @@ struct Py_EL_Grid {
 	std::function<double(double)> getLE_callFunc() const;
 
 	static void add_to_python_module(pybind11::module_& m);
+	std::variant<size_t,std::pair<size_t,size_t>> get_index(
+		double e, double L,bool linear,bool hidden)const;
+	size_t get_e_index(double e)const;
+	pybind11::dict get_el(
+		std::variant<size_t, std::pair<size_t, size_t>> index)const;
+	pybind11::array get_E_array()const;
+	pybind11::array get_L_array(size_t index, bool hidden)const;
+
+
+
+	pybind11::dict _get_traj_all(double e, double L);
+
+	pybind11::dict _get_traj_all_inter(double e, double L);
 };
 
 
@@ -142,7 +155,20 @@ struct Py_Distribution {
 			}, mGridEL.m_grid)
 		)
 	{}
-	
+
+	template <typename ArrayType>
+	Py_Distribution(Py_EL_Grid const& mGridEL,
+		ArrayType && _array,size_t padding) :
+		m_distrib(
+			std::visit([&_array, padding](auto const& _grid)->Distrib_Variant_t {
+				return evdm::make_Distribution_array(
+					_grid, std::forward<ArrayType>(_array), padding
+				);
+			}, mGridEL.m_grid)
+		)
+	{}
+
+
 	template <typename T>
 	Py_Distribution(Py_EL_Grid const& mGridEL,
 		T * _data,size_t _size,size_t padding = 128) :
@@ -181,7 +207,8 @@ struct Py_Distribution {
 		pybind11::handle opt_dense_funct,
 		pybind11::handle update_function) const;
 
-	pybind11::tuple plot(size_t ptype)const;
+	pybind11::tuple plot2o(size_t ptype)const;
+	pybind11::tuple plot1o(size_t ptype , std::string_view m_measure)const;
 
 	static void add_to_python_module(pybind11::module_& m);
 };
@@ -331,7 +358,8 @@ struct Py_Matrix{
 			}, m_matrix);
 	}
 
-	Py_Matrix make_copy() const { static_assert(""); }
+	Py_Matrix make_copy() const { static_assert(""); };
+	void calc_diag();
 
 	void combine(Py_Matrix const& _another) { static_assert(""); }
 
@@ -339,10 +367,15 @@ struct Py_Matrix{
 	std::string repr()const;
 	Py_Matrix as_type(const char* type_n)const;
 
-	Py_Distribution total_probs()const;
+	//Py_Distribution total_probs()const;
+	Py_Distribution evap_distrib();
+
 
 	pybind11::array get_matrix(pybind11::handle self,int p_in,int p_out,bool raw);
+	pybind11::array get_diag(pybind11::handle self, int p_in, int p_out, bool raw);
+	pybind11::array get_evap(pybind11::handle self, int p_type, bool raw);
 
+	Py_Distribution get_diag_distrib();
 	
 	
 	static void add_to_python_module(pybind11::module_& m);

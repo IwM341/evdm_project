@@ -26,6 +26,19 @@ template <typename T>
 auto make_py_array_slice(pybind11::array_t<T>& mvector) {
 	return grob::make_slice(mvector.mutable_data(),0,mvector.size());
 }
+
+template <typename Vect_t>
+auto make_py_array(Vect_t const & arr) {
+	namespace py = pybind11;
+	typedef typename std::decay_t<decltype(arr[0])> T;
+	py::array_t<T> Array(arr.size());
+	T* _data = Array.mutable_data();
+	for (size_t i = 0; i < arr.size(); ++i) {
+		_data[i] = arr[i];
+	}
+	return Array;
+}
+
 template <typename T>
 auto make_py_array_slice(pybind11::array_t<T>const& mvector) {
 	return grob::make_slice(mvector.data(), 0, mvector.size());

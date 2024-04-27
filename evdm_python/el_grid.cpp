@@ -3,6 +3,7 @@
 #include "grob_python.hpp"
 #include <pybind11/functional.h>
 #include <set>
+#include <pybind11/stl.h>
 
 size_t Py_EL_Grid::size() const
 {
@@ -57,6 +58,7 @@ Py_BodyModel Py_EL_Grid::getBody() const
 		}, m_grid);
 }
 
+
 pybind11::array Py_EL_Grid::getPlot(bool is_internal) const
 {
 	return std::visit(
@@ -107,6 +109,56 @@ pybind11::array Py_EL_Grid::getPlot(bool is_internal) const
 	);
 }
 
+pybind11::dict Py_EL_Grid::_get_traj_all(double e, double l) {
+	return std::visit(
+		[e, l]<_GRID_EL_TMPL_>(const  evdm::EL_Grid<_GRID_EL_PARS_> &m_gr)
+	{
+		evdm::Body<_T1> const& B = *m_gr.body;
+		typename evdm::Body<_T1>::LE_func_t const & LE_s = m_gr.getBodyLE();
+		auto L = l * LE_s.i_lm(-e);
+		auto [r0, r1] = B.find_rmin_rmax(-e, L * L, LE_s);
+		auto [theta_max, tau_max, _] = B.get_internal_traj(r0, r1, 200);
+		using namespace pybind11::literals;
+		return pybind11::dict("rmin"_a= r0, "rmax"_a = r1, "theta"_a = theta_max,"tau_theta"_a = tau_max);
+	},
+		m_grid
+	);
+}
+
+pybind11::dict Py_EL_Grid::_get_traj_all_inter(double e, double l) {
+	return std::visit(
+		[e, l]<_GRID_EL_TMPL_>(const  evdm::EL_Grid<_GRID_EL_PARS_> &m_gr)
+	{
+		typename evdm::Body<_T1>::LE_func_t const& LE_s = m_gr.getBodyLE();
+		auto L = l * LE_s.i_lm(-e);
+		size_t i = m_gr.Grid->inner(0).LinearIndex(
+			m_gr.Grid->inner(0).pos(e, l)
+		);
+		auto const& m_traj_p = (*m_gr._TrajPools)[i];
+		evdm::Body<_T1> const& B = *m_gr.body;
+		auto _F2 = B._DD_F_C(1);
+		auto LEf = m_gr.LE();
+		auto TinFunc = make_bin_traj_pool_Tin_func(
+			m_traj_p, LEf, _F2);
+		auto ToutFunc = make_bin_traj_pool_Tout_func(
+			m_traj_p, LEf);
+
+		auto Lme = LEf(-e);
+		auto [u0, u1, theta_max] = TinFunc.template theta1<true>(e, l, Lme);
+		auto tau_max = TinFunc.tin_theta(e, l);
+		auto r0 = (u0 > 0 ? std::sqrt(u0) : -std::sqrt(-u0));
+		auto r1 = (u1 > 0 ? std::sqrt(u1) : -std::sqrt(-u1));
+
+		using namespace pybind11::literals;
+		return pybind11::dict(
+			"rmin"_a = r0, "rmax"_a = r1, 
+			"theta"_a = theta_max, "tau_theta"_a = tau_max
+		);
+	},
+		m_grid
+	);
+}
+
 pybind11::tuple Py_EL_Grid::getLE() const
 {
 	return std::visit(
@@ -127,6 +179,89 @@ pybind11::tuple Py_EL_Grid::getLE() const
 			);
 		},m_grid
 	);
+}
+
+std::variant<size_t, std::pair<size_t, size_t>> Py_EL_Grid::get_index(
+	double e, double L, bool linear,bool hidden
+) const{
+	return std::visit([e, L, linear,hidden]<_GRID_EL_TMPL_>
+	(const  evdm::EL_Grid<_GRID_EL_PARS_> & m_gr)->
+		std::variant<size_t, std::pair<size_t, size_t>>
+	{
+		const auto& grid = m_gr.Grid->inner(0);
+		auto LE_f = m_gr.LE();
+		auto l = (hidden ? L : L / LE_f(-e));
+		auto IJ = grid.pos(e, l);
+		std::variant<size_t, std::pair<size_t, size_t>>V;
+		if (linear) {
+			V = (size_t)grid.LinearIndex(IJ);
+		} else {
+			V = std::pair<size_t, size_t>(IJ.i, IJ.m);
+		}
+		return V;
+	},m_grid);
+}
+size_t Py_EL_Grid::get_e_index(double e)const {
+	return std::visit([e]<_GRID_EL_TMPL_>
+	(const  evdm::EL_Grid<_GRID_EL_PARS_> &m_gr)->size_t
+	{
+		const auto& grid_e = m_gr.Grid->inner(0).grid();
+		return grid_e.pos(e);
+	}, m_grid);
+}
+
+pybind11::dict Py_EL_Grid::get_el(
+	std::variant<size_t, std::pair<size_t, size_t>> index)const {
+
+	return std::visit([]<_GRID_EL_TMPL_,typename T>
+	(const  evdm::EL_Grid<_GRID_EL_PARS_> &m_gr,T m_index)->pybind11::dict
+	{
+		grob::MultiIndex<size_t,size_t> real_index;
+		const auto& grid = m_gr.Grid->inner(0);
+		if constexpr (std::is_same_v<decltype(m_index), size_t>) {
+			real_index = grid.FromLinear(m_index);
+		}
+		else {
+			real_index = grob::MultiIndex<size_t, size_t>(m_index.first,m_index.second);
+		}
+		auto m_bin = grid[real_index];
+		auto [e0, e1] = std::get<0>(m_bin);
+		auto [l0, l1] = std::get<1>(m_bin);
+		auto Lm0 = m_gr.LE()(-e0);
+		auto Lm1 = m_gr.LE()(-e1);
+
+		using namespace pybind11::literals;
+		return pybind11::dict(
+			"e0"_a = e0, "e1"_a = e1,
+			"l0"_a = l0, "l1"_a = l1,
+			"L00"_a = l0 * Lm0, "L01"_a = l1 * Lm0, "L10"_a = l0 * Lm1, "L11"_a = l1 * Lm1,
+			"Lm0"_a = Lm0, "Lm1"_a = Lm1);
+	}, m_grid,index);
+
+}
+
+pybind11::array Py_EL_Grid::get_E_array()const {
+	return std::visit(
+		[]<_GRID_EL_TMPL_>
+		(const  evdm::EL_Grid<_GRID_EL_PARS_> &m_gr)->pybind11::array
+	{
+		return make_py_array(m_gr.Grid->inner(0).grid().unhisto());
+	},m_grid);
+}
+pybind11::array Py_EL_Grid::get_L_array(size_t index, bool hidden)const {
+	return std::visit(
+		[index, hidden]<_GRID_EL_TMPL_>
+		(const  evdm::EL_Grid<_GRID_EL_PARS_> &m_gr)->pybind11::array
+	{
+		_T2 Lm = m_gr.LE()(-m_gr.Grid->inner(0).grid()[index].center());
+		auto const& m_grid = m_gr.Grid->inner(0).inner(index).unhisto();
+		return make_py_array(
+			grob::as_container(
+				[hidden, Lm, &m_grid](size_t i)->_T2 {return hidden ? m_grid[i] : Lm * m_grid[i]; },
+				m_grid.size()
+			)
+		);
+	}, m_grid);
 }
 
 struct id_func_t {
@@ -563,7 +698,16 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 			"return functor of required param:\n"
 			"T0,T1,Tin0,Tin1,Tout,rmin,rmax,theta,Tinth", val_ref_pol,
 			py::arg_v("pname", "T")
-		).def("rmp",&Py_EL_Grid::getRminRmax,
+		)
+		.def("rmp",&Py_EL_Grid::getRminRmax,
 			"returns (rmin,rmax)(e,l_undim)",
-			py::arg("e"), py::arg("l"));
+			py::arg("e"), py::arg("l"))
+		.def("_get_index",&Py_EL_Grid::get_index,
+			py::arg("e"), py::arg("l"), py::arg_v("linear",false), py::arg_v("hidden",false))
+		.def("_get_el",&Py_EL_Grid::get_el, py::arg("index"))
+		.def("_get_e_array", &Py_EL_Grid::get_E_array)
+		.def("_get_l_array", &Py_EL_Grid::get_L_array, 
+			py::arg("e_index"), py::arg_v("hidden",false))
+		.def("_get_traj_all",&Py_EL_Grid::_get_traj_all,py::arg("e"), py::arg("l"))
+		.def("_get_traj_all_inter", &Py_EL_Grid::_get_traj_all_inter, py::arg("e"), py::arg("l"));
 }

@@ -159,12 +159,15 @@ namespace evdm{
     struct bin_traj_pool_Tin_func {
         bin_traj_pool_t<Tr_Type> const& TrajPool;
         LE_Func_t const& LE_i;
+        DECLARE_TRAJ_POOL_PARAM_MEMBER(umin);
+        DECLARE_TRAJ_POOL_PARAM_MEMBER(umax);
         DECLARE_TRAJ_POOL_PARAM_MEMBER(dul);
         DECLARE_TRAJ_POOL_PARAM_MEMBER(su);
         DECLARE_TRAJ_POOL_PARAM_MEMBER(dusq);
         DECLARE_TRAJ_POOL_PARAM_MEMBER(tinth);
         DECLARE_TRAJ_POOL_PARAM_MEMBER(u0z);
         DECLARE_TRAJ_POOL_PARAM_MEMBER(u1z);
+
 
 
         Tr_Type _minus_F2_inv;
@@ -176,6 +179,8 @@ namespace evdm{
             Tr_Type _F2 = -0.25
         ) :
             TrajPool(TrajPool), LE_i(LE_i),
+            CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(umin),
+            CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(umax),
             CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(dul),
             CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(su),
             CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(dusq),
@@ -183,6 +188,53 @@ namespace evdm{
             CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(u0z),
             CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(u1z),
             _minus_F2_inv(-1/_F2) {}
+
+        inline std::tuple<Tr_Type, Tr_Type, Tr_Type> 
+            u0_u1_theta1(Tr_Type e, Tr_Type l_undim, Tr_Type Lme) const 
+        {
+            using T = Tr_Type;
+            auto L = l_undim * Lme;
+            auto L2 = L * L;
+
+            if (L2 <= 1 + e) { //Left Zone
+                if(l_undim < 0.9){ // Down Zone
+                    auto u0 = umin(e, l_undim);
+                    auto u1 = umax(e, l_undim); 
+                    return { u0,u1 ,pi<T> };
+                } else {
+                    auto u1_min_u0 = dul(e, l_undim) * std::sqrt(1 - l_undim * l_undim);
+                    auto u1_plus_u0 = su(e, l_undim);
+                    auto u0 = (u1_plus_u0 - u1_min_u0) / 2;
+                    auto u1 = std::min((u1_plus_u0 + u1_min_u0) / 2, decltype(u0)(1));
+                    return {u0,u1 ,pi<T>};
+                }
+            }
+            else { // Right Zone
+                auto z = ((1 + e) - L2) * _minus_F2_inv;
+                auto q_e = (1 + 2 * e) * _minus_F2_inv / 2;
+                auto sqr_qe = std::sqrt(q_e * q_e + 2 * z);
+                auto delta1 = (q_e + sqr_qe);
+                auto u1 = 1 + delta1;
+                if (l_undim < 0.9) { // Down Zone
+                    auto u0 = umin(e, l_undim);
+                    auto delta0 = 1 - u0;
+                    auto x = delta1 / (delta0);
+                    auto bad_delta = delta0 <= 0;
+                    auto m_asin = bad_delta ? std::asin(2 * std::sqrt(x) / (1 + x)) : 0;
+                    auto RetTh = (bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
+                    return { u0 ,u1 RetTh }; 
+                }
+                else { // Up Zone
+                    auto delta0 = u0z(e, l_undim) * (2 * z / (sqr_qe + q_e));
+                    auto u0 = 1 + delta0;
+                    auto x = delta1 / (delta0);
+                    auto bad_delta = delta0 <= 0;
+                    auto m_asin = bad_delta ? std::asin(2 * std::sqrt(x) / (1 + x)) : 0;
+                    auto RetTh = (bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
+                    return { u0 ,u1 RetTh };
+                }
+            }
+        }
 
         template <bool return_umin_umax_theta = false >
         inline auto theta1(Tr_Type e, Tr_Type l_undim, Tr_Type Lme) const {
@@ -469,6 +521,7 @@ namespace evdm{
         typedef traj_info<Tr_Type> traj_info_t;
         auto get_traj = [&LE,&B,traj_bins](U e, U l)->traj_info_t {
             auto Lmax = LE.i_lm(-e);
+            auto rm_e = LE.i_rm(-e);
             auto L = (Lmax * l);
             auto L2 = L * L;
             auto [rm,rp] = B.find_rmin_rmax(-e,L2,LE);
@@ -477,8 +530,9 @@ namespace evdm{
             auto um = rm * rm;
             auto du = up - um;
             auto us = up + um;
-            auto F2 = B._DD_F_C(1);
-            
+            auto F2_1 = B._DD_F_C(1);
+            auto F2_r = B._DD_F_C(rm_e);
+
             auto z = (L2 - (1 + e)) / F2;
             auto q_e = (1 + 2 * e) / (-2 * F2);
 
@@ -487,7 +541,7 @@ namespace evdm{
             auto sqr_e = std::sqrt(q_e * q_e + 2 * z);
             auto sqr_safe = (
                 q_e < 0 ? 
-                Lmax *std::sqrt(-2/ F2 * (1-l*l)) :
+                Lmax *std::sqrt(-2/ F2_1 * (1-l*l)) :
                 sqr_e
             );
             auto dZp = (q_e < 0 ? (2 * z) / (sqr_safe - q_e) : sqr_safe + q_e);
@@ -510,7 +564,7 @@ namespace evdm{
                 dus_q = 2;
             traj_info_t Ret = {
                 rm,rp,
-                (l > 1-1e-4 ? 2* Lmax*std::sqrt(2/ -F2) : du/std::sqrt(1-l*l)),
+                (l > 1-1e-4 ? 2* Lmax*std::sqrt(2/ -F2_r) : du/std::sqrt(1-l*l)), //dul
                 us,dus_q,
                 u_delta_0z,u_delta_1z,
                 std::get<1>(m_traj),
@@ -519,7 +573,7 @@ namespace evdm{
                     typename traj_info<Tr_Type>::GridFunction_t::interpolator_t
                 >(std::get<2>(m_traj),traj_bins)
             };
-            return Ret;
+            return std::move(Ret);
         };
         if (is_static){
             auto mGrid = grob::mesh_grids(Bin_e_grid,Bin_l_p_grid);

@@ -4,8 +4,12 @@
 #include <grob/grid_objects.hpp>
 #include "utils/prng.hpp"
 #include "utils/math_external.hpp"
-namespace evdm{
+namespace evdm {
 
+    /**
+    * no measure, absolute value instead of density
+    */
+    struct measure_1 {};
     /**
     * the full square measure, where l = L/Lmax(e)
     */
@@ -20,27 +24,27 @@ namespace evdm{
     * measure \int{dEdL^2}
     */
     struct measure_dEdL2 {};
-    
+
     template <typename T>
     using bin_dedl_t = grob::Point<grob::Rect<T>, grob::Rect<T>>;
 
-    template <typename T,typename U>
-    inline T dEdl(bin_dedl_t<T> const & m_bin,
-                    U const& Lm0, U const& Lm1){
+    template <typename T, typename U>
+    inline T dEdl(bin_dedl_t<T> const& m_bin,
+        U const& Lm0, U const& Lm1) {
         return m_bin.volume();
     }
 
-    template <typename T,typename U>
-    inline T dEdL(bin_dedl_t<T> const & m_bin,
-                    U const & Lm0,U const & Lm1)
+    template <typename T, typename U>
+    inline T dEdL(bin_dedl_t<T> const& m_bin,
+        U const& Lm0, U const& Lm1)
     {
-        return m_bin.volume()*(Lm0+Lm1)/2;
+        return m_bin.volume() * (Lm0 + Lm1) / 2;
     }
-    template <typename T,typename U>
-    inline T dEdL2(bin_dedl_t<T> const & m_bin,
-                    U const & Lm0,U const & Lm1){
+    template <typename T, typename U>
+    inline T dEdL2(bin_dedl_t<T> const& m_bin,
+        U const& Lm0, U const& Lm1) {
         auto [l0, l1] = std::get<1>(m_bin);
-        return std::get<0>(m_bin).volume()*(l1*l1-l0*l0)*(Lm0*Lm0+ Lm0*Lm1 + Lm1*Lm1)/3;
+        return std::get<0>(m_bin).volume() * (l1 * l1 - l0 * l0) * (Lm0 * Lm0 + Lm0 * Lm1 + Lm1 * Lm1) / 3;
     }
     template <typename T>
     inline T dEd1_up(bin_dedl_t<T> const& m_bin,
@@ -52,44 +56,49 @@ namespace evdm{
     inline T dEdL_up(bin_dedl_t<T> const& m_bin,
         T const& Lm0, T const& Lm1)
     {
-        return m_bin.volume() * 2*(Lm1* Lm1* Lm1- Lm0* Lm0* Lm0)/3;
+        return m_bin.volume() * 2 * (Lm1 * Lm1 * Lm1 - Lm0 * Lm0 * Lm0) / 3;
     }
     template <typename T>
     inline T dEdL2_up(bin_dedl_t<T> const& m_bin,
         T const& Lm0, T const& Lm1) {
-        return m_bin.volume() * std::get<1>(m_bin).center() * (Lm0 * Lm0 + Lm1 *Lm1) / 2;
+        return m_bin.volume() * std::get<1>(m_bin).center() * (Lm0 * Lm0 + Lm1 * Lm1) / 2;
     }
 
-    /// <summary>
-    /// measure of el bin assuming e < -1/2
-    /// </summary>
-    /// <param name="mes_t">value of measure indicator measure_dEd*</param>
-    /// <param name="m_bin">bin in el grid</param>
-    /// <param name="Lm0">Lmax(e left)</param>
-    /// <param name="Lm1">Lmax(e right)</param>
-    /// <returns>real measure</returns>
+    namespace _detail {
+        template <typename T>
+        constexpr bool _assert_always_ = false;
+    };
+    
+
+    /// @brief measure of el bin assuming e < -1/2
+    /// @param mes_t value of measure indicator measure_dEd*
+    /// @param m_bin bin in el grid
+    /// @param Lm0 Lmax(e left)
+    /// @param Lm1 Lmax(e right)
+    /// @return real measure
     template <typename T,typename U,typename measure_t>
     inline T mes_down(measure_t mes_t,bin_dedl_t<T> const& m_bin, U const& Lm0, U const& Lm1) {
         if constexpr (std::is_same_v<measure_t, measure_dEdl>) {
             return dEdl(m_bin, Lm0, Lm1);
         }
-        else if (std::is_same_v < measure_t, measure_dEdL>) {
+        else if constexpr (std::is_same_v<measure_t, measure_1>) {
+            return 1;
+        }
+        else if constexpr (std::is_same_v < measure_t, measure_dEdL>) {
             return dEdL(m_bin, Lm0, Lm1);
         }
-        else if (std::is_same_v < measure_t, measure_dEdL2>) {
+        else if constexpr (std::is_same_v < measure_t, measure_dEdL2>) {
             return dEdL2(m_bin, Lm0, Lm1);
         }
         else {
-            static_assert(true,"unexpected mesure_t type");
+            static_assert(_detail::_assert_always_<measure_t>,"unexpected mesure_t type");
         }
     }
 
-    /// <summary>
-    /// measure of el bin assuming e < -1/2
-    /// </summary>
-    /// <param name="mes_t">value of measure indicator type measure_dEd*</param>
-    /// <param name="LE">L(E) function</param>
-    /// <returns>measure function of bin</returns>
+    /// @brief measure of el bin assuming e < -1/2
+    /// @param mes_t value of measure indicator type measure_dEd*
+    /// @param LE L(E) function
+    /// @return measure function of bi
     template <typename measure_t,typename LE_Functype>
     inline auto get_bin_mes(measure_t mes_t,LE_Functype && LE){
         return [&LE](auto const &m_bin){
@@ -119,7 +128,7 @@ namespace evdm{
             return dEdL2_up(m_bin, Lm0, Lm1);
         }
         else {
-            static_assert(true, "unexpected mesure_t type");
+            static_assert(_detail::_assert_always_<measure_t>, "unexpected mesure_t type");
         }
     }
 
@@ -336,7 +345,7 @@ namespace evdm{
                 return gen_EL_dEdL2(m_bin, b, G, LE);
             }
             else {
-                static_assert(true, "unexpected mesure_t type");
+                static_assert(_detail::_assert_always_<measure_t>, "unexpected mesure_t type");
             }
         }
         else {
@@ -350,7 +359,7 @@ namespace evdm{
                 return gen_EL_dEdL2_up_bound(m_bin, b, G, LE, Bound);
             }
             else {
-                static_assert(true, "unexpected mesure_t type");
+                static_assert(_detail::_assert_always_<measure_t>, "unexpected mesure_t type");
             }
         }
     }

@@ -59,7 +59,22 @@ void Py_ScatterProcess(
 	pybind11::handle update_function
 );
 
-void add_scatter_funcs_to_python_module(pybind11::module_& m);
+std::string make_compare_sc_event(
+	const Py_ScatterEvent& sc_event,
+	int ptype_in, int ptype_out,
+	const std::vector< scatter_event_info>& events
+);
+
+void add_pycapture_to_python_module(pybind11::module_& m);
+void add_pyscatter_to_python_module(pybind11::module_& m);
+
+
+inline void add_scatter_funcs_to_python_module(pybind11::module_& m) {
+	Py_ScatterFactor::add_to_python_module(m);
+	Py_ScatterEvent::add_to_python_module(m);
+	add_pycapture_to_python_module(m);
+	add_pyscatter_to_python_module(m);
+}
 
 
 #endif//DYNAMIC_PYTHON_HPP
