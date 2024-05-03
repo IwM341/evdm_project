@@ -194,7 +194,7 @@ namespace evdm {
 					auto Ltmp = l * Lmax;
 
 					auto [u0, u1, theta_max] =
-						TinFunc.template theta1<true>(e, l, Lmax);
+						TinFunc.u0_u1_theta1(e, l, Lmax);
 					u0 = std::clamp(u0, (decltype(u0))0, (decltype(u0))1);
 					u1 = std::clamp(u1, (decltype(u1))0, (decltype(u1))1);
 					auto r0 = std::sqrt(u0);

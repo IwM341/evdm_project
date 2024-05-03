@@ -317,6 +317,9 @@ namespace evdm{
         inline T _DD_F(T const& u) const {
             return -(3 * Rho(std::sqrt(u)) + 1) / 4;
         }
+        inline T _DD_F_r(T const& r) const {
+            return -(3 * Rho(r) + 1) / 4;
+        }
         //NOT_CHECKED
         /// @brief finds u, that more than one in quadratic potential
         /// @param e positive energy, e<1/2

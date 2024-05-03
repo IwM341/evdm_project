@@ -52,7 +52,7 @@ endif()
 find_package(Grob)
 if(NOT Grob_FOUND)
     message("Grob not found, download from git")
-    #CPMAddPackage("gh:IwM341/GridObject@1.0.1")
+    CPMAddPackage("gh:IwM341/GridObject@1.0.2")
     find_package(Grob)
 endif()
 
@@ -66,10 +66,10 @@ target_link_libraries(pyevdm Eigen3::Eigen)
 target_include_directories(pyevdm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 ## grob lib, will be downloaded with cpm_cmake
-set(GROB_INCLUDE_DIR "D:/Tmp/GridObject_1/include")
-target_include_directories(pyevdm PRIVATE ${GROB_INCLUDE_DIR})
+#set(GROB_INCLUDE_DIR "D:/Tmp/GridObject_1/include")
+#target_include_directories(pyevdm PRIVATE ${GROB_INCLUDE_DIR})
 
-#target_link_libraries(pyevdm Grob::grob)
+target_link_libraries(pyevdm Grob::grob)
 ##
 
 pybind11_extension(pyevdm)

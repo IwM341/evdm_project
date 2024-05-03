@@ -184,7 +184,7 @@
 	
 	Но и тут есть проблема, возникающая при $L^2 \approx 1-e$. Разложим $F(u)$ вблизи $u = 1$.
 	 \begin{equation}
-		F(u) = 1 - \frac{1}{2} (u-1) - \frac{F_2}{2}(u-1)^2
+		F(u) = 1 + \frac{1}{2} (u-1) + \frac{F_2}{2}(u-1)^2
 	 	]\label{eq:Fu_more_1}
 	 \end{equation}
 	 Решая $F(u) - eu - l^2 = 0$, получим:
@@ -277,6 +277,47 @@
 			\end{equation*}
 		\end{itemize}
 	\end{itemize}
+	
+	В области 1,3,5 нужно уточнить поведение при малых $l_u$. Для поиска $u_0$, $u_1$ мы решаем уравнение 
+	\begin{equation*}
+		F(u) - eu- L^2= 0 = u(\phi(u)-e) - L_m^2(e)l_u^2
+	\end{equation*}
+	при $e \rightarrow e_0$ $\phi(u)-e \approx e_0-e - C_0 u /2$
+	тогда 
+	\begin{equation*}
+		u_0 \approx \cfrac{L_m^2(e)l_u^2}{e_0-e}
+	\end{equation*}
+	Это означает, что при больших $e_0-e$ мы можем интеорполировать величину $u_0/l_u^2$.
+	Однако проблема возникает при малых $e_0-e$
+	Тут мы воспользуемся разложением
+	\begin{equation}
+		F(u) \approx e_0 u + F''(0)/2 u^2 = 
+		e_0 u - \frac{C_0}{2} u^2
+		\label{eq:F_near_0}
+	\end{equation}
+	тогда (обозначим $e_0-e$ как $de$)
+	\begin{equation}
+	u_{0/1} \approx \cfrac{de \pm \sqrt{de^2-2C_0 L^2} }{C_0} =
+	\cfrac{de \pm \sqrt{de^2-2C_0 L_m^2(e)\cdot l_u^2} }{C_0}
+	\end{equation}
+	
+	При $de \rightarrow 0$ $L_m^2(e) \rightarrow \frac{de^2}{2C_0}$
+	\begin{equation}
+		u_{0/1} \approx de\cfrac{1 \pm \sqrt{1-l_u^2} }{C_0}
+	\end{equation}
+	тогда при малых $l_u$ $u_1$ можно просто интерполировать по $e,l$, а $u_0$ нужно находить из интерполяции величины
+	\begin{equation}
+		u_{0l} = \cfrac{u_0}{l_u^2} \rightarrow (l_u \rightarrow 0) \rightarrow 
+		\cfrac{L_m^2(e)}{de} \approx (de \rightarrow 0) \approx \cfrac{de}{2 C_0}
+		\label{eq:u_0l_interpol}
+	\end{equation}
+	Однако при малых $de$, интерполяция может происходить на всём интервале $l_u = 0..1$. тогда \ref{eq:u_0l_interpol} плохо работает. В этом случае можно интерполировать величину
+	\begin{equation}
+		u_{0s} = \cfrac{u_{0/1}}{1 - \sqrt{1-l_u^2}} =  \cfrac{u_{0/1}}{l_u^2} (1 + \sqrt{1-l_u^2})  \rightarrow (l_u \rightarrow 0) \rightarrow 
+		2\cfrac{L_m^2(e)}{de} \approx (de \rightarrow 0) \approx \cfrac{de}{C_0}
+		\label{eq:u_0l_soph_interpol}
+	\end{equation}
+	
 		
 	\subsubsection{Потенциал.}
 	Свяжем величины: безразмерный потенциал $\varphi(r)$, безразмерный радиус $r$, безразмерная масса $M(r)$ (такая, что $M(1) = 1$), безразмерная плотность $\rho(r)$.

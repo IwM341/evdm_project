@@ -14,6 +14,7 @@ namespace evdm{
     template <typename T>
     struct traj_info{
         T rmin,rmax;  ///min and max r of trajectory
+        T umin_l2, umax;
         T dul, su, su_minus_2_q;/// (umax-umin)/sqrt(1-l^2), umax+umin, (umax+umin-2)/q_e
         T u_delta_0z, u_delta_1z;
         T T_in_theta; /// regularized by theta period
@@ -115,60 +116,37 @@ namespace evdm{
         );
     }
 
-    template <typename T>
-    inline constexpr T _id_func(T x) { return x; }
 
-    template <typename T>
-    inline constexpr T _quad_func(T x) { return x; }
-
-#define DECLARE_TRAJ_POOL_PARAMFUNCTION(final_param_name,transform,init_param)\
-        template <typename Tr_Type, typename LE_Func_t> \
-        inline auto traj_pool_##final_param_name##_func(bin_traj_pool_t<Tr_Type> const& TrajPool,\
-        LE_Func_t const& LE_i) { \
-        using Lin2Interpol = grob::interpolator_product< \
-            grob::linear_interpolator,\
-            grob::linear_interpolator \
-        >; \
-        return grob::make_function_ref<Lin2Interpol>( \
-            TrajPool.Grid, \
-            grob::as_container([&](size_t i) { \
-                return transform(TrajPool.Values[i].init_param); \
-                }, TrajPool.size()) \
-            ); \
-    }
-    DECLARE_TRAJ_POOL_PARAMFUNCTION(dul, _id_func, dul)
-    DECLARE_TRAJ_POOL_PARAMFUNCTION(su, _id_func, su)
-    DECLARE_TRAJ_POOL_PARAMFUNCTION(tinth, _id_func, T_in_theta)
-    DECLARE_TRAJ_POOL_PARAMFUNCTION(umin, _quad_func, rmin)
-    DECLARE_TRAJ_POOL_PARAMFUNCTION(umax, _quad_func, rmax)
-    DECLARE_TRAJ_POOL_PARAMFUNCTION(u0z, _id_func, u_delta_0z)
-    DECLARE_TRAJ_POOL_PARAMFUNCTION(u1z, _id_func, u_delta_1z)
-    DECLARE_TRAJ_POOL_PARAMFUNCTION(dusq, _id_func, su_minus_2_q)
-
-//#undef DECLARE_TRAJ_POOL_PARAMFUNCTION
-
-
-#define DECLARE_TRAJ_POOL_PARAM_MEMBER(param)\
-    using param##_f_t = decltype(traj_pool_##param##_func(TrajPool, LE_i));\
-    param##_f_t param;
-
-#define CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(param)\
-    param(traj_pool_##param##_func(TrajPool, LE_i))
+    namespace trajpool_param_arrays{
+    
+        #define DECLARE_TRAJ_POOL_PARAM_STRUCT(param,inner_param) \
+        template <typename Array_t> \
+        struct g_##param{ \
+            Array_t const& traj_pools;\
+            inline g_##param(Array_t const& traj_pools):traj_pools(traj_pools){}\
+            inline size_t size()const {\
+                return traj_pools.size();\
+            }\
+            inline auto operator [](size_t i) const{\
+                return traj_pools[i].inner_param;\
+            }\
+        };
+        DECLARE_TRAJ_POOL_PARAM_STRUCT(min_l2, min_l2);
+        DECLARE_TRAJ_POOL_PARAM_STRUCT(dul, dul);
+        DECLARE_TRAJ_POOL_PARAM_STRUCT(su, su);
+        DECLARE_TRAJ_POOL_PARAM_STRUCT(tinth, T_in_theta);
+        DECLARE_TRAJ_POOL_PARAM_STRUCT(umin_l2, umin_l2);
+        DECLARE_TRAJ_POOL_PARAM_STRUCT(umax, umax);
+        DECLARE_TRAJ_POOL_PARAM_STRUCT(u0z, u_delta_0z);
+        DECLARE_TRAJ_POOL_PARAM_STRUCT(u1z, u_delta_1z);
+        DECLARE_TRAJ_POOL_PARAM_STRUCT(dusq, su_minus_2_q);
+        #undef DECLARE_TRAJ_POOL_PARAM_STRUCT
+    };
 
     template <typename Tr_Type, typename LE_Func_t>
     struct bin_traj_pool_Tin_func {
         bin_traj_pool_t<Tr_Type> const& TrajPool;
         LE_Func_t const& LE_i;
-        DECLARE_TRAJ_POOL_PARAM_MEMBER(umin);
-        DECLARE_TRAJ_POOL_PARAM_MEMBER(umax);
-        DECLARE_TRAJ_POOL_PARAM_MEMBER(dul);
-        DECLARE_TRAJ_POOL_PARAM_MEMBER(su);
-        DECLARE_TRAJ_POOL_PARAM_MEMBER(dusq);
-        DECLARE_TRAJ_POOL_PARAM_MEMBER(tinth);
-        DECLARE_TRAJ_POOL_PARAM_MEMBER(u0z);
-        DECLARE_TRAJ_POOL_PARAM_MEMBER(u1z);
-
-
 
         Tr_Type _minus_F2_inv;
 
@@ -179,33 +157,44 @@ namespace evdm{
             Tr_Type _F2 = -0.25
         ) :
             TrajPool(TrajPool), LE_i(LE_i),
-            CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(umin),
-            CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(umax),
-            CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(dul),
-            CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(su),
-            CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(dusq),
-            CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(tinth),
-            CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(u0z),
-            CONSTRUCT_TRAJ_POOL_PARAM_MEMBER(u1z),
             _minus_F2_inv(-1/_F2) {}
+
+        using Lin2Interpol = grob::interpolator_product< 
+            grob::linear_interpolator, 
+            grob::linear_interpolator 
+        >;
+        #define DECLARE_PARAM_FUNC(param) \
+            auto param = grob::make_function_ref<Lin2Interpol>\
+            (TrajPool.Grid,trajpool_param_arrays::g_##param{TrajPool.Values});
+        #define DECLARE_ALL_FUNCS\
+            DECLARE_PARAM_FUNC(umin_l2);\
+            DECLARE_PARAM_FUNC(umax);\
+            DECLARE_PARAM_FUNC(dul);\
+            DECLARE_PARAM_FUNC(su);\
+            DECLARE_PARAM_FUNC(dusq);\
+            DECLARE_PARAM_FUNC(tinth);\
+            DECLARE_PARAM_FUNC(u0z);\
+            DECLARE_PARAM_FUNC(u1z);
 
         inline std::tuple<Tr_Type, Tr_Type, Tr_Type> 
             u0_u1_theta1(Tr_Type e, Tr_Type l_undim, Tr_Type Lme) const 
         {
+            DECLARE_ALL_FUNCS;
             using T = Tr_Type;
             auto L = l_undim * Lme;
             auto L2 = L * L;
-
-            if (L2 <= 1 + e) { //Left Zone
-                if(l_undim < 0.9){ // Down Zone
-                    auto u0 = umin(e, l_undim);
-                    auto u1 = umax(e, l_undim); 
+            auto l2 = l_undim * l_undim;
+            if (L2 >= 1 + e) { //Left Zone
+                if(l_undim < 0.8) { // Down Zone
+                    auto u0 = umin_l2(e, l_undim)* l2/(1 + std::sqrt(1 - l2));
+                    auto u1 = std::max(su(e, l_undim) - u0, u0);
                     return { u0,u1 ,pi<T> };
                 } else {
-                    auto u1_min_u0 = dul(e, l_undim) * std::sqrt(1 - l_undim * l_undim);
+
+                    auto u1_min_u0 = dul(e, l_undim) * std::sqrt(1 - l2);
                     auto u1_plus_u0 = su(e, l_undim);
-                    auto u0 = (u1_plus_u0 - u1_min_u0) / 2;
-                    auto u1 = std::min((u1_plus_u0 + u1_min_u0) / 2, decltype(u0)(1));
+                    auto u0 = downbound((u1_plus_u0 - u1_min_u0) / 2,0);
+                    auto u1 = upbound((u1_plus_u0 + u1_min_u0) / 2, 1);  
                     return {u0,u1 ,pi<T>};
                 }
             }
@@ -216,169 +205,79 @@ namespace evdm{
                 auto delta1 = (q_e + sqr_qe);
                 auto u1 = 1 + delta1;
                 if (l_undim < 0.9) { // Down Zone
-                    auto u0 = umin(e, l_undim);
+                    auto u0 = umin_l2(e, l_undim)* l2 / (1 + std::sqrt(1 - l2));
                     auto delta0 = 1 - u0;
                     auto x = delta1 / (delta0);
                     auto bad_delta = delta0 <= 0;
-                    auto m_asin = bad_delta ? std::asin(2 * std::sqrt(x) / (1 + x)) : 0;
+                    auto m_asin = (!bad_delta) ? std::asin(2 * std::sqrt(x) / (1 + x)) : 0;
                     auto RetTh = (bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
-                    return { u0 ,u1 RetTh }; 
+                    return { u0 ,u1, RetTh }; 
                 }
                 else { // Up Zone
                     auto delta0 = u0z(e, l_undim) * (2 * z / (sqr_qe + q_e));
-                    auto u0 = 1 + delta0;
+                    auto u0 = 1 - delta0;
                     auto x = delta1 / (delta0);
                     auto bad_delta = delta0 <= 0;
-                    auto m_asin = bad_delta ? std::asin(2 * std::sqrt(x) / (1 + x)) : 0;
+                    auto m_asin = (!bad_delta) ? std::asin(2 * std::sqrt(x) / (1 + x)) : 0;
                     auto RetTh = (bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
-                    return { u0 ,u1 RetTh };
+                    return { u0 ,u1, RetTh };
                 }
             }
         }
+        inline Tr_Type
+            theta1(Tr_Type e, Tr_Type l_undim, Tr_Type Lme) const
+        {
+            DECLARE_ALL_FUNCS;
 
-        template <bool return_umin_umax_theta = false >
-        inline auto theta1(Tr_Type e, Tr_Type l_undim, Tr_Type Lme) const {
             using T = Tr_Type;
-            using ExtraRet_t = std::tuple<T, T, T>;
-
             auto L = l_undim * Lme;
             auto L2 = L * L;
-            
-            //_minus_F2_inv is positive
-            auto z = ((1 + e)-L2) * _minus_F2_inv;
 
-            bool small_z = z < 1e-3;
-
-
-            T pot_cos;
-            auto ThetaMG = [](auto pot_cos) {
-                return std::acos(
-                pot_cos < -1 ? -1 : (
-                    pot_cos <= 1 ? pot_cos : 1
-                    )
-                ); 
-            };
-
-            auto q_e = (1 + 2 * e) * _minus_F2_inv / 2;
-            if (q_e <=0) {
-                if (z < 1e-6) {
-                    if constexpr(!return_umin_umax_theta)
-                        return pi<T>;
-                    else {
-                        auto u1_min_u0 = dul(e, l_undim)*std::sqrt(1- l_undim* l_undim);
-                        auto u1_plus_u0 = su(e, l_undim);
-                        return ExtraRet_t(
-                            (u1_plus_u0 - u1_min_u0) / 2,
-                            (u1_plus_u0 + u1_min_u0) / 2, 
-                            pi<T>);
-                    }
-                }
-                auto sqr_qe = std::sqrt(q_e * q_e + 2 * z);
-                auto sqr_safe = Lme * 
-                    std::sqrt(2* _minus_F2_inv * (1 - l_undim * l_undim));
-                auto delta1 = u1z(e, l_undim) * (2 * z / (sqr_safe - q_e));
-                auto delta0 = u0z(e, l_undim) * (sqr_safe - q_e);
-                
-
-                if (q_e < -1. / 1024 || l_undim < 1-1e-2) {
-                    auto x = delta1 / (delta0);
-                    bool bad_delta = delta0 <= 0;
-                    auto m_asin = bad_delta?
-                        0 :
-                        std::asin(2 * std::sqrt(x) / (1 + x));
-                    auto RetTh = (bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
-                    if constexpr (!return_umin_umax_theta)
-                        return RetTh;
-                    else {
-                        return ExtraRet_t(
-                            downbound(1 - delta0, 0),
-                            1 + delta1, 
-                            RetTh);
-                    }
-                }
-                else {
-                    auto d_delta = dusq(e, l_undim) * q_e;
-                    pot_cos = d_delta / (delta0+ delta1);
-
-                    if constexpr (!return_umin_umax_theta)
-                        return ThetaMG(pot_cos);
-                    else {
-                        return ExtraRet_t(
-                            downbound(1 - delta0, 0),
-                            1 + delta1,
-                            ThetaMG(pot_cos));
-                    }
-                }
+            if (L2 <= 1 + e) { //Left Zone
+                return pi<T>;
             }
-            else {
+            else { // Right Zone
+
+                auto z = ((1 + e) - L2) * _minus_F2_inv;
+                auto q_e = (1 + 2 * e) * _minus_F2_inv / 2;
                 auto sqr_qe = std::sqrt(q_e * q_e + 2 * z);
                 auto delta1 = (q_e + sqr_qe);
-                auto delta0 = u0z(e, l_undim) * (2 * z / (sqr_qe + q_e));
-                if ( q_e > 1. / 1024 || l_undim < 1 - 1e-2) {
+                if (l_undim < 0.9) { // Down Zone
+                    auto l2 = l_undim * l_undim;
+                    auto u0 = umin_l2(e, l_undim)* l2;
+                    auto delta0 = 1 - u0;
                     auto x = delta1 / (delta0);
-                    bool bad_delta = delta0 <= 0;
-                    auto m_asin = bad_delta?
-                        0 :
-                        std::asin(2 * std::sqrt(x) / (1 + x));
-                    auto RetTh = ( bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
-                    if constexpr (!return_umin_umax_theta)
-                        return RetTh;
-                    else {
-                        return ExtraRet_t(
-                            downbound(1 - delta0, 0),
-                            1 + delta1,
-                            RetTh);
-                    }
+                    auto bad_delta = delta0 <= 0;
+                    auto m_asin = (!bad_delta) ? std::asin(2 * std::sqrt(x) / (1 + x)) : 0;
+                    auto RetTh = (bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
+                    return RetTh;
                 }
-                else {
-                    auto d_delta = dusq(e, l_undim) * q_e;
-                    pot_cos = d_delta / (delta0 + delta1);
-                    if constexpr (!return_umin_umax_theta)
-                        return ThetaMG(pot_cos);
-                    else {
-                        return ExtraRet_t(
-                            downbound(1 - delta0, 0),
-                            1 + delta1,
-                            ThetaMG(pot_cos));
-                    }
+                else { // Up Zone
+                    auto delta0 = u0z(e, l_undim) * (2 * z / (sqr_qe + q_e));
+                    auto x = delta1 / (delta0);
+                    auto bad_delta = delta0 <= 0;
+                    auto m_asin = (!bad_delta) ? std::asin(2 * std::sqrt(x) / (1 + x)) : 0;
+                    auto RetTh = (bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
+                    return RetTh;
                 }
             }
-            
-            /*else if (l_undim >(T)0.96 || small_z) {
-                
-                if (q_e < -(T)1. / 16) {
-                    auto delta_u = dul(e, l_undim) * std::sqrt(1 - l_undim * l_undim);
-                    auto delta_1 = (q_e + sqr_qe);
-                    auto x = delta_1 / ( delta_u - delta_1);
-                    return pi<T> -std::asin(2 * std::sqrt(x) / (1 + x));
-                }
-                pot_cos = q_e / std::sqrt(q_e * q_e + 2 * z);
-            }
-            else {
-                auto delta_u = dul(e, l_undim) * std::sqrt(1 - l_undim * l_undim);
-                auto sum_u = su(e, l_undim);
-                auto u02 = (sum_u - delta_u) ;
-                if (u02 > 2)
-                    return pi<T>;
-                pot_cos = (sum_u-2) / delta_u;
-            }*//*
-            auto ThetaM = std::acos(
-                pot_cos < -1 ? -1 : (
-                    pot_cos <= 1 ? pot_cos : 1
-                    )
-            );
-            return ThetaM;*/
         }
+        
         inline auto operator()(Tr_Type e, Tr_Type l_undim, Tr_Type Lme) const {
             auto ThetaM = theta1(e, l_undim, Lme);
+            DECLARE_PARAM_FUNC(tinth);
             return tinth(e, l_undim) * ThetaM;
         }
         inline auto tin_theta(Tr_Type e, Tr_Type l_undim) const {
+            DECLARE_PARAM_FUNC(tinth);
             return tinth(e, l_undim);
         }
         inline auto tin_full(Tr_Type e, Tr_Type l_undim, Tr_Type ThetaM) const {
+            DECLARE_PARAM_FUNC(tinth);
             return tinth(e, l_undim) * ThetaM;
         }
+        #undef DECLARE_ALL_FUNCS
+        #undef DECLARE_PARAM_FUNC
     };
 
     template <typename Tr_Type, typename LE_Func_t>
@@ -518,32 +417,36 @@ namespace evdm{
             std::get<1>(dEdL).right, 2//,
             //hidden_reg_l, unhidden_reg_l{}
         );
+        auto e0_positive = B.Phi[0];
+        auto C0 = -B._DD_F_r(0);//-F''(0)
         typedef traj_info<Tr_Type> traj_info_t;
-        auto get_traj = [&LE,&B,traj_bins](U e, U l)->traj_info_t {
+        auto get_traj = [&LE,&B, e0_positive, C0,traj_bins](U e, U l)->traj_info_t {
             auto Lmax = LE.i_lm(-e);
             auto rm_e = LE.i_rm(-e);
             auto L = (Lmax * l);
             auto L2 = L * L;
             auto [rm,rp] = B.find_rmin_rmax(-e,L2,LE);
             auto m_traj = B.get_internal_traj<Tr_Type>(rm,rp,traj_bins);
-            auto up = rp * rp;
             auto um = rm * rm;
+            auto up = rp * rp;
             auto du = up - um;
             auto us = up + um;
             auto F2_1 = B._DD_F_C(1);
-            auto F2_r = B._DD_F_C(rm_e);
+            auto F2_r = B._DD_F_r(rm_e);
 
-            auto z = (L2 - (1 + e)) / F2;
-            auto q_e = (1 + 2 * e) / (-2 * F2);
+            auto z = (L2 - (1 + e)) / F2_1;
+            auto q_e = (1 + 2 * e) / (-2 * F2_1);
 
             auto z_qe_ratio = std::abs(2 * z) / (q_e * q_e);
 
-            auto sqr_e = std::sqrt(q_e * q_e + 2 * z);
+            auto q_e_sqrt_expr = q_e * q_e + 2 * z;
+            auto sqr_e = std::sqrt(q_e_sqrt_expr);
             auto sqr_safe = (
-                q_e < 0 ? 
-                Lmax *std::sqrt(-2/ F2_1 * (1-l*l)) :
+                q_e_sqrt_expr < 0 ? 
+                0 :
                 sqr_e
             );
+            auto pot_sqr = Lmax * std::sqrt(-2 / F2_1 * (1 - l * l));
             auto dZp = (q_e < 0 ? (2 * z) / (sqr_safe - q_e) : sqr_safe + q_e);
             auto dZm = (q_e < 0 ? sqr_safe - q_e : (2 * z) / (sqr_safe + q_e));
             auto u_delta_0z = (
@@ -562,8 +465,21 @@ namespace evdm{
             auto dus_q = (std::abs(q_e) > 1.0/32 ? dus / q_e : 2);
             if (dus < 0)
                 dus_q = 2;
+
+            auto _l2 = l * l;
+
+            auto _de = (e0_positive + e);
+            auto Lm_de_lim =( 
+                _de < 1e-5 ?
+                1 / std::sqrt(2 * C0) : 
+                Lmax/_de
+            );
+            auto u0_l2_limit = Lm_de_lim * Lmax;
+            auto _l2_s = _l2 / (1 + std::sqrt(1 - _l2));
+            auto u0_l2 = (l > 1e-3 ? um / _l2_s : 2*u0_l2_limit);
             traj_info_t Ret = {
                 rm,rp,
+                u0_l2 ,up,
                 (l > 1-1e-4 ? 2* Lmax*std::sqrt(2/ -F2_r) : du/std::sqrt(1-l*l)), //dul
                 us,dus_q,
                 u_delta_0z,u_delta_1z,

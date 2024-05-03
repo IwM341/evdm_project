@@ -144,7 +144,7 @@ pybind11::dict Py_EL_Grid::_get_traj_all_inter(double e, double l) {
 			m_traj_p, LEf);
 
 		auto Lme = LEf(-e);
-		auto [u0, u1, theta_max] = TinFunc.template theta1<true>(e, l, Lme);
+		auto [u0, u1, theta_max] = TinFunc.u0_u1_theta1(e, l, Lme);
 		auto tau_max = TinFunc.tin_theta(e, l);
 		auto r0 = (u0 > 0 ? std::sqrt(u0) : -std::sqrt(-u0));
 		auto r1 = (u1 > 0 ? std::sqrt(u1) : -std::sqrt(-u1));
