@@ -17,7 +17,13 @@ class progress_bar_jupiter():
     def _progress_string(self):
         m_name = self.name
         m_percent = (self.index*100)/self.max_count
-        return f"{m_name} : {m_percent:.2f}%, {self.index}/{self.max_count }"
+        m_time = self._get_time() - self.start_time
+        s_prefix = ""
+        if (m_time < 1):
+            s_prefix = "m"
+            m_time = m_time*1000
+         
+        return f"{m_name} : {m_percent:.2f}%, {self.index}/{self.max_count }, {m_time:.2f}{s_prefix}s"
 
     def _init_impl(self,max_count):
         from ipywidgets import IntProgress, HTML, VBox
@@ -26,6 +32,13 @@ class progress_bar_jupiter():
         self.index = 0
         self.max_count = max_count
         self.inited = True
+        try:
+            import time
+            self._get_time = time.time
+        except:
+            self._get_time = lambda: 0
+        self.start_time = self._get_time()
+
         self.label = HTML(self._progress_string())
         self.box = VBox(children=[self.label, self.progress])
         display(self.box)
@@ -40,8 +53,6 @@ class progress_bar_jupiter():
             self.progress.value = self.index
         else:
             self._init_impl(full_progress)
-
-
 class progress_bar_cmd():
     """
     Class for logging progress by simple print

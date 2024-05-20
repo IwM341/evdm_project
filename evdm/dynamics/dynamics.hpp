@@ -72,8 +72,8 @@ namespace evdm {
 		using T = Gen_vt<Gen_t>;
 		using mvec3 = vec3<T>;
 		if (G() < p) {
-			auto V1 = Vdisp * sqrt(-2 * log(1 - G()));
-			auto V2 = Vdisp * sqrt(-2 * log(1 - G()));
+			auto V1 = Gauss2Norm(G, Vdisp);
+			auto V2 = Gauss2Norm(G, Vdisp);
 			auto phi1 = RandomPhi(G);
 			auto phi2 = RandomPhi(G);
 			return {
@@ -87,7 +87,8 @@ namespace evdm {
 			T cos_Th = RandomCos(G);
 			T sin_Th = std::sqrt(1 - cos_Th * cos_Th);
 			T r_xy = r * sin_Th;
-			T fac = exp(-r * r / 2) / std::pow(2 * (T)std::numbers::pi, (T)1.5);
+			constexpr T e_fac = (std::numbers::sqrt2*std::numbers::inv_sqrtpi/ 3);
+			T fac = exp(-r * r / 2)*(max_xi*max_xi*max_xi* e_fac);
 			return {
 				Vdisp * mvec3(r_xy * std::sin(phi),r_xy * std::sin(phi),r * cos_Th),
 				fac

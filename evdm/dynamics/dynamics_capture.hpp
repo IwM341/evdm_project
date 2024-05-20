@@ -264,6 +264,7 @@ namespace evdm {
 	/// <param name="Nmk"></param>
 	template <
 		typename Histo_t,
+		//typename Histo_opt_t,
 		typename LEFunc_t,
 		typename Rm_type_t,
 		typename Gen_t,

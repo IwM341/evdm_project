@@ -235,7 +235,7 @@ namespace evdm {
         Eigen::VectorX<T> X(_new_size);
         X.setZero();
         size_t _copy_size = std::min(_size, _new_size);
-        Eigen::Map<Eigen::VectorXf, Eigen::Unaligned> Data_Map(_data, _copy_size);
+        Eigen::Map<Eigen::VectorX<T>, Eigen::Unaligned> Data_Map(_data, _copy_size);
         X.segment(0, _copy_size) = Data_Map;
         return Distribution<T, Body_vt, GridEL_vt, grid_type>(
             Grid,

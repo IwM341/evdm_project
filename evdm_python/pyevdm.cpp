@@ -5,7 +5,7 @@
 #include "core_python.hpp"
 #include "debugdef.hpp"
 #include "dynamic_python.hpp"
-
+#include "annihilation.hpp"
 namespace py = pybind11;
 
 
@@ -26,7 +26,7 @@ PYBIND11_MODULE(pyevdm, m)
     scatter_event_info::add_to_python_module(m);
     Py_Capture::add_to_python_module(m);
     Py_Matrix::add_to_python_module(m);
- 
+    Py_Pre_Ann::add_to_python_module(m);
 
     add_scatter_funcs_to_python_module(m);
 }

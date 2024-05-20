@@ -1,5 +1,4 @@
-#ifndef PROGRESS_LOG_HPP
-#define PROGRESS_LOG_HPP
+#pragma once
 
 #include <pybind11/pybind11.h>
 #include <evdm/utils/progress_bar.hpp>
@@ -32,6 +31,3 @@ inline evdm::progress_omp_function<> make_progress_func(
 	}
 	return ProgF;
 }
-
-
-#endif//PROGRESS_LOG_HPP

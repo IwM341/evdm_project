@@ -5,11 +5,14 @@
 
 namespace evdm {
 
+	/// @brief 0 if x < 0, 
+	/// sqrt(x), x >= 0
 	template <typename T>
 	inline constexpr T ssqrt(T x){
 		return std::sqrt((x > 0 ? x : (T)0));
 	}
 
+	/// @brief o if x nan
 	template <typename T>
 	inline constexpr T unnan(T x) {
 		return !std::isnan(x) ? x : 0;

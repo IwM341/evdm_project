@@ -566,8 +566,105 @@
 		dN_1 \approx \cfrac{dN_1}{T(e_1,l_1)de_1 dl_1^2} d\tau de_1 dl_1^2 \approx \cfrac{dN_1}{T(e_1,l_1)de_1 dl_1} d\tau de_1 dl_1 
 	\end{equation}
 	
-	Величина $\phi_{ann}$ зависит от разности скоростей и равна $\phi_0 + \phi_1 v+ \phi_2 v^2 +...$. При интегрировании можно вычислить эту величину для каждого члена ряда $v^i$ а потом просуммировать с весами $\phi_i$
+	Величина $\phi_{ann}$ зависит от разности скоростей и равна $\phi_0 + \phi_2 v^2 +...$. При интегрировании можно вычислить эту величину для каждого члена ряда $v^i$ а потом просуммировать с весами $\phi_i$
 	
+	Вклад $v^2$ можно оптимизировать, так как если мы интегрируем по скоростям двух частиц, то скорости $\vec{v}_i$ и $-\vec{v}_i$ входят с одинаковым весом. Тогда можно сделать замену
+	\begin{equation}
+		v^2 = (\vec{v}_1-\vec{v}_2)^2 \rightarrow \frac{1}{2}\left(
+			(\vec{v}_1-\vec{v}_2)^2 + 
+			(\vec{v}_1+\vec{v}_2)^2
+		\right) = \frac{1}{2}(v_1^2+v_2^2)
+	\end{equation}
+	
+	\subsubsection{Проверки}
+	1) Проверка захвата --- по статье. согласие есть
+	
+	2) Проверка Scatter --- Проверить полное сечение соударения для $\sigma = 1/v$
+	
+	3) Проверка концентрации: сохранение числа частиц $\sum_i{N_i} = \int{n(r)dV}$
+	
+	4) Проверка аннигилляции: при $\sigma v = 1$ аннигиляция равна $\int{n^2(r)dV}$.
+	
+	
+	\subsubsection{Нормировка}
+	
+	
+	\begin{itemize}
+		\item Количество частиц:
+		
+		Полное число частиц в бине $i$ $N_{ri}$ должно равнятся
+		\begin{equation*}
+			N_{ri} = N_i \cdot N_{\odot}
+		\end{equation*}
+		где $N_{\odot} = n_{\chi,\infty}\cdot V_{\odot}$,  $N_i$ --- нормированное число частиц, участвующее в расчёте, $n_{\chi,\infty}$ --- концентрация Т.М. в гало, $V_{\odot}$ --- объём тела.
+		\item Характерное время (частота соударений)
+		
+		В качестве единицы, обратного времени свободного пробега будем обозначать величину
+		\begin{equation*}
+			\cfrac{1}{T_{\chi p}} = 
+			\sigma_{\xi p} \overline{n}_p V_{esc}
+		\end{equation*}
+		где $\overline{n}_p$ --- средняя концентрация протонов, $V_{esc}$ --- вторая космическая скорость для объекта, $\sigma_{\xi p}$ --- сечение нормировки (сечение рассеяния Т.М. на протоне/нуклоне при некой фиксиоровванной выбранной скорости $v = |\vec{v}_{\chi} - \vec{v}_p|$. Важно, что при более сложных потенциалах или в неупругом случае) 
+		
+		Естественно, мы обезразмерим реальное время: $t_r = T_{\chi p} t$
+		\item Скорость захвата
+		
+		Полная скорость захвата в $i$том бине равна
+		\begin{equation*}
+			C_i = \cfrac{c_i}{T_{\chi p}}
+		\end{equation*}
+		
+		Тогда темп захвата определяется из
+		\begin{equation*}
+			\cfrac{dN_{ri}^{capt}}{dt_r} = C_i \Leftrightarrow \cfrac{d N_{i}^{capt}}{dt} = c_i
+		\end{equation*}
+		
+		\item Темп рассеяния
+		
+		Обезразмеренная матрица рассеяния (тоже на $T_{\chi p}$) $s_{ij}$ определяется из 
+		темпа расеяния частиц (тоже обезразмеренного):
+		\begin{equation*}
+		\cfrac{d N_{i}^{scat}}{dt} = s_{ij} N_j
+		\end{equation*}
+		
+		\item Безразмерная концентрация ТМ:
+		
+		\begin{equation*}
+			\tilde{n}_{\chi}(r) = \sum_i{\int{\cfrac{4\pi}{3} \cfrac{1}{2\pi T(e,l)} \cfrac{dN_i}{dedl^2} de d\sqrt{v^2-\frac{l^2}{r^2}} }}
+		\end{equation*}
+		 В таком случае
+		 \begin{equation*}
+		 	\int{\tilde{n}_{\chi}(r) 3r^2dr} = \sum{N_i} = \sum{\cfrac{N_{ri}}{V n_{\chi \infty}}}
+		 \end{equation*}
+		 Такой выбор размерности связан с тем, что $V \cdot 3r^2dr = dV$ и тогда
+		 \begin{equation*}
+		 	\int{\tilde{n}_{\chi}(r) n_{\chi \infty} dV} = \sum{N_{ri}} = \text{Полное число частиц}
+		 \end{equation*}
+		\item Аннигиляция:
+		Мы хотим чтобы
+		\begin{equation}
+			\cfrac{d N_{i}^{ann}}{dt} = \gamma_p a^{p}_{ij} N_j N_i
+		\end{equation}
+		где 
+		\begin{equation*}
+			\gamma_p = T_{\chi p} \cdot n_{\chi \infty} \langle\sigma_{ann} v\rangle_{v = v_{esc}}
+		\end{equation*}
+		отношение темпа аннигиляции к темпу рассеяния. Важно: величина сечения аннигиляции $\langle\sigma_{ann} v\rangle$ берётся при скорости $v = v_{esc}$ (для аннигиляции сечение которой ведёт себя как $\langle\sigma_{ann} v\rangle = const\cdot v^2$)
+		
+		\begin{equation*}
+			a_{ij}^p = \int{\phi_{ann} 3r^2dr\left(\cfrac{4\pi}{3}\right)^2 \left( \cfrac{1}{2\pi T(e_1,l_1)} \cfrac{1}{de_1dl_1^2} de_1 d\sqrt{v_1^2-\frac{l_1^2}{r^2}} \right) \left( \cfrac{1}{2\pi T(e_2,l_2)} \cfrac{1}{de_2dl_2^2} de_2 d\sqrt{v_2^2-\frac{l_2^2}{r^2}} \right)}
+		\end{equation*}
+		Из этого поределения следует:
+		\begin{equation*}
+			a_{ij}^p N_i N_j = \int{3r^2dr \tilde{n}^2_{\chi}(r) \phi_{ann}}
+		\end{equation*}
+		Полная скорость аннигиляции равна
+		\begin{equation*}
+			\cfrac{dN^{ann}_{ri}}{dt_r} = \gamma_p a_{ij}^p N_i N_j \cdot \cfrac{N^2_{\odot}}{T_{\chi p}}
+		\end{equation*}
+		
+	\end{itemize}
+ 
 	
 	
 \end{document}

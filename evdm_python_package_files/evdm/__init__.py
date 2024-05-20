@@ -30,12 +30,15 @@ def CaptureCalc(capt_vector,scat_mod : ff.ScatterModel,n_dense,Vbody,Vdisp,Nmk,r
     weight : float
         additional scale factor, default is 1.
     """
-    wimp = scat_mod.wimp
-    nuc = scat_mod.nucleus
-    sc_event = ScatterEvent(n_dense,scat_mod.factor(),scat_mod.str_char())
-    return CalcCaptureImpl(capt_vector,
-        wimp.In,wimp.Out,wimp.mass,wimp.delta,nuc.mass,
-        sc_event,Vbody,Vdisp,Nmk,r_pow,weight)
+    if(not scat_mod.Zero):
+        wimp = scat_mod.wimp
+        nuc = scat_mod.nucleus
+        sc_event = ScatterEvent(n_dense,scat_mod.factor(),scat_mod.str_char())
+        return CalcCaptureImpl(capt_vector,
+            wimp.In,wimp.Out,wimp.mass,wimp.delta,nuc.mass,
+            sc_event,Vbody,Vdisp,Nmk,r_pow,weight)
+    else:
+        return (0,0)
 def ScatterCalc(sc_matrix,scatter_model : ff.ScatterModel,n_dense,
                 Nmk,Nmk_traj = 1,count_evap = False,weight = 1,bar = None):
     """
@@ -58,8 +61,9 @@ def ScatterCalc(sc_matrix,scatter_model : ff.ScatterModel,n_dense,
     bar : any
         optional progress bar update function.
     """
-    wimp = scatter_model.wimp
-    nuc = scatter_model.nucleus
-    sc_event = ScatterEvent(n_dense,scatter_model.factor(),scatter_model.str_char())
-    return CalcScatterImpl(sc_matrix,wimp.In,wimp.Out,wimp.mass,wimp.delta,nuc.mass,sc_event,
-                           Nmk,Nmk_traj,count_evap,weight,bar)
+    if(not scatter_model.Zero):
+        wimp = scatter_model.wimp
+        nuc = scatter_model.nucleus
+        sc_event = ScatterEvent(n_dense,scatter_model.factor(),scatter_model.str_char())
+        return CalcScatterImpl(sc_matrix,wimp.In,wimp.Out,wimp.mass,wimp.delta,nuc.mass,sc_event,
+                            Nmk,Nmk_traj,count_evap,weight,bar)

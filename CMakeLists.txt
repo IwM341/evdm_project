@@ -1,12 +1,25 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.9)
 
 set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ version selection")
 
 
-
-option(VERBOSE "" ON)
+option(VERBOSE "Debug some functions" OFF)
 if(VERBOSE)
    add_compile_definitions(_VERBOSE)
+endif()
+
+
+option(OPENMP "" OFF)
+message("CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    message("Debug flags = " ${CMAKE_CXX_FLAGS})
+endif()
+if(CMAKE_BUILD_TYPE MATCHES Release)
+    message("Release flags = " ${CMAKE_CXX_FLAGS})
+    message("Release flags = " ${CMAKE_CXX_FLAGS_RELEASE})
+endif()
+if(CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
+    message("RelWithDebInfo flags = " ${CMAKE_CXX_FLAGS})
 endif()
 
 #types, available in structs. 
@@ -33,6 +46,7 @@ set(SOURCES
     ${P_SOURCES_DIR}/pyscatter_process.cpp
     ${P_SOURCES_DIR}/pycapture_process.cpp
     ${P_SOURCES_DIR}/pydynamics.cpp
+    ${P_SOURCES_DIR}/pyannihilation.cpp
 )
 
 include(cmake/CPM.cmake)
@@ -40,20 +54,18 @@ include(cmake/CPM.cmake)
 find_package(Eigen3)
 if(NOT Eigen3_FOUND)
     message("Eigen3 not found, download from git")
-    CPMAddPackage("https://gitlab.com/libeigen/eigen@3.4.0")
-    find_package(Eigen3)
+    CPMAddPackage(NAME Eigen GIT_REPOSITORY  "https://gitlab.com/libeigen/eigen" VERSION 3.4.0)
 endif()
 find_package(pybind11 CONFIG)
 if(NOT pybind11_FOUND)
     message("pybind11 not found, download from git")
-    CPMAddPackage("https://github.com/pybind/pybind11@2.11.1")
-    find_package(pybind11 CONFIG)
+    CPMAddPackage("gh:pybind/pybind11@2.11.1")
 endif()
+
 find_package(Grob)
 if(NOT Grob_FOUND)
     message("Grob not found, download from git")
     CPMAddPackage("gh:IwM341/GridObject@1.0.2")
-    find_package(Grob)
 endif()
 
 
@@ -62,6 +74,14 @@ set_property(TARGET pyevdm PROPERTY CXX_STANDARD 20)
 
 target_link_libraries(pyevdm pybind11::module)
 target_link_libraries(pyevdm Eigen3::Eigen)
+
+if(OPENMP)
+    message("use openmp")
+    find_package(OpenMP REQUIRED)
+    target_link_libraries(pyevdm OpenMP::OpenMP_CXX)
+endif()
+
+
 
 target_include_directories(pyevdm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -73,12 +93,6 @@ target_link_libraries(pyevdm Grob::grob)
 ##
 
 pybind11_extension(pyevdm)
-
-set(EIGEN_USE_MKL OFF)
-if(EIGEN_USE_MKL)
-    find_package()
-    add_compile_definitions(EIGEN_USE_MKL_ALL)
-endif()
 
 
 

@@ -164,6 +164,10 @@ def FormFactorArrays(MatElNuc : sympy.Expr ,MatEl_norm : sympy.Expr ,
     
     pre_ff= (MatElNuc.subs({Q2:"4*y/b**2"}).subs(pot_scatter_model)*
             norm_coeff).expand()
+    
+    if(pre_ff == 0):
+        return (pot_scatter_model['b'],False,[0])
+    
     _y = sympy.symbols("y")
     is_y_1 = (pre_ff.coeff(_y,-1) != 0)
     y_1_di = 1 if is_y_1 else 0

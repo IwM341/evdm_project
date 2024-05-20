@@ -8,7 +8,7 @@ name = "my_package"
 version = "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@"
 dynamic = ["version"]
 dependencies = [
-    "numpy","sympy"
+    "numpy","sympy","llvmlite"
 ]
 
 [tool.setuptools]

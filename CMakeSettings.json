@@ -24,6 +24,39 @@
           "name": "GRID_EL_USE_DOUBLE",
           "value": "False",
           "type": "BOOL"
+        },
+        {
+          "name": "CMAKE_CXX_STANDARD",
+          "value": "17",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "name": "x64-Release",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "Eigen3_DIR",
+          "value": "",
+          "type": "PATH"
+        },
+        {
+          "name": "pybind11_DIR",
+          "value": "",
+          "type": "PATH"
+        },
+        {
+          "name": "OPENMP",
+          "value": "True",
+          "type": "BOOL"
         }
       ]
     }

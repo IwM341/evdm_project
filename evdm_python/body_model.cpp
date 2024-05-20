@@ -32,13 +32,13 @@ void Py_BodyModel::setTemp(pybind11::handle mTemp){
 	
 }
 Py_BodyModel::Py_BodyModel(pybind11::array_t<double> const& RhoValues, double Velocity, pybind11::handle Temp)
-:m_body(evdm::load_body_model<Py_BodyModel::max_vtype,evdm::forward_shared>(RhoValues.data(),RhoValues.size(), Velocity))
+:m_body(evdm::load_body_model<double,evdm::forward_shared>(RhoValues.data(),RhoValues.size(), Velocity))
 {
 	setTemp(Temp);
 }
 
 Py_BodyModel::Py_BodyModel(pybind11::array_t<float> const& RhoValues, float Velocity, pybind11::handle Temp)
-	:m_body(evdm::load_body_model<Py_BodyModel::min_vtype, evdm::forward_shared>(RhoValues.data(), RhoValues.size(), Velocity))
+	:m_body(evdm::load_body_model<float, evdm::forward_shared>(RhoValues.data(), RhoValues.size(), Velocity))
 {
 	setTemp(Temp);
 }

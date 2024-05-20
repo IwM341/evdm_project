@@ -154,8 +154,8 @@ namespace evdm {
         return [G,b,m_bin,&LE](){
             auto xi_e = G();
             auto e = std::get<0>(m_bin).reduction(xi_e);
-            return grob::Point<T,T>{e,
-                LE(-e)*std::get<1>(m_bin).reduction(G())};
+            return std::tuple<T,T,T>{e,
+                std::get<1>(m_bin).reduction(G()), LE(-e)};
         };
     }
 
@@ -200,8 +200,8 @@ namespace evdm {
             auto xi = G();
             auto ue =(b >= 1 ? std::sqrt(xi) : xi/(b1 + std::sqrt(b1*b1+b*xi)));
             auto e = std::get<0>(m_bin).reduction(ue);
-            return grob::Point<T,T> {e,
-                    std::get<1>(m_bin).reduction(G())*LE(-e)};
+            return std::tuple{e,
+                    std::get<1>(m_bin).reduction(G()),LE(-e)};
         };
     }
 
@@ -262,8 +262,8 @@ namespace evdm {
 
             auto e = std::get<0>(m_bin).reduction(ue);
             auto lx = G();
-            return grob::Point<T,T>{e,
-                        std::sqrt(l02*(1-lx)+l12*lx)*LE(-e)
+            return std::tuple<T,T,T>{e,
+                        std::sqrt(l02*(1-lx)+l12*lx),LE(-e)
                     };
         };
     }
@@ -384,7 +384,7 @@ namespace evdm {
             auto W_e = std::get<0>(m_bin).volume();
             auto LE_max = LE(-e);
 
-            auto Vmax = std::abs(std::sqrt(Phi_r + e));
+            auto Vmax = ssqrt(Phi_r + e);
             //if (std::isnan(Vmax)) {
             //    throw std::runtime_error("v is nan!!!");
             //  }

@@ -31,8 +31,8 @@ inline Py_Capture Py_Capture::as_type(const char* dtype) const
 		return as_type_t<double>();
 #else
 		throw pybind11::type_error("unsupported distrib type 'double'");
-	}
 #endif
+	}
 	else {
 		throw pybind11::type_error("wrong data type: " + std::string(dtype) + ", expect float or double");
 	}
@@ -49,7 +49,7 @@ Py_Capture& Py_Capture::add(Py_Capture const& _another)
 			}
 		}
 	}
-	std::visit([](auto& m_d1, const auto& m_d2) {
+	std::visit([](auto& m_d1, const auto& m_d2)->void {
 		using T = decltype(m_d1.get_vtype());
 		m_d1.values() += m_d2.values().template cast<T>();
 	}, m_distrib, _another.m_distrib);

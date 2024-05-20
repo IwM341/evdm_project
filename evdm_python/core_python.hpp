@@ -381,4 +381,6 @@ struct Py_Matrix{
 	static void add_to_python_module(pybind11::module_& m);
 
 };
+
+
 #endif//CORE_PYTHON_HPP

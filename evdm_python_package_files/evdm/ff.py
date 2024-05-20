@@ -138,6 +138,11 @@ class ScatterModel:
                 0,wimp_pars.delta,wimp_pars.spin,
                 nucleus.spin,norm_dv
             )
+        
+        if(len(normd_arrays)== 3 and len(normd_arrays[2]) == 1 and normd_arrays[2][0] ==0):
+            self.Zero = True
+        else:
+            self.Zero = False
         self.coeffs = normd_arrays
     def as_func(self):
         def eval_poly(is_inv,Coeffs,y):
@@ -207,11 +212,14 @@ class ScatterModel_SimpleFF:
 
     def factor(self):
         return _evdm.func_factor(type('_scat_factor_fptr',(),{'address':self._func_ptr}))
+    def str_char(self):
+        return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
     
     @staticmethod
     def _float_to_llvm(x:float):
         import llvmlite.ir
         return str(llvmlite.ir.Constant(llvmlite.ir.FloatType(),x)).replace('float',"")
+    
     _src_llvm_ir = """
         define float @scatfunc(float %0, float %1){
             %3 = tail call float @sqrtf(float %0) #2
@@ -259,6 +267,95 @@ class ScatterModel_SimpleFF:
 
         ; Function Attrs: mustprogress nofree nounwind willreturn
         declare dso_local float @cosf(float) local_unnamed_addr #1
+        """
+    @staticmethod
+    def _create_execution_engine():
+        """
+        Create an ExecutionEngine suitable for JIT code generation on
+        the host CPU.  The engine is reusable for an arbitrary number of
+        modules.
+        """
+        import llvmlite.binding as llvm
+        # Create a target machine representing the host
+        target = llvm.Target.from_default_triple()
+        target_machine = target.create_target_machine()
+        # And an execution engine with an empty backing module
+        backing_mod = llvm.parse_assembly("")
+        engine = llvm.create_mcjit_compiler(backing_mod, target_machine)
+        return engine
+    @staticmethod
+    def _compile_ir(engine, llvm_ir):
+        """
+        Compile the LLVM IR string with the given engine.
+        The compiled module object is returned.
+        """
+        import llvmlite.binding as llvm
+        # Create a LLVM module object from the IR
+        mod = llvm.parse_assembly(llvm_ir)
+        mod.verify()
+        # Now add the module and make sure it is ready for execution
+        engine.add_module(mod)
+        engine.finalize_object()
+        engine.run_static_constructors()
+        return mod
+    
+
+    
+class ScatterModel_TestFF:
+    def __init__(self,
+            wimp_pars: dm_m.WimpScatterParams,
+            nucleus: Nucleus
+        ):
+        import math
+        import llvmlite.ir
+        import llvmlite.binding as llvm
+        self.wimp = wimp_pars
+        self.nucleus = nucleus
+
+        llvm.initialize()
+        llvm.initialize_native_target()
+        llvm.initialize_native_asmprinter()
+        llvm_ir_str = ScatterModel_TestFF._src_llvm_ir
+        delta_str = "fdiv float _delta_value_, %0"
+        no_delta_str = "fsub float 0.0, 0.0"
+        if(self.wimp.delta == 0):
+            _delta_q = no_delta_str
+        else:
+            _delta_q = delta_str
+
+        
+
+        llvm_ir_str = llvm_ir_str.replace("_define_delta_q_",_delta_q )
+        llvm_ir_str = llvm_ir_str.replace("_delta_value_",self._float_to_llvm(self.wimp.delta) )
+        llvm_ir_str = llvm_ir_str.replace("_1_mu_",self._float_to_llvm((self.wimp.mass+nucleus.mass)/(2*self.wimp.mass*nucleus.mass)))
+
+        self._engine = self._create_execution_engine()
+        self._mod = self._compile_ir(self._engine, llvm_ir_str)
+        self._func_ptr = self._engine.get_function_address("scatfunc")
+
+
+    def factor(self):
+        return _evdm.func_factor(type('_scat_factor_fptr',(),{'address':self._func_ptr}))
+    def str_char(self):
+        return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
+    
+    @staticmethod
+    def _float_to_llvm(x:float):
+        import llvmlite.ir
+        return str(llvmlite.ir.Constant(llvmlite.ir.FloatType(),x)).replace('float',"")
+    
+    _src_llvm_ir = """
+        define float @scatfunc(float %0, float %1){
+            %3 = _define_delta_q_
+            %4 = fadd float %3, _1_mu_
+            %5 = fmul float %4, %4
+            %6 = tail call float @llvm.fmuladd.f32(float %5, float %0, float %1)
+            %7 = tail call float @sqrtf(float %6)
+            %8 = fdiv float 1.000000e+00, %7
+            ret float %8
+        }
+        declare dso_local float @sqrtf(float) local_unnamed_addr #1
+        declare float @llvm.fmuladd.f32(float, float, float)
         """
     @staticmethod
     def _create_execution_engine():

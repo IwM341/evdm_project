@@ -1,5 +1,5 @@
 #pragma once
-
+#include <Eigen/Dense>
 #include "../grid_variants.hpp"
 #include "../traj_pool.hpp"
 #include "core_body.hpp"
@@ -25,6 +25,9 @@ namespace evdm {
             n_e_max(n_e_max),
             n_l_max(n_l_max) {}
     };
+
+
+
 
     template <typename BodyModel_vt, typename GridEL_vt, GridEL_type _grid_type>
     struct EL_Grid {

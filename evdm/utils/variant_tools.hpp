@@ -202,6 +202,31 @@ namespace evdm {
             return wrap_var_t(std::forward<T>(value));
         },vforward<Variant2>(y));
     }
+
+    template <typename T, typename...Ts>
+    struct consist_of;
+
+    template <typename T,typename U,typename...Ts>
+    struct consist_of<T,U,Ts...> {
+        constexpr static bool value = std::is_same_v<T, U> || consist_of<T, Ts...>::value;
+    };
+    template <typename T, typename U>
+    struct consist_of<T, U> {
+        constexpr static bool value = std::is_same_v<T, U>;
+    };
+    template <typename T, typename...Ts>
+    constexpr bool consist_of_v = consist_of<T, Ts...>;
+
+    template <typename T,typename Variant_t>
+    struct variant_consist_of;
+
+
+    template <typename T, typename...Ts>
+    struct variant_consist_of<T, std::variant<Ts...>> :consist_of<T, Ts...> {};
+
+    template <typename T, typename Variant_t>
+    constexpr bool variant_consist_of_v = variant_consist_of<T, Variant_t>::value;
+
 };
 
 #endif//VARIANT_TOOLS_HPP`

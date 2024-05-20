@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  2 MAY 2024 10:45
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  19 MAY 2024 12:17
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -1113,7 +1113,7 @@ Missing character: There is no Å in font cmr10!
 Missing character: There is no ñ in font cmr10!
 Missing character: There is no ë in font cmr10!
 Missing character: There is no è in font cmr10!
-<imags/graphT.jpg, id=67, 383.18156pt x 378.66469pt>
+<imags/graphT.jpg, id=75, 383.18156pt x 378.66469pt>
 File: imags/graphT.jpg Graphic file (type jpg)
 <use imags/graphT.jpg>
 Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
@@ -1122,7 +1122,7 @@ Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 [2] [3 <./imags/graphT.jpg>] [4]
-<imags/diagramm1.png, id=98, 462.528pt x 346.896pt>
+<imags/diagramm1.png, id=106, 462.528pt x 346.896pt>
 File: imags/diagramm1.png Graphic file (type png)
 <use imags/diagramm1.png>
 Package pdftex.def Info: imags/diagramm1.png  used on input line 256.
@@ -1148,32 +1148,33 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `math shift' on input line 398.
 
-[7] [8] [9] [10] (DM_Dynamic.aux)
+[7] [8] [9] [10] [11] (DM_Dynamic.aux)
 Package rerunfilecheck Info: File `DM_Dynamic.out' has not changed.
-(rerunfilecheck)             Checksum: D3BB26A9DA3701B7F1FC00CD46FC94F4;1444.
+(rerunfilecheck)             Checksum: F9DEFB51205E86AFFFB2BD785C7A9E05;1696.
  ) 
 Here is how much of TeX's memory you used:
- 26167 strings out of 475385
- 502439 string characters out of 2790968
- 843327 words of memory out of 3000000
- 47042 multiletter control sequences out of 15000+600000
- 472907 words of font info for 39 fonts, out of 8000000 for 9000
+ 26178 strings out of 475385
+ 502596 string characters out of 2790968
+ 843328 words of memory out of 3000000
+ 47046 multiletter control sequences out of 15000+600000
+ 474518 words of font info for 41 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 81i,13n,83p,520b,613s stack positions out of 10000i,1000n,20000p,200000b,80000s
+ 81i,13n,83p,582b,613s stack positions out of 10000i,1000n,20000p,200000b,80000s
  <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\t
 crm1000.pk> <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/lh/lh-t2a/d
 pi600\labx1000.pk> <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/lh/l
 h-t2a/dpi600\larm1000.pk><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmex10.
 pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmmi10.pfb><D:/Soft/MikTex/f
-onts/type1/public/amsfonts/cm/cmmi7.pfb><D:/Soft/MikTex/fonts/type1/public/amsf
-onts/cm/cmr10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr5.pfb><D:/S
-oft/MikTex/fonts/type1/public/amsfonts/cm/cmr7.pfb><D:/Soft/MikTex/fonts/type1/
-public/amsfonts/cm/cmsy10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cm
-sy5.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy7.pfb><D:/Soft/MikTe
-x/fonts/type1/public/amsfonts/symbols/msam10.pfb>
-Output written on DM_Dynamic.pdf (10 pages, 255692 bytes).
+onts/type1/public/amsfonts/cm/cmmi5.pfb><D:/Soft/MikTex/fonts/type1/public/amsf
+onts/cm/cmmi7.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr10.pfb><D:/
+Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr5.pfb><D:/Soft/MikTex/fonts/type1
+/public/amsfonts/cm/cmr7.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cms
+y10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy5.pfb><D:/Soft/MikTe
+x/fonts/type1/public/amsfonts/cm/cmsy7.pfb><D:/Soft/MikTex/fonts/type1/public/a
+msfonts/symbols/msam10.pfb>
+Output written on DM_Dynamic.pdf (11 pages, 278145 bytes).
 PDF statistics:
- 345 PDF objects out of 1000 (max. 8388607)
- 75 named destinations out of 1000 (max. 500000)
- 87 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 374 PDF objects out of 1000 (max. 8388607)
+ 80 named destinations out of 1000 (max. 500000)
+ 103 words of extra memory for PDF output out of 10000 (max. 10000000)
 

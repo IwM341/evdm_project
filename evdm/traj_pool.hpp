@@ -208,7 +208,7 @@ namespace evdm{
                     auto u0 = umin_l2(e, l_undim)* l2 / (1 + std::sqrt(1 - l2));
                     auto delta0 = 1 - u0;
                     auto x = delta1 / (delta0);
-                    auto bad_delta = delta0 <= 0;
+                    auto bad_delta = delta0 <= 0 || delta1 <= 0;
                     auto m_asin = (!bad_delta) ? std::asin(2 * std::sqrt(x) / (1 + x)) : 0;
                     auto RetTh = (bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
                     return { u0 ,u1, RetTh }; 
@@ -217,7 +217,7 @@ namespace evdm{
                     auto delta0 = u0z(e, l_undim) * (2 * z / (sqr_qe + q_e));
                     auto u0 = 1 - delta0;
                     auto x = delta1 / (delta0);
-                    auto bad_delta = delta0 <= 0;
+                    auto bad_delta = delta0 <= 0 || delta1 <= 0;
                     auto m_asin = (!bad_delta) ? std::asin(2 * std::sqrt(x) / (1 + x)) : 0;
                     auto RetTh = (bad_delta || x > 1 ? m_asin : pi<T> -m_asin);
                     return { u0 ,u1, RetTh };
@@ -233,7 +233,7 @@ namespace evdm{
             auto L = l_undim * Lme;
             auto L2 = L * L;
 
-            if (L2 <= 1 + e) { //Left Zone
+            if (L2 >= 1 + e) { //Left Zone
                 return pi<T>;
             }
             else { // Right Zone
@@ -244,7 +244,7 @@ namespace evdm{
                 auto delta1 = (q_e + sqr_qe);
                 if (l_undim < 0.9) { // Down Zone
                     auto l2 = l_undim * l_undim;
-                    auto u0 = umin_l2(e, l_undim)* l2;
+                    auto u0 = umin_l2(e, l_undim)*l2 / (1 + std::sqrt(1 - l2));
                     auto delta0 = 1 - u0;
                     auto x = delta1 / (delta0);
                     auto bad_delta = delta0 <= 0;
@@ -291,14 +291,13 @@ namespace evdm{
         ) :
             TrajPool(TrajPool), LE_i(LE_i) {}
 
-        template <typename T>
-        inline auto operator()(T e, T l_undim) const {
-            T L = l_undim * LE_i(-e);
+        inline auto operator()(Tr_Type e, Tr_Type l_undim) const {
+            Tr_Type L = l_undim * LE_i(-e);
             return eT(-e, L * L); 
         }
-        template <typename T>
-        inline auto operator()(T e, T l_undim, T Lmax) const {
-            T L = l_undim * Lmax;
+
+        inline auto operator()(Tr_Type e, Tr_Type l_undim, Tr_Type  Lmax) const {
+            Tr_Type L = l_undim * Lmax;
             return eT(-e, L * L);
         }
     };

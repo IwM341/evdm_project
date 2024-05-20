@@ -7,8 +7,10 @@
 
 namespace evdm {
 
+    
     template <typename T>
-    using Matrix_t = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
+    using Matrix_t =
+        Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
 
     template <typename T, typename Body_vt,
         typename GridEL_vt, GridEL_type grid_type>

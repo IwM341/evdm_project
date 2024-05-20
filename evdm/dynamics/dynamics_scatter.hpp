@@ -105,8 +105,8 @@ namespace evdm {
 		auto q_2 = vec_Q.squaredNorm();
 
 		//
-		vec3<T> vec_V_T_inel = (Vu + Vu1) * (mi_frac - mk_frac) / 2;
-		if (q_2 != 0)
+		vec3<T> vec_V_T_inel = (Vu + Vu1) / 2;
+		if (delta_mk != 0 && q_2 != 0)
 			vec_V_T_inel += delta_mk * vec_Q / q_2;
 		T v_2 = vec_V_T_inel.squaredNorm();
 		//////////
@@ -162,16 +162,17 @@ namespace evdm {
 		typedef
 			bin_traj_p_vt_t<std::decay_t<decltype(TrajPoolVec[0])>>
 			Traj_t;
-		auto FromFactorVar_Action = [&, &Nir = se.n_e](auto&& dF) {
+		auto FromFactorVar_Action = [&,_G=G, &Nir = se.n_e](auto&& dF) {
 			const size_t N_in = ScatMat_bank.Grid.size();
 			progress_omp_bar<> m_bar(
 				m_progress_func, N_in, std::max((int)(N_in / 1000), 1)
 			);
-#pragma	omp parallel for
 			auto m_cm = mk * mi / (mk + mi);
 			auto mi_frac = mi / (mk + mi);
 			auto mk_frac = mk / (mk + mi);
-			for (size_t i = 0; i < N_in; ++i) {
+			auto G = _G;
+			#pragma	omp parallel for private(G)
+			for (int i = 0; i < N_in; ++i) {
 				auto IJ = ScatMat_bank.Grid.FromLinear(i);
 
 				auto el_bin = ScatMat_bank.Grid[IJ];
@@ -189,8 +190,7 @@ namespace evdm {
 
 
 				for (size_t nm = 0; nm < Nmk; ++nm) {
-					auto [e, l] = m_bin_el_gen();
-					auto Lmax = LEf(-e);
+					auto [e, l,Lmax] = m_bin_el_gen();
 					auto Ltmp = l * Lmax;
 
 					auto [u0, u1, theta_max] =

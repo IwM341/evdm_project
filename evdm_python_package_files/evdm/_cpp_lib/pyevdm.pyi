@@ -1,27 +1,52 @@
 import numpy
-from typing import Callable, overload
+from typing import Callable, List, overload
+
+class AnnPre:
+    def __init__(self, grid: GridEL, Nmk: int, dtype: str = ..., bar: handle = ...) -> None:
+        """__init__(self: pyevdm.AnnPre, grid: pyevdm.GridEL, Nmk: int, dtype: str = 'float', bar: handle = None) -> None
+
+        constructor.
+
+        Parameters:
+        \tgrid : el grid.
+        \tNmk : number of MK integratons per bin.
+        \tdtype : type of values.
+        \tbar : update progress bar function.
+
+        """
+    def add_to_matrix(self, matrix: Matrix, ptype0: int, ptype1: int, a0: float, av: float) -> None:
+        """add_to_matrix(self: pyevdm.AnnPre, matrix: pyevdm.Matrix, ptype0: int, ptype1: int, a0: float, av: float) -> None
+
+        build part of annihilation matrix of ptype0, ptype1, the matrix would by Aij += a0*a_0_ij+av*a_v_ijwhere annihilation determines by dN_i/dt = (n_{infty} sigma_{ann} v_esc) (A_{ij}  N_j) N_iParameters:
+        \tmatrix : input matrix to build (modify)
+        \tptype0, ptype1: scattering types
+        \ta0 : coefficient of sigma_{ann} v_esc = const annihilation
+        \tav : coefficient of sigma_{ann} v_esc = const * v^2 annihilation
+
+        """
 
 class Body:
-    def __init__(self, Rho: object, size: int | None = ..., velocity: float = ..., Temp: object = ..., dtype: str = ...) -> None:
-        """__init__(self: pyevdm.Body, Rho: object, size: Optional[int] = None, velocity: float = 0.0007, Temp: object = None, dtype: str = '') -> None
+    def __init__(self, Rho: object, size: int | None = ..., velocity: float = ..., Temp: handle = ..., dtype: str = ...) -> None:
+        """__init__(self: pyevdm.Body, Rho: object, size: Optional[int] = None, velocity: float = 0.0007, Temp: handle = None, dtype: str = '') -> None
 
         constructs Body from Rho
+
         Parameters:
         ___________
         Rho : array or F
-        \tvalues of mass density or density function [0,1]->real
+        \tvalues of mass density or density function [0,1]->real.
         size : int
-        \tif Rho is function then size is the number of points
+        \tif Rho is function then size is the number of points.
         velocity : float
-        \tvelocity of body relative to halo
+        \tvelocity of body relative to halo.
         dtype : string
-        \tfloat or double
+        \tfloat or double.
         Temp : array
-        \t optional temperature array of body
+        \t optional temperature array of body.
 
         """
-    def setTemp(self, Temp: object = ...) -> None:
-        """setTemp(self: pyevdm.Body, Temp: object = None) -> None"""
+    def setTemp(self, Temp: handle = ...) -> None:
+        """setTemp(self: pyevdm.Body, Temp: handle = None) -> None"""
     @property
     def M(self) -> tuple: ...
     @property
@@ -37,31 +62,33 @@ class Body:
 
 class Capture(Distrib):
     @overload
-    def __init__(self, ELGrid: GridEL, dtype: str = ..., init: object = ...) -> None:
+    def __init__(self, ELGrid: GridEL, dtype: str = ..., init: handle = ...) -> None:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
+        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
 
         constructor of Capture(Distrib) class
+
         Parameters:
         ___________
         ELGrid : GridEL
-        \tgrid, where distribution is created
+        \tgrid, where distribution is created.
         dtype : string
-        \t'float' or 'double'
+        \t'float' or 'double'.
         init : lambda
-        \tinitialiser fuinction (density)of 3 args: (ptype,e,l), default - None, meaning zero dirtribution
+        \tinitialiser fuinction (density)of 3 args: (ptype,e,l), default - None, meaning zero dirtribution.
 
         2. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, values: numpy.ndarray) -> None
 
         constructor of Capture(Distrib) class
+
         Parameters:
         ___________
         ELGrid : GridEL
-        \tgrid, where distribution is created
+        \tgrid, where distribution is created.
         values : array
-        \tnumpy array of values
+        \tnumpy array of values.
 
         """
     @overload
@@ -69,27 +96,29 @@ class Capture(Distrib):
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
+        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
 
         constructor of Capture(Distrib) class
+
         Parameters:
         ___________
         ELGrid : GridEL
-        \tgrid, where distribution is created
+        \tgrid, where distribution is created.
         dtype : string
-        \t'float' or 'double'
+        \t'float' or 'double'.
         init : lambda
-        \tinitialiser fuinction (density)of 3 args: (ptype,e,l), default - None, meaning zero dirtribution
+        \tinitialiser fuinction (density)of 3 args: (ptype,e,l), default - None, meaning zero dirtribution.
 
         2. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, values: numpy.ndarray) -> None
 
         constructor of Capture(Distrib) class
+
         Parameters:
         ___________
         ELGrid : GridEL
-        \tgrid, where distribution is created
+        \tgrid, where distribution is created.
         values : array
-        \tnumpy array of values
+        \tnumpy array of values.
 
         """
     def append(self, second_capture: Capture) -> Capture:
@@ -107,35 +136,37 @@ class Capture(Distrib):
     def __add__(self, arg0: Capture) -> Capture:
         """__add__(self: pyevdm.Capture, arg0: pyevdm.Capture) -> pyevdm.Capture"""
     @property
-    def events(self) -> list[scatter_event_info]: ...
+    def events(self) -> List[scatter_event_info]: ...
 
 class Distrib:
     @overload
-    def __init__(self, ELGrid: GridEL, dtype: str = ..., init: object = ...) -> None:
+    def __init__(self, ELGrid: GridEL, dtype: str = ..., init: handle = ...) -> None:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
+        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
 
         constructor of Distrib class
+
         Parameters:
         ___________
         ELGrid : GridEL
-        \tgrid, where distribution is created
+        \tgrid, where distribution is created.
         dtype : string
-        \t'float' or 'double'
+        \t'float' or 'double'.
         init : lambda
-        \tinitialiser fuinction (density)of 3 args: (ptype,e,l), default - None, meaning zero dirtribution
+        \tinitialiser fuinction (density)of 3 args: (ptype,e,l), default - None, meaning zero dirtribution.
 
         2. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, values: numpy.ndarray) -> None
 
         constructor of Distrib class
+
         Parameters:
         ___________
         ELGrid : GridEL
-        \tgrid, where distribution is created
+        \tgrid, where distribution is created.
         values : array
-        \tnumpy array of values
+        \tnumpy array of values.
 
         """
     @overload
@@ -143,27 +174,29 @@ class Distrib:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
+        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
 
         constructor of Distrib class
+
         Parameters:
         ___________
         ELGrid : GridEL
-        \tgrid, where distribution is created
+        \tgrid, where distribution is created.
         dtype : string
-        \t'float' or 'double'
+        \t'float' or 'double'.
         init : lambda
-        \tinitialiser fuinction (density)of 3 args: (ptype,e,l), default - None, meaning zero dirtribution
+        \tinitialiser fuinction (density)of 3 args: (ptype,e,l), default - None, meaning zero dirtribution.
 
         2. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, values: numpy.ndarray) -> None
 
         constructor of Distrib class
+
         Parameters:
         ___________
         ELGrid : GridEL
-        \tgrid, where distribution is created
+        \tgrid, where distribution is created.
         values : array
-        \tnumpy array of values
+        \tnumpy array of values.
 
         """
     def as_type(self, dtype: str) -> Distrib:
@@ -178,73 +211,104 @@ class Distrib:
 
         calculates number of particles
         """
-    def plot(self, ptype: int) -> tuple:
-        """plot(self: pyevdm.Distrib, ptype: int) -> tuple
+    def plot(self, ptype: int, mes: str = ...) -> tuple:
+        """plot(self: pyevdm.Distrib, ptype: int, mes: str = 'dEdL') -> tuple
+
+        returns tuple: (X,Y,triangles,values)
+        where X,Y - arrays of vertises x and y coords,
+        triangles - triangles (N,3) shape array of indexes
+        values - values corresponding to vertexes.
+
+        Parameters:
+        ___________
+        ptype : int
+        \twimp type.
+        mes : str
+        \t measure of bins (standart is dEdL, no measure - '1' or '')
+
+        to plot using matplotlib type:
+        \timport matplotlib.tri as mtri
+        \tplt.tricontourf(triang,Z)
+        \tplt.triplot(triang,color = 'black')
+        """
+    def plot2(self, ptype: int) -> tuple:
+        '''plot2(self: pyevdm.Distrib, ptype: int) -> tuple
 
         returns tuple: (vertexes,triangles,values)
         where vertexes - (N,2) shape array of vert coords,
         triangles - triangles (N,3) shape array of indexes
-        values - values corresponding to vertexesParameters:
+        values - values corresponding to vertexes.
+        \tParameters:
         ___________
         ptype : int
-        \twimp type
-        """
-    def rdens(self, ptypes: object = ..., rmin: float = ..., rmax: float = ..., Nr: int = ..., Nb: int = ..., rden: object = ..., bar: object = ...) -> tuple:
-        """rdens(self: pyevdm.Distrib, ptypes: object = -1, rmin: float = 0, rmax: float = 1, Nr: int = 100, Nb: int = 10000, rden: object = None, bar: object = None) -> tuple
+        \twimp type.
 
-        return density function, i.e. d^N/d^3r
+        to plot using plotly type:
+
+        fig = figf.create_trisurf(vert[:,0],vert[:,1], np.log(np.abs(-vals)),
+        \tcolormap="Portland",
+        \tsimplices=trs,
+        \ttitle="title")
+        '''
+    def rdens(self, ptypes: handle = ..., rmin: float = ..., rmax: float = ..., Nr: int = ..., Nb: int = ..., rden: handle = ..., bar: handle = ...) -> tuple:
+        """rdens(self: pyevdm.Distrib, ptypes: handle = -1, rmin: float = 0, rmax: float = 1, Nr: int = 100, Nb: int = 10000, rden: handle = None, bar: handle = None) -> tuple
+
+        git density function, i.e. d^N/d^3r
+
         Parameters:
         ___________
         ptypes : array or int
-        \t considered ptypes
+        \t considered ptypes.
         rmin : float
-        \tmin radius in r distribution
+        \tmin radius in r distribution.
         rmax : float
-        \tmax radius in r distribution
+        \tmax radius in r distribution.
         Nr : int
-        \tnumber of points in r grid from rmin to rmax
+        \tnumber of points in r grid from rmin to rmax.
         Nb : int
-        \tnumber of MK iterations per bin for integration, default - 10000
+        \tnumber of MK iterations per bin for integration, default - 10000.
         rden : function
-        \toptional density function of r points location
+        \toptional density function of r points location.
         bar : progressbar
-        \toptional progress bar update function
+        \toptional progress bar update function.
         """
     def to_numpy(self, ptype: int = ..., is_raw: bool = ...) -> numpy.ndarray:
-        """to_numpy(self: object, ptype: int = -1, is_raw: bool = False) -> numpy.ndarray
+        """to_numpy(self: handle, ptype: int = -1, is_raw: bool = False) -> numpy.ndarray
 
         gives numpy array view to distribution
+
         Parameters:
         ___________
         ptype : int
-        \twimp type, default -1, meaning all
+        \twimp type, default -1, meaning all.
         is_raw : bool
-        \tgives distribution array with padding
+        \tgives distribution array with padding.
         """
     @property
     def grid(self) -> GridEL: ...
 
 class GridEL:
-    def __init__(self, body: Body, ptypes: int, Ne: int, Nl_func: object, RhoE: object = ..., RhoL: object = ..., dtype: str = ..., **kwargs) -> None:
-        """__init__(self: pyevdm.GridEL, body: pyevdm.Body, ptypes: int, Ne: int, Nl_func: object, RhoE: object = None, RhoL: object = None, dtype: str = 'float', **kwargs) -> None
+    def __init__(self, body: Body, ptypes: int, Ne: int, Nl_func: handle, RhoE: handle = ..., RhoL: handle = ..., dtype: str = ..., **kwargs) -> None:
+        """__init__(self: pyevdm.GridEL, body: pyevdm.Body, ptypes: int, Ne: int, Nl_func: handle, RhoE: handle = None, RhoL: handle = None, dtype: str = 'float', **kwargs) -> None
 
         constructs E-L Grid
+
         Parameters:
         ___________
         body : Body
         \tinstance of Body class
         ptypes : int
-        \tnumber of particle types
+        \tnumber of particle types.
         Ne : int
-        \t number of bins of E axis
-        Nl_func : int or function
-        \tif number then number of bins of L axis,else a function from [0.0,1.0]->int,indicating number of bins in L grid depending on e,where 0.0 correspond to Emin = phi(0), and 1.0 -- to Emax = 0
+        \t number of bins of E axis.
+        Nl_func : int | function
+        \tif number then number of bins of L axis,else a function from [0.0,1.0]->int,indicating number of bins in L grid depending on e,where 0.0 correspond to Emin = phi(0), and 1.0 -- to Emax = 0.
         RhoE : function
-        \t [optional] bin density of e axis RhoE : e in [0.0,1.0]->float
+        \t[optional] bin density of e axis RhoE : e in [0.0,1.0]->float.
         RhoL : function
-        \t [optional] bin density of l axis RhoL : (e,l) in [0.0,1.0]x[0.0,1.0]->float
+        \t[optional] bin density of l axis RhoL : (e,l) in [0.0,1.0]x[0.0,1.0]->float.
         dtype : string
-        \tfloat or double
+        \tfloat or double.
         """
     def LE(self) -> tuple:
         """LE(self: pyevdm.GridEL) -> tuple
@@ -259,19 +323,21 @@ class GridEL:
     def plot(self, is_internal: bool = ...) -> numpy.ndarray:
         """plot(self: pyevdm.GridEL, is_internal: bool = False) -> numpy.ndarray
 
-        return array of shape (N,2,2):
+        gives array of shape (N,2,2):
         [ [[x_start_i,y_start_i],[x_end_i,y_end_i]],...]
         arrays could be plottted with matplotlib:
         lc = matplotlib.collections.LineCollection(result of this function)
         fig, ax = plt.subplots()
         ax.add_collection(lc)
-        if is_internal true, then l from 0 to 1, else from 0, l(e)Parameters:
+        if is_internal true, then l from 0 to 1, else from 0, l(e).
+
+        Parameters:
         ___________
         is_internal : bool
-        if true, plot in internal representation
+        \tif true, plot in internal representation.
         """
-    def plot_trajp(self, pname: object = ..., ld: bool = ...) -> list:
-        """plot_trajp(self: pyevdm.GridEL, pname: object = 'T', ld: bool = True) -> list
+    def plot_trajp(self, pname: handle = ..., ld: bool = ...) -> list:
+        """plot_trajp(self: pyevdm.GridEL, pname: handle = 'T', ld: bool = True) -> list
 
         returns list L of dicts able to be plot in plotly of someparametrs of trajectory (Tin,Tout,Tfull,rmin,rmax,theta)
         pname name of plotted parameter: 'Tin', 'Tout' or 'T'
@@ -285,8 +351,8 @@ class GridEL:
 
         returns (rmin,rmax)(e,l_undim)
         """
-    def traj_functor(self, pname: object = ...) -> Callable[[float, float], float]:
-        """traj_functor(self: pyevdm.GridEL, pname: object = 'T') -> Callable[[float, float], float]
+    def traj_functor(self, pname: handle = ...) -> Callable[[float, float], float]:
+        """traj_functor(self: pyevdm.GridEL, pname: handle = 'T') -> Callable[[float, float], float]
 
         return functor of required param:
         T0,T1,Tin0,Tin1,Tout,rmin,rmax,theta,Tinth
@@ -305,12 +371,13 @@ class Matrix:
         """__init__(self: pyevdm.Matrix, ELGrid: pyevdm.GridEL, dtype: str = 'float') -> None
 
         constructor of Matrix class
+
         Parameters:
         ___________
         ELGrid : GridEL
-        \tCreated EL Grid
+        \tCreated EL Grid.
         dtype : string
-        \tfloat or double
+        \tfloat or double.
 
         """
     def as_type(self, dtype: str) -> Matrix:
@@ -318,21 +385,51 @@ class Matrix:
 
         creating Matrix with another dtype
         """
-    def to_numpy(self, ptype_in: int = ..., ptype_out: int = ..., is_raw: bool = ...) -> numpy.ndarray:
-        """to_numpy(self: object, ptype_in: int = -1, ptype_out: int = -1, is_raw: bool = False) -> numpy.ndarray
+    def calc_diag(self) -> None:
+        """calc_diag(self: pyevdm.Matrix) -> None
 
-        gives numpy array view to scatter matrix
+        make diag values -summ of scatter probabilities
+        """
+    def diag_distrib(self) -> Distrib:
+        """diag_distrib(self: pyevdm.Matrix) -> pyevdm.Distrib
+
+        givesdistribution of diag scatter matrix.
+
+        Parameters:
+        ___________
+        ptype : int
+        \twimp type, default -1, meaning all.
+        """
+    def to_numpy(self, ptype_in: int = ..., ptype_out: int = ..., is_raw: bool = ...) -> numpy.ndarray:
+        """to_numpy(self: handle, ptype_in: int = -1, ptype_out: int = -1, is_raw: bool = False) -> numpy.ndarray
+
+        gives numpy array view to scatter matrix.
+
         Parameters:
         ___________
         ptype_in : int
-        \tin wimp type, default -1, meaning all
+        \tin wimp type, default -1, meaning all.
         ptype_out : int
-        \tout wimp type, default -1, meaning all
+        \tout wimp type, default -1, meaning all.
         is_raw : bool
-        \tgives raw array with padding
+        \tgives raw array with padding.
+        """
+    def to_numpy_diag(self, ptype: int = ..., is_raw: bool = ...) -> numpy.ndarray:
+        """to_numpy_diag(self: handle, ptype: int = -1, is_raw: bool = False) -> numpy.ndarray
+
+        gives numpy array view to diag scatter matrix.
+
+        Parameters:
+        ___________
+        ptype : int
+        \twimp type, default -1, meaning all.
+        is_raw : bool
+        \tgives raw array with padding.
         """
     @property
-    def events(self) -> list[scatter_event_info]: ...
+    def evap_histo(self) -> Distrib: ...
+    @property
+    def events(self) -> List[scatter_event_info]: ...
     @property
     def grid(self) -> GridEL: ...
 
@@ -342,16 +439,17 @@ class Metric:
 
         Creation Lp Metric of distributions
         use: M(D1,D2), constructor arguments:
+
         Parameters:
         ___________
         Mes : Measure
         \t'dEdl' - measure differential is dE and dl, where l = L/Lmax(E)
         \t'dEdL' - measure differential is dE and dL
-        \t'dEdL2' - measure differential is dE and dL^2 = 2LdL
+        \t'dEdL2' - measure differential is dE and dL^2 = 2LdL.
         p_deg : float
-        \tvalue of p parameter of Lp norm
+        \tvalue of p parameter of Lp norm.
         ptype : int
-        \tindex of particles to compare, if -1, than summ of all particles
+        \tindex of particles to compare, if -1, than summ of all particles.
         """
     def __call__(self, arg0: Distrib, arg1: Distrib) -> float:
         """__call__(self: pyevdm.Metric, arg0: pyevdm.Distrib, arg1: pyevdm.Distrib) -> float
@@ -360,19 +458,21 @@ class Metric:
         """
 
 class ScatterEvent:
-    def __init__(self, n_e: object, sf: ScatterFactor, name: str = ..., unique: bool = ...) -> None:
-        """__init__(self: pyevdm.ScatterEvent, n_e: object, sf: pyevdm.ScatterFactor, name: str = '__unnamed__', unique: bool = False) -> None
+    def __init__(self, n_e: handle, sf: ScatterFactor, name: str = ..., unique: bool = ...) -> None:
+        """__init__(self: pyevdm.ScatterEvent, n_e: handle, sf: pyevdm.ScatterFactor, name: str = '__unnamed__', unique: bool = False) -> None
 
-        creating ScatterEvent
+        creating ScatterEvent.
+
         Parameters:
         ___________
         n_e : array 
-        \t relative to n_p concentration of targets, where n_p - avarage concentration of nuclons
+        \t relative to n_p concentration of targets, where n_p - avarage concentration of nuclons.
         sf : ScatterFactor
-        \tscatter factor class instancename : string
-        \toptional name of event
+        \tscatter factor class instance.
+        name : string
+        \toptional name of event.
         unique : bool
-        \tif true, sum of capture with same event names will be blocked
+        \tif true, sum of capture with same event names will be blocked.
         """
 
 class ScatterFactor:
@@ -392,62 +492,64 @@ def CalcCaptureImpl(capt_vector: Capture, ptype_in: int, ptype_out: int, m_wimp:
     """CalcCaptureImpl(capt_vector: pyevdm.Capture, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: pyevdm.ScatterEvent, Vbody: float, Vdisp: float, Nmk: int, r_pow: float = 2.0, weight: float = 1.0) -> tuple
 
     Calculates capture, add event to capture vector,returns tuple (capture, sigma)
+
     Parameters:
     ___________
     capt_vector : Capture
-    \tCapture histogramm
+    \tCapture histogramm.
     ptype_in : int
-    \tindex of input particle type
+    \tindex of input particle type.
     ptype_out : int
-    \tindex of output particle type
+    \tindex of output particle type.
     m_wimp : float
-    \tdm particle mass, GeV
+    \tdm particle mass, GeV.
     delta : float
-    \tdelta mass GeV: output mass - input mass
+    \tdelta mass GeV: output mass - input mass.
     m_nuc : float
-    \tnuclear mass, GeV
-    sc_event : ScatterEvent
+    \tnuclear mass, GeV.
+    sc_event : ScatterEvent.
     Vbody : float
-    \tspeed of body relative to halo
+    \tspeed of body relative to halo.
     Vdisp : float
-    \tdispersion of DM speed in halo
+    \tdispersion of DM speed in halo.
     Nmk : int
-    \tnumber of monte-carle steps
+    \tnumber of monte-carle steps.
     r_pow :float
-    \timpact on r distribution: r = (xi)^(r_pow), where xi uniforemly distributed
+    \timpact on r distribution: r = (xi)^(r_pow), where xi uniforemly distributed.
     weight :float
-    \t[optional] scale factor, default - 1
+    \t[optional] scale factor, default - 1.
     """
-def CalcScatterImpl(matrix: Matrix, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: ScatterEvent, Nmk: int, Nmk_traj: int = ..., count_evap: bool = ..., weight: float = ..., bar: object = ...) -> None:
-    """CalcScatterImpl(matrix: pyevdm.Matrix, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: pyevdm.ScatterEvent, Nmk: int, Nmk_traj: int = 10, count_evap: bool = False, weight: float = 1, bar: object = None) -> None
+def CalcScatterImpl(matrix: Matrix, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: ScatterEvent, Nmk: int, Nmk_traj: int = ..., count_evap: bool = ..., weight: float = ..., bar: handle = ...) -> None:
+    """CalcScatterImpl(matrix: pyevdm.Matrix, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: pyevdm.ScatterEvent, Nmk: int, Nmk_traj: int = 10, count_evap: bool = False, weight: float = 1, bar: handle = None) -> None
 
     Calculates scatter matrix part, add event to matrix class
+
     Parameters:
     ___________
     matrix : Matrix
-    \tScatter matrix histo
+    \tScatter matrix histo.
     ptype_in : int
-    \tindex of input particle type
+    \tindex of input particle type.
     ptype_out : int
-    \tindex of output particle type
+    \tindex of output particle type.
     m_wimp : float
-    \tdm particle mass, GeV
+    \tdm particle mass, GeV.
     delta : float
-    \tdelta mass GeV: output mass - input mass
+    \tdelta mass GeV: output mass - input mass.
     m_nuc : float
-    \tnuclear mass, GeV
-    sc_event : ScatterEvent
+    \tnuclear mass, GeV.
+    sc_event : ScatterEvent.
     Nmk : int
-    \tnumber of monte-carle steps
+    \tnumber of monte-carle steps.
     Nmk_traj: int
-    \tnumber of monte-carle steps on each trajectory
+    \tnumber of monte-carle steps on each trajectory.
     weight : float
-    \t[optional] scale factor, default - 1
+    \t[optional] scale factor, default - 1.
     bar : object
-    \t[optional] progress bar update function
+    \t[optional] progress bar update function.
     """
-def func_factr(func: object) -> ScatterFactor:
-    """func_factr(func: object) -> pyevdm.ScatterFactor
+def func_factor(func: object) -> ScatterFactor:
+    """func_factor(func: object) -> pyevdm.ScatterFactor
 
     create elastic form fractor from function
     Input should contain pointer to funcion with signature float ScatterFunc(float q_2,float v2T)

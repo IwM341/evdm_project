@@ -1,5 +1,4 @@
-#ifndef R_CONVERSION_HPP
-#define R_CONVERSION_HPP
+#pragma once
 #include "measure.hpp"
 #include <grob/grid_objects.hpp>
 #include "utils/progress_bar.hpp"
@@ -7,12 +6,16 @@
 #include <numbers>
 #include <utility>
 #include <numbers>
+#include "r_conv_util.hpp"
 /*
 * Conversion from EL density to r density
 * Scatter integral with sigma
 */
 
 namespace evdm{
+
+    
+
     /// @brief return grid function dN/d^3r(r)
     /// @param H EL distribution fistogramm
     /// @param Trajects vector of trajectory pool, corresponding to EL grid
@@ -40,7 +43,7 @@ namespace evdm{
         Phi_Func_t const & Phi,
         _F2_t _F2,
         Gen_t G,
-        RGrid_t r_grid,size_t Nmk_per_bin = 10,
+        RGrid_t r_grid,size_t Nmk_per_bin,
         progress_omp_function<> m_prog_bar_func = progress_omp_function<>())
     {
         const size_t Nrg = r_grid.size();
@@ -50,54 +53,12 @@ namespace evdm{
         auto& ELGrid = H_vec.Grid.inner(0);
         typedef std::decay_t<decltype(ELGrid.grid()[0].left)> T;
         
-        auto bin_cut = [&LEf](auto const& m_bin, auto phi, auto r) {
-            auto bin1 = m_bin;
-            auto& [e0, e1] = std::get<0>(bin1);
-            const auto& l0 = std::get<1>(bin1).left;
-            auto line_parabole_solver = [](T x0, T x1, T y0, T y1,T x_p_0,T C_p)->
-                std::pair<T,T>{
-                auto TanL = (y1 - y0) / (x1 - x0);
-                auto T2 = TanL * TanL;
-                auto _sqrt_s = std::sqrt(C_p*(C_p-4* TanL * y0 - 4*T2* x_p_0+4*T2*x0));
-                auto _b_s = 2 * T2 * x0 - 2 * TanL * y0 + C_p;
-                auto delta_sqrt_div_2t2 =  
-                    2*T2*x0*x0 - 4*TanL*x0*y0 + 2*C_p*x_p_0+2*y0*y0;
-                if (TanL == 0) {
-                    return { x_p_0,std::numeric_limits<T>::infinity() };
-                }
-                if (!(_sqrt_s >= 0)) {
-                    return {std::numeric_limits<T>::infinity(),
-                            std::numeric_limits<T>::infinity() };
-                }
-                else {
-                    if (_b_s > 0) {
-                        return { delta_sqrt_div_2t2 / (_sqrt_s + _b_s),
-                            (_b_s + _sqrt_s) / (2 * T2) };
-                    }
-                    else if(_b_s < 0) {
-                        return { (_b_s - _sqrt_s) / (2 * T2),
-                            delta_sqrt_div_2t2 / (_b_s - _sqrt_s) };
-                    }
-                    else {
-                        return { -_sqrt_s / (2 * T2) ,_sqrt_s / (2 * T2) };
-                        return { -_sqrt_s / (2 * T2) ,_sqrt_s / (2 * T2) };
-                    }
-                }
-            };
-            auto [em0, em1] = 
-                line_parabole_solver(e0,e1, LEf(-e0)*l0, LEf(-e1) * l0,-phi,r*r);
-            em0 = std::max(em0, -(T)phi);
-            e0 = std::max((em0 < e1 ? em0 : e1), e0);
-            e1 = std::min((em1 > e0 ? em1 : e0), e1);
-            return bin1;
-        };
-        
 
 
         progress_omp_bar<> m_prog_bar(m_prog_bar_func, Nrg, 
             std::max((int)Nrg / 100,(int)1));
-        #pragma omp omp_in_parallel for private(G)
-        for (size_t ird = 0; ird < Nrg; ++ird) {
+        #pragma omp parallel for private(G)
+        for (int ird = 0; ird < Nrg; ++ird) {
             auto& dense_accum = RDens[ird];
             T r = RDens.Grid[ird];
             T phi_r = (r < 1 ? Phi(r) : 1/r);
@@ -117,7 +78,7 @@ namespace evdm{
                     //std::get<0>(m_bin) = { -1.21,-1.2 };
                     //std::get<1>(m_bin) = { 0.7,0.701 };
                     /*FORMULA DEBUG,REMOVE*/
-                    auto c_bin = bin_cut(m_bin, phi_r, r);
+                    auto c_bin = _bin_cut(LEf, m_bin,phi_r, r);
                     if (std::get<0>(c_bin).left != std::get<0>(c_bin).right) {
                         auto Vol = dEdL2(
                             m_bin, LEf(-std::get<0>(m_bin).left),
@@ -146,7 +107,7 @@ namespace evdm{
                             return TinFunc(e, l, Lmax) + ToutFunc(e, l, Lmax);
                         };
 
-                        /*checks*/ {
+                        /*checks {
                             auto [e0, e1] = std::get<0>(c_bin);
                             auto [l0, l1] = std::get<1>(c_bin);
                             if (e0 < -phi_r) {
@@ -158,10 +119,10 @@ namespace evdm{
                             if (e0 > e1) {
                                 throw std::runtime_error("error e1 < e0");
                             }
-                        }
+                        }*/
 
                         double RDensValue = 0;
-                        double factor = Bin_Dens / (Nmk_per_bin * std::numbers::pi * 2);
+                        double factor = Bin_Dens*2 / (Nmk_per_bin * 3);
                         auto bin_gen = mc_d3v(r, phi_r, c_bin, G, LEf);
                         for (size_t n = 0; n < Nmk_per_bin; ++n) {
                             auto [EL, dense] = bin_gen();
@@ -185,33 +146,5 @@ namespace evdm{
     }
 
 
-    /// @brief calculates annihilation matrix
-    /// @param Grid EL Grid
-    /// @param m_matrix lambda matrix accessor m_matrix(i,j)
-    /// @param LE L(E) func
-    /// @param d3v measure, d3v(dEdL)
-    /// @param mu_el measur mu(dEdL)
-    /// @param G random number generator
-    /// @param VSigma function, equal to |v1-v2|*sigma(|v1-v2|), where 
-    /// sigma --- annihilation cross section, |v1-v2| --- velosity difference  
-    /// @return 
-    template <typename GridType,
-                typename MatrixAcsessor_t,
-                typename LE_Functype,
-                typename d3v_measure_t,
-                typename el_measure_t,
-                typename Gen_t,
-                typename SigmaFuc_t>
-    auto FillAnnMatrix(GridType const & Grid,
-                        MatrixAcsessor_t && m_matrix,
-                        LE_Functype const & LE,
-                        d3v_measure_t d3v,
-                        el_measure_t mu_el,
-                        Gen_t && G,
-                        SigmaFuc_t VSigma)
-    {
-        //TODO
-    }
     
 };
-#endif//R_CONVERSION_HPP
