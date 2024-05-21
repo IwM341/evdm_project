@@ -8,7 +8,7 @@
 size_t Py_EL_Grid::size() const
 {
 	return std::visit([](auto const& ELgrid) {
-			return ELgrid.Grid->size();
+			return ELgrid.Grid->inner(0).size();
 		}, m_grid);
 }
 
@@ -661,7 +661,8 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 			py::arg_v("RhoL", py::none()),
 			py::arg_v("dtype", "float")
 		)
-		.def_property_readonly("size", &Py_EL_Grid::size, "number of bins in grid")
+		.def_property_readonly("size", &Py_EL_Grid::size, "number of bins in EL grid")
+		.def_property_readonly("full_size", [](Py_EL_Grid const& _G) { return _G.size() * _G.ptypes(); }, "full size of grid (considering all ptypes)")
 		.def_property_readonly("dtype", &Py_EL_Grid::dtype, "type of grid")
 		.def_property_readonly("ptypes", &Py_EL_Grid::ptypes, "number of particles")
 		.def("__repr__", &Py_EL_Grid::repr)
