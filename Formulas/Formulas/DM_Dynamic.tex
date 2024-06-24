@@ -611,12 +611,48 @@
 		
 		Полная скорость захвата в $i$том бине равна
 		\begin{equation*}
-			C_i = \cfrac{c_i}{T_{\chi p}}
+			C_i = c_i \cfrac{N_{\odot}}{T_{\chi p}} 
 		\end{equation*}
 		
 		Тогда темп захвата определяется из
 		\begin{equation*}
 			\cfrac{dN_{ri}^{capt}}{dt_r} = C_i \Leftrightarrow \cfrac{d N_{i}^{capt}}{dt} = c_i
+		\end{equation*}
+		
+		Формуля для неупругого сечения (в системе центра масс):
+		\begin{equation*}
+			\cfrac{d\sigma}{d\Omega} = \cfrac{|\mathcal{M}|^2}{64\pi^2(E_1+E_2)^2}\cdot \cfrac{|\vec{v}_1'-\vec{v}_2'|}{|\vec{v}_1-\vec{v}_2|}
+		\end{equation*}
+		
+		Под ядерным форм фактором понимается величина
+		\begin{equation*}
+			F(q,v) = \cfrac{|\mathcal{M}|^2}{|\mathcal{M}_0|^2} \cdot \cfrac{(m_{\chi}+m_{p})^2}{(m_{\chi}+m_{N})^2}
+		\end{equation*}
+		где $m_{N}$ --- масса ядра, $m_{p}$ --- массса одного нуклона, по которому идет нормировка.
+		
+		Под $\sigma_{\xi p}$ подразумевается величина
+		\begin{equation*}
+			\sigma_{\xi p} = \int{\cfrac{ |\mathcal{M}_0|^2  }{64\pi^2 (E_p+E_{\chi})^2} d\Omega}
+		\end{equation*}
+		
+		Тогда, используя безразмерные параметры, получаем:
+		\begin{equation*}
+			c_i = \int{ dr^3 \int{d^3\vec{v}_{\chi}\int{ \widetilde{f}(\vec{v}_{\chi}) 
+				\widetilde{n}_N(r)  \cdot |\vec{v}_{\chi}'-\vec{v}_{N}'| F(q,v) d\vec{n}'_{CM} }}} 
+		\end{equation*}
+		
+		где функция распределения ТМ равна $n_{\chi,\infty} \widetilde{f}(\vec{v}_{\chi})$, $d\vec{n}'_{CM}$ --- элемент выходного фазового объема (направление выходной скорости в системе Ц.М.), полный интеграл которого равен 1 ($\int {d\vec{n}'_{CM} } = 1$)
+		\begin{equation*}
+			d\vec{n}'_{CM} = \cfrac{d\cos{\theta'} d \varphi' }{4\pi}
+		\end{equation*}
+		
+		Начальная скорость: 
+		\begin{equation*}
+			d^3\vec{v}_{\chi} \widetilde{f}(\vec{v}_{\chi}) = 2\pi v dv^2 f_e(v^2) = 2\pi v du^2 f_e(u^2)  
+		\end{equation*}
+		где $v^2 = v^2_{esc}(r) + u^2$, $v_{esc}(r)$ --- скорость вылета в точке $r$, $u$ --- скорость на бесконечности $f_e(u^2)$ --- эффективная плотность на бесконечности с учётом скорости движения небесного тела относительно гало $u_0$ ($\vec{u} = \vec{u}_0 + \vec{w}$) где $\vec{w}$ --- скорость в гало. 
+		\begin{equation*}
+			f_e(u^2) = \int_{-1}^1 {f(u^2+u^2_0 + 2 u u_0 x) \cfrac{dx}{2}}
 		\end{equation*}
 		
 		\item Темп рассеяния

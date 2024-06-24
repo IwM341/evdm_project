@@ -173,6 +173,8 @@ class ScatterModel_SimpleFF:
         import math
         import llvmlite.ir
         import llvmlite.binding as llvm
+        self.Zero = False 
+
         self.wimp = wimp_pars
         self.nucleus = nucleus
         fermi_GeV= 5
@@ -311,7 +313,7 @@ class ScatterModel_TestFF:
         import llvmlite.binding as llvm
         self.wimp = wimp_pars
         self.nucleus = nucleus
-
+        self.Zero = False
         llvm.initialize()
         llvm.initialize_native_target()
         llvm.initialize_native_asmprinter()

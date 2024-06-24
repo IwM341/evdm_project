@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  19 MAY 2024 12:17
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  21 JUN 2024 12:47
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -1148,13 +1148,13 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `math shift' on input line 398.
 
-[7] [8] [9] [10] [11] (DM_Dynamic.aux)
+[7] [8] [9] [10] [11] [12] (DM_Dynamic.aux)
 Package rerunfilecheck Info: File `DM_Dynamic.out' has not changed.
 (rerunfilecheck)             Checksum: F9DEFB51205E86AFFFB2BD785C7A9E05;1696.
  ) 
 Here is how much of TeX's memory you used:
- 26178 strings out of 475385
- 502596 string characters out of 2790968
+ 26179 strings out of 475385
+ 502603 string characters out of 2790968
  843328 words of memory out of 3000000
  47046 multiletter control sequences out of 15000+600000
  474518 words of font info for 41 fonts, out of 8000000 for 9000
@@ -1172,9 +1172,9 @@ Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr5.pfb><D:/Soft/MikTex/fonts/type1
 y10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy5.pfb><D:/Soft/MikTe
 x/fonts/type1/public/amsfonts/cm/cmsy7.pfb><D:/Soft/MikTex/fonts/type1/public/a
 msfonts/symbols/msam10.pfb>
-Output written on DM_Dynamic.pdf (11 pages, 278145 bytes).
+Output written on DM_Dynamic.pdf (12 pages, 283114 bytes).
 PDF statistics:
- 374 PDF objects out of 1000 (max. 8388607)
- 80 named destinations out of 1000 (max. 500000)
+ 379 PDF objects out of 1000 (max. 8388607)
+ 81 named destinations out of 1000 (max. 500000)
  103 words of extra memory for PDF output out of 10000 (max. 10000000)
 

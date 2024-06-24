@@ -229,7 +229,7 @@ namespace evdm {
 		auto q_2 = vec_Q.squaredNorm();
 		
 		//
-		vec3<T> vec_V_T_inel = (Vdelta + Vu1) * (mi_frac-mk_frac) / 2;
+		vec3<T> vec_V_T_inel = (Vdelta + Vu1) / 2;
 		if(q_2 != 0) 
 			vec_V_T_inel += delta_mk * vec_Q / q_2;
 		T v_2 = vec_V_T_inel.squaredNorm();
