@@ -227,12 +227,17 @@ namespace evdm {
 		// q - exchange momentum
 		vec3<T> vec_Q = m_cm * (Vdelta - Vu1);
 		auto q_2 = vec_Q.squaredNorm();
-		
+
 		//
 		vec3<T> vec_V_T_inel = (Vdelta + Vu1) / 2;
 		if(q_2 != 0) 
-			vec_V_T_inel += delta_mk * vec_Q / q_2;
+			vec_V_T_inel -= delta_mk * vec_Q / q_2;
+		
 		T v_2 = vec_V_T_inel.squaredNorm();
+		/*if ((Vdelta + Vu1).squaredNorm() != 0.0 && v_2 == 0.0) {
+			throw std::runtime_error("Eigen bug");
+		}*/
+		
 		//////////
 		// v_2 = \vec_{v}_{inel T}^{\perp 2}
 		// \vec_{v}_{inel T}^{\perp 2} = 1/2( v_x_1 + v_x_2 - v_N_1 - v_N_2)+delta/q^2*q

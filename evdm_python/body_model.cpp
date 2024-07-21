@@ -31,17 +31,22 @@ void Py_BodyModel::setTemp(pybind11::handle mTemp){
 		}, m_body);
 	
 }
+
+#ifdef BODY_MODEL_USE_DOUBLE
 Py_BodyModel::Py_BodyModel(pybind11::array_t<double> const& RhoValues, double Velocity, pybind11::handle Temp)
 :m_body(evdm::load_body_model<double,evdm::forward_shared>(RhoValues.data(),RhoValues.size(), Velocity))
 {
 	setTemp(Temp);
 }
+#endif
 
+#ifdef BODY_MODEL_USE_FLOAT
 Py_BodyModel::Py_BodyModel(pybind11::array_t<float> const& RhoValues, float Velocity, pybind11::handle Temp)
 	:m_body(evdm::load_body_model<float, evdm::forward_shared>(RhoValues.data(), RhoValues.size(), Velocity))
 {
 	setTemp(Temp);
 }
+#endif
 
 template <typename T>
 struct T_t{

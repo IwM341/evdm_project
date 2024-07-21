@@ -27,7 +27,7 @@ class O:
     def __str__(self):
         return self.symbol.__str__()
     def latex(self):
-        return self.symbol.__str__() +" = "+ O._Expression_Latex_O_Array[self.n-1]
+        return 'O_{'+str(self.n)+'}^'+str(self.tau) +" = "+ O._Expression_Latex_O_Array[self.n-1]
     def __add__(self,other):
         if(isinstance(other,O)):
             return self.symbol + other.symbol
@@ -63,7 +63,10 @@ class Nucleus:
         self.spin = _nuc_info._get_spin(Z,A)
         self.mass = A*0.938
         self.factors = _ff_bind.FormFactors[self.name][self.A]
-        self.b = float(sympy.sqrt(41.467/(45*A**(-1.0/3) - 25*A**(-2.0/3) ))*5.067730716548338)
+        if (A == 1):
+            self.b = 1e-4
+        else:
+            self.b = float(sympy.sqrt(41.467/(45*A**(-1.0/3) - 25*A**(-2.0/3) ))*5.067730716548338)
     def __repr__(self):
         return f"Nucleus(A = {self.A}, Z = {self.Z})"
     def __str__(self):

@@ -15,30 +15,32 @@ MatrixElementFact = parse_expr("4*pi/(2*J+1)")
 Q2 = sympy.symbols('q2',real = True)
 Delta = sympy.symbols('delta',real = True)
 M_N = sympy.symbols('m_N',real = True)
+M_T = sympy.symbols('m_T',real = True)
 M_X = sympy.symbols('m_X',real = True)
-MU_NX = M_X*M_N/(M_X+M_N)
+MU_TX = M_X*M_T/(M_X+M_T)
 Q2MN = Q2/M_N**2
 J_X =  sympy.symbols('jx',real = True)
 J_N =  sympy.symbols('J',real = True)
 V2_T = sympy.symbols('v2_T',real = True)
 
-XiResponses = {"R_M":parse_expr("c1*ctc1 + jx*(jx+1)/3*( (q2/m_N**2*c5*ctc5+c8*ctc8)*VT2 + q2/m_N**2 * c11*ctc11)"),
+XiResponses = {"R_M":parse_expr("c1*ctc1 + jx*(jx+1)/3*(   (q2/m_N**2*c5*ctc5+c8*ctc8)*VT2 + q2/m_N**2 * c11*ctc11   )"),
                "R_Phi_pp":Q2MN*parse_expr("1/4*q2/m_N**2 * c3*ctc3 + jx*(jx+1)/12*(c12-q2/m_N**2*c15)*(ctc12-q2/m_N**2*ctc15)"),
                "R_MPhi_pp" : Q2MN*parse_expr("re(  c3*ctc1+ jx*(jx+1)/3*(c12-q2/m_N**2*c15)*ctc11)"),
                "R_Phi_t_p" : Q2MN*parse_expr("jx*(jx+1)/12*(c12*ctc12 + q2/m_N**2*c13*ctc13)"),
                "R_Sigma_pp" : parse_expr("q2/(4*m_N**2)*c10*ctc10 + jx*(jx+1)/12*"
-                    "(c4*ctc4+q2/m_N**2 *(c4*ctc6+c6*ctc4) ) + q2**2/m_N**4*c6*ctc6 + VT2*(c12*ctc12 + q2/m_N**2*c13*ctc13) "),
+                    "(   c4*ctc4+q2/m_N**2 *(c4*ctc6+c6*ctc4) + q2**2/m_N**4*c6*ctc6 + VT2*(c12*ctc12 + q2/m_N**2*c13*ctc13)   )"),
                "R_Sigma_p":parse_expr("1/8*(q2/m_N**2*c3*ctc3+c7*ctc7)*VT2 + jx*(jx+1)/12*"
-                    "(c4*ctc4+q2/m_N**2*c8*ctc9+VT2/2*(  (c12-q2/m_N**2*c15)*(ctc12-q2/m_N**2*ctc15)+ q2/m_N**2*c14*ctc14) )"),
+                    "(    c4*ctc4+q2/m_N**2*c9*ctc9+VT2*( (c12-q2/m_N**2*c15)*(ctc12-q2/m_N**2*ctc15)/2+ q2/m_N**2*c14*ctc14/2 )   )"),
                "R_Delta":Q2MN*parse_expr("jx*(jx+1)/3*(q2/m_N**2*c5*ctc5 + c8*ctc8)"),
-               "R_DeltaSigma_p" : Q2MN*parse_expr("jx*(jx+1)/3*re(q2/m_N**2*c5*ctc4 - c8*ctc9)")}
+               "R_DeltaSigma_p" : Q2MN*parse_expr("jx*(jx+1)/3*re(c5*ctc4 - c8*ctc9)")}
 pre_substritutions = [("jx",sympy.symbols("jx",real = True)),
                       ("m_N",sympy.symbols("m_N",real = True)),
+                      ("m_T",sympy.symbols("m_T",real = True)),
                       ("VT2",sympy.symbols("VT2",real = True)),
                       ("q2",sympy.symbols("q2",real = True)),
                       ("delta",sympy.symbols("delta",real = True)),
                       ("v2_T",sympy.symbols("v2_T",real = True))]
-VT2 = parse_expr("v2_T - ((m_N+m_X)/(2*m_N*m_X) + delta/q2)**2*q2").subs(pre_substritutions)
+VT2 = parse_expr("v2_T - ((m_T+m_X)/(2*m_T*m_X) + delta/q2)**2*q2").subs(pre_substritutions)
 
 def rsym(symb):
     return sympy.Symbol(symb,real =True)
@@ -100,7 +102,7 @@ def GetMatrixElement(OExpression,W_dict_poly_part):
         (InfoName,t1,t2) = ParseWFactor(W_name)
         W_val = parse_expr(_W_val) if(type(_W_val) == str) else _W_val
 
-        W_pol_val = W_val if(W_val.limit("y","+oo") != 0) else W_val*parse_expr("exp(2*y)")
+        W_pol_val = W_val*parse_expr("exp(2*y)") if(W_val.limit("y","+oo") == 0) else W_val
         R_name = "R"+InfoName
         #print("Rname = ",R_name)
         R_val = XiResponses[R_name]
@@ -111,17 +113,18 @@ def GetMatrixElement(OExpression,W_dict_poly_part):
             )
     return sum(PList)
 
-def scatter_model_subs(m_X,m_N,delta,j_X,j_N,b):
+def scatter_model_subs(m_X,m_T,delta,j_X,j_N,b):
     """
     :parametr m_X: WIMP mass, GeV
-    :parametr m_N: Nuclear Mass, GeV
+    :parametr m_T: Nuclear Mass, GeV
     :parametr delta: WIMP delta mass, GeV
     :parametr j_X: WIMP angular momentum
     :parametr j_N: Nuclear angular momentum
     :parametr b: b oscillator parametr
     """
-    return {"m_N":m_N,"m_X":m_X,"delta": delta,"jx":j_X,"J":j_N,"b":b,
-            M_N : m_N,M_X : m_X,Delta : delta,J_X : j_X,J_N:j_N,sympy.Symbol('b',real = True):b}
+    return {"m_T":m_T,M_T:m_T,"m_X":m_X,"delta": delta,"jx":j_X,"J":j_N,"b":b,
+            "m_N" : 0.9389, M_N  :0.9389, 
+            M_T : m_T,M_X : m_X,Delta : delta,J_X : j_X,J_N:j_N,sympy.Symbol('b',real = True):b}
 
 def NormalizeMatEl(MatrixElementExpression,Vdiff,b,mx,mT,mN,delta,j_X):
     """

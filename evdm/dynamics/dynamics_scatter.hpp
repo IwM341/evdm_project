@@ -107,7 +107,7 @@ namespace evdm {
 		//
 		vec3<T> vec_V_T_inel = (Vu + Vu1) / 2;
 		if (delta_mk != 0 && q_2 != 0)
-			vec_V_T_inel += delta_mk * vec_Q / q_2;
+			vec_V_T_inel -= delta_mk * vec_Q / q_2;
 		T v_2 = vec_V_T_inel.squaredNorm();
 		//////////
 		// v_2 = \vec_{v}_{inel T}^{\perp 2}

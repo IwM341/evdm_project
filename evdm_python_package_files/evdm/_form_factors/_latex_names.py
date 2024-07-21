@@ -15,7 +15,7 @@ def _make_latex_array():
         f'{br(f"{S_W}{mlt}{Q}")}{br(f"{S_N}{mlt}{Q}")}',#6
         f'{S_N}{mlt}{V}',#7
         f'{S_W}{mlt}{V}',#8
-        f'{S_W}{mlt}{br(f"{S_N}{tms}{Q}")}'#9
+        f'{S_W}{mlt}{br(f"{S_N}{tms}{Q}")}',#9
         f'i{S_N} {mlt} {Q}',#10
         f'i{S_W} {mlt} {Q}',#11
         f'{S_W} {mlt} {br(f"{S_N} {tms} {V}")}',#12

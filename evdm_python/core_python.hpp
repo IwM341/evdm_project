@@ -39,10 +39,15 @@ struct Py_BodyModel {
 
 	template <typename T>
 	Py_BodyModel(evdm::BodyModel<T> m_body) :m_body(std::move(m_body)) {}
+
+#ifdef BODY_MODEL_USE_DOUBLE
 	Py_BodyModel(pybind11::array_t<double> const & RhoValues, double Velocity,
 		pybind11::handle Temp = pybind11::none());
+#endif
+#ifdef BODY_MODEL_USE_FLOAT
 	Py_BodyModel(pybind11::array_t<float> const& RhoValues,float Velocity, 
 		pybind11::handle Temp = pybind11::none());
+#endif
 	Py_BodyModel(pybind11::handle  const& RhoObject,
 				std::string_view dtype,
 				std::optional<size_t> _size,
