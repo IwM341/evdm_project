@@ -279,7 +279,6 @@ namespace evdm{
     >
     void DirstributionPrinting_1order(
         HistoValuesType const& Ni,
-        size_t ptype,
         LE_Functype&& LE,
         ValueArray&& Values,
         XArray_t && XArray,
@@ -290,8 +289,7 @@ namespace evdm{
     ) {
         using T = std::decay_t<decltype(Ni.Values[0])>;
 
-        auto const& grid = Ni.Grid.inner(0);
-        size_t _ptype_stride = Ni.Grid.grid().size();
+        auto const& grid = Ni.Grid;
         auto & m_Vals = Ni.Values;
         
         size_t bin_index = 0;
@@ -322,7 +320,7 @@ namespace evdm{
             for (size_t i = 0; i < 3; ++i) {
                 Triangles[6 * bin_index+3 + i] = I0 + i + 1;
             }
-            T m_dens = m_Vals[_ptype_stride * ptype + bin_index]/
+            T m_dens = m_Vals[bin_index]/
                 mes_down(measure_t{}, m_bin, Lm0, Lm1);
             for (size_t i = 0; i < 4; ++i) {
                 Values[4 * bin_index+i] = m_dens;

@@ -2,14 +2,20 @@ cmake_minimum_required(VERSION 3.9)
 
 set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ version selection")
 
+option(GEN_R_NO_POW "in capture r generator, use r = g() instead g()^p" OFF)
+if(${GEN_R_NO_POW})
+   add_compile_definitions(NO_POW)
+endif()
 
 option(VERBOSE "Debug some functions" OFF)
-if(VERBOSE)
+if(${VERBOSE})
    add_compile_definitions(_VERBOSE)
 endif()
 
 
 option(OPENMP "" OFF)
+option(BUILD_TESTS "BUILD_TESTS" ON)
+
 message("CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     message("Debug flags = " ${CMAKE_CXX_FLAGS})
@@ -47,6 +53,7 @@ set(SOURCES
     ${P_SOURCES_DIR}/pycapture_process.cpp
     ${P_SOURCES_DIR}/pydynamics.cpp
     ${P_SOURCES_DIR}/pyannihilation.cpp
+    ${P_SOURCES_DIR}/scatter_event_info.cpp
 )
 
 include(cmake/CPM.cmake)
@@ -62,10 +69,11 @@ if(NOT pybind11_FOUND)
     CPMAddPackage("gh:pybind/pybind11@2.11.1")
 endif()
 
+
 find_package(Grob)
 if(NOT Grob_FOUND)
     message("Grob not found, download from git")
-    CPMAddPackage("gh:IwM341/GridObject@1.0.2")
+    #CPMAddPackage("gh:IwM341/GridObject@1.0.2")
 endif()
 
 
@@ -86,13 +94,15 @@ endif()
 target_include_directories(pyevdm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 ## grob lib, will be downloaded with cpm_cmake
-#set(GROB_INCLUDE_DIR "D:/Tmp/GridObject_1/include")
-#target_include_directories(pyevdm PRIVATE ${GROB_INCLUDE_DIR})
+set(GROB_INCLUDE_DIR "D:/Tmp/GridObject_1/include")
+target_include_directories(pyevdm PRIVATE ${GROB_INCLUDE_DIR})
 
-target_link_libraries(pyevdm Grob::grob)
+#target_link_libraries(pyevdm Grob::grob)
 ##
 
 pybind11_extension(pyevdm)
+
+
 
 
 
@@ -113,3 +123,35 @@ configure_file(${PYMODULE_SRC_DIR}/pyproject.toml.in ${PYMODULE_DIR}/pyproject.t
 set_target_properties(pyevdm PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${PYMODULE_DIR}/evdm/_cpp_lib
 )
+
+
+
+set (TEST_DIR ${CMAKE_SOURCE_DIR}/tests)
+message("BUILD_TESTS = ${BUILD_TESTS}")
+
+function (prepare_test TESTNAME TESTPATH)
+    add_executable(${TESTNAME} ${TESTPATH})
+    set_property(TARGET ${TESTNAME} PROPERTY CXX_STANDARD 20)
+    message("test = " ${TESTNAME})
+    message("file = " ${TESTPATH})
+    target_link_libraries(${TESTNAME} Eigen3::Eigen)
+    if(OPENMP)
+        target_link_libraries(${TESTNAME} OpenMP::OpenMP_CXX)
+    endif()
+    target_include_directories(${TESTNAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_include_directories(${TESTNAME} PRIVATE ${GROB_INCLUDE_DIR})
+endfunction()
+
+if(${BUILD_TESTS})
+    file(GLOB files "${TEST_DIR}/*.cpp")
+    foreach(filename ${files})
+        get_filename_component(TEST_NAME ${filename} NAME_WE)
+        set(test_no_pow  "${TEST_NAME}_nopow") 
+
+        prepare_test(${test_no_pow} ${filename})
+        target_compile_definitions(${test_no_pow} PRIVATE NO_POW)
+
+        prepare_test(${TEST_NAME} ${filename})
+    
+    endforeach() 
+endif()

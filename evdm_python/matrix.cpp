@@ -1,6 +1,84 @@
 #include "core_python.hpp"
 #include <pybind11/stl.h>
 
+
+Py_Matrix make_Py_Matrix_from_arrays(
+	Py_EL_Grid const& m_grid,
+	pybind11::array const& mat,
+	pybind11::array const& evap,
+	size_t padding,std::vector<scatter_event_info> m_events) 
+{
+	size_t N = mat.shape()[0];
+	if (mat.ndim() != 2 ||
+		!(mat.shape()[1] == N)
+		) {
+		throw pybind11::value_error(
+			"input matrix have incorrect shape,"
+			"expect N*N"
+		);
+	}
+	typedef std::variant <
+#ifdef DISTRIB_USE_FLOAT
+		std::type_identity<float>
+#endif
+#ifdef DISTRIB_USE_DOUBLE
+#ifdef DISTRIB_USE_FLOAT
+		, 
+#endif
+		std::type_identity<double>
+#endif
+	> Float_variants_t;
+	
+	Float_variants_t m_type;
+	bool type_setted = false;
+#ifdef DISTRIB_USE_FLOAT
+	if (check_np_type<float>(mat)) {
+		m_type = std::type_identity<float>{};
+		type_setted = true;
+	}
+#endif
+#ifdef DISTRIB_USE_DOUBLE
+	if (check_np_type<double>(mat)) {
+		m_type = std::type_identity<double>{};
+		type_setted = true;
+	}
+#endif
+	if(!type_setted){
+		throw pybind11::type_error("not supported type of array");
+	}
+	
+		return std::visit([&]<typename T, _GRID_EL_TMPL_>(
+					std::type_identity<T> m_type,
+					evdm::EL_Grid<_GRID_EL_PARS_> const & _grid
+				) ->Py_Matrix
+		{
+			pybind11::array_t<T> mat_ = mat;
+			pybind11::array_t<T> evap_ = evap;
+			const T* mat_ptr = mat_.data();
+			const T* evap_ptr = evap_.data();
+			size_t evap_N = evap_.size();
+			size_t evap_stride = evap_.strides()[0];
+			auto Ret = Py_Matrix(
+				evdm::make_Matrix(_grid, mat_ptr, N, padding),
+				evdm::make_Distribution_data(
+					_grid,evap_ptr, evap_stride, evap_N,padding
+				)
+			);
+			Ret.events = m_events;
+			return Ret;
+		}, m_type,m_grid.m_grid);
+}
+Py_Matrix::Py_Matrix(
+	Py_EL_Grid const& mGridEL, 
+	pybind11::dict const& saved_obj):
+	Py_Matrix(make_Py_Matrix_from_arrays(
+		mGridEL, 
+		saved_obj["matrix"].cast<pybind11::array>(),
+		saved_obj["evap"].cast<pybind11::array>(),
+		saved_obj["padding"].cast<size_t>(),
+		saved_obj["events"].cast<decltype(events)>()
+	)){}
+
 Py_EL_Grid Py_Matrix::getGrid() const
 {
 	return std::visit([](const auto& distrib) {
@@ -42,16 +120,83 @@ Py_Matrix Py_Matrix::as_type(const char* type_n) const
 	}
 }
 
+Py_Matrix Py_Matrix::copy() const
+{
+	return std::visit([]<_MATRIX_TMPL_>(
+		Matrix_Pair_Inst<_MATRIX_PARS_> const& mat_dstrb
+	){
+		return Py_Matrix(mat_dstrb.first, mat_dstrb.second);
+	},m_matrix);
+}
+
 void Py_Matrix::calc_diag() {
 	std::visit([]<_MATRIX_TMPL_>(Matrix_Pair_Inst<_MATRIX_PARS_> &matr)->void {
 		matr.first.to_scatter(matr.second.values());
 	}, m_matrix);
 }
 
+Py_Matrix Py_Matrix::evolve_matrix() const
+{
+	Py_Matrix m_copy = *this;
+	m_copy.calc_diag();
+	return m_copy;
+}
+
+
+
+void Py_Matrix::combine(Py_Matrix const& _another)
+{
+	for (auto const& event : events) {
+		if (event.unique) {
+			for (const auto& _event2 : _another.events) {
+				if (event == _event2) {
+					throw pybind11::value_error("trying to combine"
+						"matrixes with intersecting events");
+				}
+			}
+		}
+	}
+	std::visit([](auto& matr, auto const& matr2)->void {
+		typedef decltype(matr.first.get_vtype()) T1;
+		typedef decltype(matr2.first.get_vtype()) T2;
+		if constexpr (std::is_same_v<T1,T2>) 
+		{
+			matr.first.values() += matr2.first.values();
+			matr.second.values() += matr2.second.values();
+		}
+		else {
+			matr.first.values() += matr2.first.values().template cast<T1>();
+			matr.second.values() += matr2.second.values().template cast<T1>();
+		}
+		
+	}, m_matrix,_another.m_matrix);
+}
+
+Py_Matrix& Py_Matrix::add(Py_Matrix const& _another)
+{
+	combine(_another);
+	return *this;
+}
+
+Py_Matrix Py_Matrix::operator_plus(Py_Matrix const& _another) const
+{
+	Py_Matrix m_copy = *this;
+	return m_copy.add(_another);
+}
+
+size_t Py_Matrix::get_padding() const
+{
+	return std::visit([](const auto& m_mat_pair) {
+		return m_mat_pair.second.get_padding();
+	},m_matrix);
+}
+
 Py_Distribution Py_Matrix::evap_distrib()
 {
 	return std::visit(
-		[]<_MATRIX_TMPL_>(Matrix_Pair_Inst<_MATRIX_PARS_> &m_p)->Py_Distribution {
+		[]<_MATRIX_TMPL_>(
+			Matrix_Pair_Inst<_MATRIX_PARS_> &m_p
+		)->Py_Distribution {
 			return m_p.second;
 		},m_matrix
 	);
@@ -90,6 +235,22 @@ pybind11::array Py_Matrix::get_matrix(
 			
 		},
 		m_matrix
+	);
+}
+
+pybind11::dict Py_Matrix::get_object(pybind11::handle self)
+{
+	using namespace pybind11::literals;
+	return pybind11::dict(
+		"type"_a = "evdm.Matrix",
+		"matrix"_a = get_matrix(self, -1, -1, true),
+		"evap"_a = get_evap(self, -1, true),
+		"padding"_a = get_padding(),
+		"events"_a = grob::map(
+			events,
+			[](scatter_event_info const& event) {
+				return event.to_object();
+			})
 	);
 }
 
@@ -184,11 +345,16 @@ void Py_Matrix::add_to_python_module(pybind11::module_& m) {
 			py::arg_v("dtype", "float"))
 		.def("__repr__", &Py_Matrix::repr)
 		.def("__str__", &Py_Matrix::repr)
+		.def("copy",&Py_Matrix::copy)
 		.def("as_type", &Py_Matrix::as_type,
 			"creating Matrix with another dtype",
 			py::arg("dtype"))
+		.def("append",&Py_Matrix::add,"adds to capture extra events capture")
+		.def("__add__",&Py_Matrix::operator_plus)
 		.def("calc_diag", &Py_Matrix::calc_diag,
 			"make diag values -summ of scatter probabilities")
+		.def("",&Py_Matrix::evap_distrib,
+			"make new evolution matrix (S_{ii} = -\sum_j{S_{ji}})")
 		.def("to_numpy", [](
 			py::handle self, int ptype_in, int ptype_out,bool raw)->py::array {
 				return py::cast<Py_Matrix&>(self).get_matrix(
@@ -215,7 +381,11 @@ void Py_Matrix::add_to_python_module(pybind11::module_& m) {
 			"ptype : int\n\twimp type, default -1, meaning all.\n"
 			"is_raw : bool\n\tgives raw array with padding.",
 			py::arg_v("ptype", -1), 
-			py::arg_v("is_raw", false))
+			py::arg_v("is_raw", false)
+		)
+		.def("to_object", [](py::handle self) {
+				return py::cast<Py_Matrix&>(self).get_object(self);
+		},"serialization into tuple(scatter_matrix,evaporation_vector)")
 		.def("diag_distrib", &Py_Matrix::get_diag_distrib,
 			"givesdistribution of diag scatter matrix.\n\n"
 				"Parameters:\n"

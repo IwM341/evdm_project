@@ -19,47 +19,51 @@
 
 
 #ifdef BODY_MODEL_USE_FLOAT
-#ifdef BODY_MODEL_USE_DOUBLE
-using body_types = std::tuple<float, double>;
+	#ifdef BODY_MODEL_USE_DOUBLE
+		#define BODY_TYPE_LIST float, double
+	#else
+		#define BODY_TYPE_LIST float
+	#endif
 #else
-using body_types = std::tuple < float >;
-#endif
-#elif defined(BODY_MODEL_USE_DOUBLE)
-using body_types = std::tuple<double>;
-#else
-static_assert("Body Model should have at lest 1 type: float or double");
+	#ifdef BODY_MODEL_USE_DOUBLE
+		#define BODY_TYPE_LIST double
+	#else
+		#error "BODY_MODEL_USE_FLOAT or BODY_MODEL_USE_DOUBLE should be defined"
+	#endif
 #endif
 
 #ifdef GRID_EL_USE_FLOAT
-#ifdef GRID_EL_USE_DOUBLE
-using grid_types = std::tuple<float, double>;
+	#ifdef GRID_EL_USE_DOUBLE
+		#define GRID_EL_TYPE_LIST float, double
+	#else
+		#define GRID_EL_TYPE_LIST float
+	#endif
 #else
-using grid_types = std::tuple < float >;
+	#ifdef GRID_EL_USE_DOUBLE
+		#define GRID_EL_TYPE_LIST double
+	#else
+		#error "GRID_EL_USE_FLOAT or GRID_EL_USE_DOUBLE should be defined"
+	#endif
 #endif
-#elif defined(GRID_EL_USE_DOUBLE)
-using grid_types = std::tuple<double>;
-#else
-static_assert("el grid should have at lest 1 type: float or double");
-#endif
-
-
 #ifdef DISTRIB_USE_FLOAT
-#ifdef DISTRIB_USE_DOUBLE
-using distrib_types = std::tuple<float, double>;
+	#ifdef DISTRIB_USE_DOUBLE
+		#define DISTRIB_TYPE_LIST float, double
+	#else
+		#define DISTRIB_TYPE_LIST float
+	#endif
 #else
-using distrib_types = std::tuple < float >;
-#endif
-#elif defined(DISTRIB_USE_DOUBLE)
-using distrib_types = std::tuple<double>;
-#else
-static_assert("Body Model should have at lest 1 type: float or double");
+	#ifdef DISTRIB_USE_DOUBLE
+		#define DISTRIB_TYPE_LIST double
+	#else
+		#error "DISTRIB_USE_FLOAT or DISTRIB_USE_DOUBLE should be defined"
+	#endif
 #endif
 
-using GridCUU_t = 
-	std::integral_constant< 
-		evdm::GridEL_type,
-		evdm::GridEL_type::GridCUU
-	>;
+using GridCUU_t =
+std::integral_constant<
+	evdm::GridEL_type,
+	evdm::GridEL_type::GridCUU
+>;
 using GridCVV_t =
 std::integral_constant<
 	evdm::GridEL_type,
@@ -67,19 +71,25 @@ std::integral_constant<
 >;
 
 #ifdef GRID_EL_USE_CUU
-#ifdef GRID_EL_USE_CVV
-using grid_pos_types =
-	std::tuple<GridCUU_t,GridCVV_t>;
+	#ifdef GRID_EL_USE_CVV
+		#define GRID_KIND_TYPE_LIST float, double
+	#else
+		#define GRID_KIND_TYPE_LIST  float
+	#endif
 #else
-using grid_pos_types =
-	std::tuple<GridCUU_t>;
+	#ifdef GRID_EL_USE_CVV
+		#define GRID_KIND_TYPE_LIST  double
+	#else
+		#error "GRID_EL_USE_CUU  or GRID_EL_USE_CVV should be defined"
+	#endif
 #endif
-#elif defined(GRID_EL_USE_CVV)
+
+using body_types = std::tuple<BODY_TYPE_LIST>;
+using grid_types = std::tuple<GRID_EL_TYPE_LIST>;
+using distrib_types = std::tuple <DISTRIB_TYPE_LIST>;
 using grid_pos_types =
-	std::tuple<GridCVV_t>;
-#else
-static_assert("el grid should be lest of 1 type: CUU or CVV");
-#endif
+	std::tuple<GRID_KIND_TYPE_LIST>;
+
 
 
 template <
@@ -246,6 +256,8 @@ using Distrib_Variant_t =
 	evdm::Distribution<float,float, float, evdm::GridEL_type::GridCVV>>;*/
 variant_type_t<convert_distrib_tp, distrib_tp_t>;
 
+typedef evdm::Distribution<float, float, float, evdm::GridEL_type::GridCUU> Distrib_Float_t;
+
 template <
 	typename Mat_vt, typename Body_vt, 
 	typename Grid_vt, evdm::GridEL_type GT 
@@ -279,6 +291,9 @@ using Matrix_Variant_t =
 	Matrix_Pair_Inst<float, float, float, evdm::GridEL_type::GridCVV>
 >;*/
 variant_type_t<convert_matrix_pair_tp, distrib_tp_t>;
+
+typedef Matrix_Pair_Inst<float, float, float, evdm::GridEL_type::GridCUU> 
+	Matrix_Variant_FFF_t;
 
 using PreAnn_Variant_t = 
 /*std::variant <

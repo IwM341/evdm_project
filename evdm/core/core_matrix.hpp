@@ -25,26 +25,28 @@ namespace evdm {
         //using const_Vec_t = Eigen::VectorX<T>::ConstSegmentReturnType;
         typedef Eigen::Block<const Matrix_t<T>> const_Mat_t;
     private:
-        std::shared_ptr<_Mat_t> _Values;
+        _Mat_t _Values;
         Mat_t _ValuesView;
         const_Mat_t _const_ValuesView;
         size_t padding;
 
-
+        template <typename Array_t>
         static _Mat_t process_matrix(
-            _Mat_t X, size_t _N,
+            Array_t &&X, size_t _N,
             size_t padding) {
             size_t delta = _N % padding;
             if (X.cols() >= _N && X.size() % padding == 0) {
-                return std::move(X);
+                if constexpr (
+                    std::is_same_v<std::decay_t<Array_t>, _Mat_t>
+                ) {
+                   return std::move(X);
+                }
             }
-            else {
-                size_t _N_true = delta ? _N + padding - delta : _N;
-                _Mat_t _X(_N_true, _N_true);
-                _X.setZero();
-                _X.block(0, 0, X.cols(), X.rows()).noalias() = X;
-                return std::move(_X);
-            }
+            size_t _N_true = delta ? _N + padding - delta : _N;
+            _Mat_t _X(_N_true, _N_true);
+            _X.setZero();
+            _X.block(0, 0, X.cols(), X.rows()).noalias() = X;
+            return std::move(_X);
         }
 
     public:
@@ -90,10 +92,10 @@ namespace evdm {
             return _const_ValuesView;
         }
         inline _Mat_t& raw_matrix() {
-            return *_Values;
+            return _Values;
         }
         inline _Mat_t const& raw_matrix() const {
-            return *_Values;
+            return _Values;
         }
 
         template <typename Index>
@@ -124,7 +126,8 @@ namespace evdm {
             return grob::make_grid_object_ref(
                 _grid,
                 grob::as_container(
-                    [&_grid, m_block = block(ptype_in, ptype_out)](size_t i)mutable {
+                    [&_grid, m_block = block(ptype_in, ptype_out)]
+            (size_t i)mutable {
                         auto m_col = m_block.col(i);
             return grob::make_histo_view(_grid,
                 grob::vector_view(m_col.data(), m_col.size())
@@ -134,42 +137,63 @@ namespace evdm {
             );
         }
 
+        template <typename MatrixArray_t = _Mat_t>
         GridMatrix(GridEL_t const& Grid,
-            Matrix_t<T> Values = {}, size_t padding = 128) :
+            MatrixArray_t &&Values = {}, size_t padding = 128) :
             Grid(Grid), _Values(
-                std::make_shared< Matrix_t<T>>(
-                    process_matrix(std::move(Values), Grid.Grid->size(), padding)
-                    )),
-            _ValuesView(_Values->block(0, 0, grid().size(), grid().size())),
+                process_matrix(
+                    std::forward<MatrixArray_t>(Values), 
+                    Grid.Grid->size(), 
+                    padding
+                )
+            ),
+            _ValuesView(_Values.block(0, 0, grid().size(), grid().size())),
             _const_ValuesView(
-                static_cast<_Mat_t const&>(*_Values)
+                static_cast<_Mat_t const&>(_Values)
                 .block(0, 0, grid().size(), grid().size())
             ), padding(padding) {}
 
+
+        template <typename U,typename T1,typename T2,GridEL_type grt1>
+        friend class GridMatrix;
+
         template <typename U>
-        GridMatrix<U, Body_vt, GridEL_vt, grid_type> as_type() const {
-            return GridMatrix<U, Body_vt, GridEL_vt, grid_type>(
-                Grid, _Values->template cast<U>()
-                );
+        GridMatrix(
+            GridMatrix<U, Body_vt, GridEL_vt, grid_type> const& original
+        ): 
+            GridMatrix(
+                original.Grid, 
+                original._Values.template cast<T>(),
+                original.padding){}
+
+        template <typename U>
+        GridMatrix<U, Body_vt, GridEL_vt, grid_type> 
+            as_type() const {
+            return GridMatrix<
+                U, Body_vt, GridEL_vt, grid_type
+            >(*this);
         }
 
         void CopyBroadcast(
             size_t ptype_in_src, size_t ptype_out_src,
-            size_t ptype_in_dst, size_t ptype_out_dst, T weight = 1) 
-        {
-            block(ptype_in_dst, ptype_out_dst) = block(ptype_in_src, ptype_out_src) * weight;
+            size_t ptype_in_dst, size_t ptype_out_dst, 
+            T weight = 1
+        ) {
+            block(ptype_in_dst, ptype_out_dst) = 
+                block(ptype_in_src, ptype_out_src) * weight;
         }
         void SummBroadcast(
             size_t ptype_in_src, size_t ptype_out_src,
-            size_t ptype_in_dst, size_t ptype_out_dst, T weight = 1) {
-
-            block(ptype_in_dst, ptype_out_dst) += block(ptype_in_src, ptype_out_src) * weight;
+            size_t ptype_in_dst, size_t ptype_out_dst, 
+            T weight = 1
+        ) {
+            block(ptype_in_dst, ptype_out_dst) += 
+                block(ptype_in_src, ptype_out_src) * weight;
         }
 
-        inline Eigen::Block<Matrix_t<T>> block(int ptype_in, int ptype_out) {
-
-
-
+        inline Eigen::Block<Matrix_t<T>> block(
+            int ptype_in, int ptype_out
+        ) {
             size_t N_size = grid().inner(0).size();
             size_t N_size_full = grid().size();
             if (ptype_in < 0 || ptype_out < 0) {
@@ -197,10 +221,9 @@ namespace evdm {
             return raw_matrix().diagonal();
         }
 
-        inline Eigen::Block<const Matrix_t<T>> block(int ptype_in, int ptype_out)const {
-
-
-
+        inline Eigen::Block<const Matrix_t<T>> block(
+            int ptype_in, int ptype_out
+        )const {
             size_t N_size = grid().inner(0).size();
             size_t N_size_full = grid().size();
             if (ptype_in < 0 || ptype_out < 0) {
@@ -235,10 +258,29 @@ namespace evdm {
         }
     };
 
-    template <typename T, typename Body_vt, typename GridEL_vt, GridEL_type grid_type>
-    auto make_Matrix(EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid) {
-        GridMatrix<T, Body_vt, GridEL_vt, grid_type> Dstr(Grid);
+    template <
+        typename T, typename Body_vt,     
+        typename GridEL_vt, GridEL_type grid_type
+    >
+    auto make_Matrix(
+        EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid,
+        size_t padding = 128
+    ) {
+        GridMatrix<T, Body_vt, GridEL_vt, grid_type> Dstr(Grid, {},padding);
         return Dstr;
+    }
+
+    template <
+        typename T, typename Body_vt, 
+        typename GridEL_vt, GridEL_type grid_type
+    >   
+    auto make_Matrix(
+            EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid,
+            const T * _mdata,size_t N, size_t padding) 
+    {
+        Eigen::Map<const Matrix_t<T>> data_view(_mdata, N, N);
+        return GridMatrix<T, Body_vt, GridEL_vt, grid_type> 
+            (Grid, data_view);
     }
 
 }; //namespace evdm

@@ -200,7 +200,36 @@ Py_BodyModel Create(pybind11::handle Rho, std::optional<size_t> _size,
 	
 }
 
-
+pybind11::dict Py_BodyModel::get_object() const {
+	using namespace pybind11::literals;
+	return std::visit(
+		[]<class T>(evdm::BodyModel<T> const & Bptr)->pybind11::dict 
+	{
+		evdm::Body<T> const& B = *Bptr;
+		return pybind11::dict(
+			"type"_a = "evdm.Body",
+			"size"_a = B.Rho.size(),
+			"Rho"_a = make_py_array(B.Rho.Values),
+			"Q"_a = make_py_array(B.Q.Values),
+			"Phi"_a = make_py_array(B.Phi.Values),
+			"Vesc"_a = B.Vesc,
+			"Temp"_a = make_py_array(B.Temp.Values)
+		);
+	},m_body);
+}
+Py_BodyModel Py_BodyModel::from_dict(pybind11::dict const& Object) {
+	if (Object["type"].cast<std::string_view>() != "evdm.Body") {
+		pybind11::type_error("could construct Body onmly is type == evdm.Body");
+	}
+	pybind11::array Rho = Object["Rho"].cast<pybind11::array>();
+	pybind11::array Q = Object["Q"].cast<pybind11::array>();
+	pybind11::array Phi = Object["Phi"].cast<pybind11::array>();
+	pybind11::array Temp = Object["Temp"].cast<pybind11::array>();
+	auto Float_variant = array_type<BODY_TYPE_LIST>(Rho);
+	std::visit([&]<class T>(std::type_identity<T>) {
+		return 
+	}, Float_variant);
+}
 
 void Py_BodyModel::add_to_python_module(pybind11::module_& m)
 { 

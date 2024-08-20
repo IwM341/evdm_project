@@ -1,13 +1,7 @@
 #include "core_python.hpp"
 #include <pybind11/stl.h>
 
-std::string scatter_event_info::repr()const
-{
-	return "(" + name + " + W_m_" + std::to_string(ptype_in)
-		+ "->" + std::to_string(ptype_in) + ": " +
-		std::to_string(Nmk) +
-		" ["+ std::to_string(amount)+"]"+ ")";
-}
+
 
 void scatter_event_info::add_to_python_module(pybind11::module_& m) {
 	namespace py = pybind11;
@@ -61,10 +55,35 @@ Py_Capture Py_Capture::operator_plus(Py_Capture const& _another) const
 	Ret.add(_another);
 	return Ret;
 }
+Py_Capture::Py_Capture(
+	Py_EL_Grid const & m_grid,
+	pybind11::dict m_py_object
+)
+	:Py_Distribution(CreateDistribFromDict(m_grid,
+		m_py_object)),
+	events(
+		m_py_object["events"].cast<decltype(events)>()
+	) {}
+
 Py_Capture Py_Capture::copy() const
 {
 	return Py_Capture(static_cast<Py_Distribution const&>(*this));
 }
+pybind11::dict Py_Capture::get_object(pybind11::handle self)
+{
+	using namespace pybind11::literals;
+	return pybind11::dict(
+		"type"_a = "evdm.Capture",
+		"values"_a = get_array(self, -1, true),
+		"events"_a = grob::map(
+			events,
+			[](scatter_event_info const& event) {
+				return event.to_object();
+			}),
+		"padding"_a = get_padding()
+	);
+}
+
 void Py_Capture::add_to_python_module(pybind11::module_& m) {
 	namespace py = pybind11;
 	py::class_<Py_Capture, Py_Distribution>(m, "Capture")
@@ -84,7 +103,7 @@ void Py_Capture::add_to_python_module(pybind11::module_& m) {
 			py::arg("ELGrid"),
 			py::arg_v("dtype", "float"),
 			py::arg_v("init", py::none()))
-		.def(py::init(&CreateDistribFromNumpy),
+		.def(py::init(&CreateDistribFromDict),
 			"constructor of Capture(Distrib) class\n\n"
 			"Parameters:\n"
 			"___________\n"

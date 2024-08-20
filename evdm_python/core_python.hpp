@@ -23,6 +23,23 @@ template <typename _T,_T...Is, _T I>
 struct index_sequence_contain<std::integer_sequence<_T, Is...>, I> :
 	std::disjunction<std::integral_constant<bool,(Is==I)>...> {};
 
+template <typename T>
+bool check_np_type(pybind11::array const& np_array) {
+	if constexpr (std::is_floating_point_v<T>) {
+		if (np_array.dtype().kind() == 'f') {
+			return np_array.dtype().itemsize() == sizeof(T);
+		} else {
+			return false;
+		}
+	} if constexpr (std::is_integral_v<T>) {
+		if (np_array.dtype().kind() == 'i') {
+			return np_array.dtype().itemsize() == sizeof(T);
+		}
+		else {
+			return false;
+		}
+	}
+}
 
 struct Py_BodyModel {
 	BodyModel_Variant_t	m_body;
@@ -63,6 +80,11 @@ struct Py_BodyModel {
 	pybind11::tuple getPhi()const;
 	pybind11::tuple getM()const;
 	pybind11::tuple getQ()const;
+
+
+	pybind11::dict get_object() const;
+	static Py_BodyModel from_dict(pybind11::dict const& Object);
+
 	static void add_to_python_module(pybind11::module_& m);
 
 };
@@ -176,10 +198,10 @@ struct Py_Distribution {
 
 	template <typename T>
 	Py_Distribution(Py_EL_Grid const& mGridEL,
-		T * _data,size_t _size,size_t padding = 128) :
+		T * _data, size_t _stride,size_t _size,size_t padding) :
 		m_distrib(
 			std::visit([&](auto const& _grid)->Distrib_Variant_t {
-				return evdm::make_Distribution_data<T>(_grid, _data,_size,padding);
+				return evdm::make_Distribution_data<T>(_grid, _data, _stride,_size,padding);
 				}, mGridEL.m_grid)
 		)
 	{}
@@ -202,7 +224,10 @@ struct Py_Distribution {
 	std::string repr()const;
 	Py_Distribution as_type(const char* type_n)const;
 	
-	pybind11::array get_array(pybind11::handle self, int ptype,bool raw = false);
+	pybind11::dict get_object(pybind11::handle self);
+
+	pybind11::array get_array(
+		pybind11::handle self, int ptype,bool raw = false);
 
 	double count(int ptype = -1)const;
 	pybind11::tuple get_r_dense(
@@ -216,14 +241,15 @@ struct Py_Distribution {
 	pybind11::tuple plot1o(size_t ptype , std::string_view m_measure)const;
 
 	static void add_to_python_module(pybind11::module_& m);
+	size_t get_padding() const;
 };
 Py_Distribution CreatePyDistrib(
 	Py_EL_Grid const& mGridEL,
 	const char* dtype,
 	pybind11::handle Init
 );
-Py_Distribution CreateDistribFromNumpy(
-	Py_EL_Grid const& mGridEL, pybind11::array X
+Py_Distribution CreateDistribFromDict(
+	Py_EL_Grid const& mGridEL, pybind11::dict X
 );
 double compare_distribs(
 	Py_Distribution const& D1,
@@ -248,10 +274,14 @@ struct scatter_event_info {
 	double amount;
 	double Nmk;
 	bool unique;
-	inline scatter_event_info():
+
+	scatter_event_info(pybind11::dict const & _object);
+	inline scatter_event_info() :
 		name(""), ptype_in(0), ptype_out(0), amount(0), Nmk(0), unique(false) {}
+	pybind11::dict to_object() const;
 	inline scatter_event_info(
-		std::string name, size_t ptype_in, size_t ptype_out,double amount, double Nmk,
+		std::string name, size_t ptype_in, size_t ptype_out,
+		double amount, double Nmk,
 		bool unique = true):
 		name(name), ptype_in(ptype_in), ptype_out(ptype_out),
 		amount(amount), Nmk(Nmk),unique(unique){}
@@ -298,8 +328,9 @@ struct Py_Capture : public Py_Distribution {
 	static void add_to_python_module(pybind11::module_& m);
 	inline std::vector<scatter_event_info>const& get_events()const { return events; }
 	
-
-
+	Py_Capture(Py_EL_Grid const&m_grid, 
+		pybind11::dict m_py_object);
+	pybind11::dict get_object(pybind11::handle self);
 	Py_Capture copy() const; 
 
 	template <typename T>
@@ -318,40 +349,56 @@ struct Py_Capture : public Py_Distribution {
 };
 struct Py_Matrix{
 	Matrix_Variant_t m_matrix;
+	//Matrix_Pair_Inst<T_i ...> m_matrix
 	std::vector<scatter_event_info> events;
 
 	template <typename T>
 	Py_Matrix(Py_EL_Grid const& mGridEL,
-		Py_EL_Grid::m_type_marker<T> _type):
+		Py_EL_Grid::m_type_marker<T> _type,
+		size_t padding = 128
+	):
 		m_matrix(
-			std::visit([](auto const& _grid)->Matrix_Variant_t {
+			std::visit([padding](auto const& _grid)->Matrix_Variant_t {
 				return std::make_pair(
-					evdm::make_Matrix<T>(_grid),
-					evdm::make_Distribution<T>(
-						_grid,false
-					)
+					evdm::make_Matrix<T>(_grid,padding),
+					evdm::make_Distribution<T>(_grid,false, padding)
 				);
 			}, mGridEL.m_grid)
 		)
 	{}
+	
+	/// @brief constructor from object
+	Py_Matrix(
+		Py_EL_Grid const& mGridEL,
+		pybind11::dict const& saved_obj);
 
-	template <typename T, typename Bt, typename Gt, evdm::GridEL_type g_type>
+	/// @brif constructor from GridMatrix
+	template <
+		typename T, typename Bt, typename Gt, evdm::GridEL_type g_type
+	>
 	Py_Matrix(evdm::GridMatrix<T, Bt, Gt, g_type> const& mat) :
 		m_matrix(
 			std::make_pair(
 				mat, 
-				evdm::make_Distribution<T>(
-					mat.Grid, [](size_t i) {return (T)0.0; }
-				)
+				evdm::make_Distribution<T>(mat.Grid, false,mat.get_padding())
 			)
 		){}
 
-	template <typename T, typename Bt, typename Gt, evdm::GridEL_type g_type>
+	template <
+		typename T, typename Bt, typename Gt, evdm::GridEL_type g_type
+	>
 	Py_Matrix(
-		evdm::GridMatrix<T, Bt, Gt, g_type> const& mat,
-		evdm::Distribution<T, Bt, Gt, g_type> const& distrib
-	) :
-		m_matrix(std::make_pair(mat, distrib)) {}
+		evdm::GridMatrix<T, Bt, Gt, g_type> mat,
+		evdm::Distribution<T, Bt, Gt, g_type> distrib
+	) : m_matrix(std::make_pair(std::move(mat), std::move(distrib))) {
+		if (mat.get_padding() != distrib.get_padding()) {
+			throw pybind11::value_error(
+				"paddings of matrix and evap vector do not match"
+			);
+		}
+	}
+
+	size_t get_padding() const;
 
 
 	Py_EL_Grid getGrid()const;
@@ -363,10 +410,16 @@ struct Py_Matrix{
 			}, m_matrix);
 	}
 
-	Py_Matrix make_copy() const { static_assert(""); };
+	Py_Matrix copy() const;
 	void calc_diag();
+	Py_Matrix evolve_matrix() const;
+	/// @brief adds two matrix if events not intersects
+	void combine(Py_Matrix const& _another);
 
-	void combine(Py_Matrix const& _another) { static_assert(""); }
+	/// @brief same as combiine
+	Py_Matrix& add(Py_Matrix const& _another);
+	/// @brief same as add but with copy
+	Py_Matrix operator_plus(Py_Matrix const& _another) const;
 
 	std::vector<scatter_event_info> const& get_events()const;
 	std::string repr()const;
@@ -376,9 +429,16 @@ struct Py_Matrix{
 	Py_Distribution evap_distrib();
 
 
-	pybind11::array get_matrix(pybind11::handle self,int p_in,int p_out,bool raw);
-	pybind11::array get_diag(pybind11::handle self, int p_in, int p_out, bool raw);
-	pybind11::array get_evap(pybind11::handle self, int p_type, bool raw);
+	pybind11::array get_matrix(
+		pybind11::handle self,int p_in,int p_out,bool raw
+	);
+	pybind11::dict get_object(pybind11::handle self);
+	pybind11::array get_diag(
+		pybind11::handle self, int p_in, int p_out, bool raw
+	);
+	pybind11::array get_evap(
+		pybind11::handle self, int p_type, bool raw
+	);
 
 	Py_Distribution get_diag_distrib();
 	

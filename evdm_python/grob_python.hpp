@@ -44,5 +44,41 @@ auto make_py_array_slice(pybind11::array_t<T>const& mvector) {
 	return grob::make_slice(mvector.data(), 0, mvector.size());
 }
 
+template <typename T>
+inline size_t tuple_check_array(
+	pybind11::array const& X,std::type_identity<T>,
+) {
+	if (X.dtype() == pybind11::dtype::of<T>()) {
+		return 0;
+	}else {
+		return 1;
+	}
+}
+
+template <typename T1,typename...Ts>
+inline size_t tuple_check_array(
+	pybind11::array const& X, 
+	std::type_identity<T1> self_T1,
+	std::type_identity<Ts>...self_Ts
+) {
+	if (tuple_check_array(X, self_T1) == 0){
+		return 0;
+	}
+	else {
+		return 1 + tuple_check_array(X, self_Ts...);
+	}
+}
+
+template <typename...Ts>
+std::variant<std::type_identity<Ts>...> array_type(pybind11::array const &X) {
+	size_t i = tuple_check_array(X, std::type_identity<Ts>{}...);
+	if (i < sizeof...(Ts)) {
+	
+	}
+	else {
+		throw pybind11::type_error("got array of unsupported type");
+	}
+	return evdm::make_variant_alt(i, std::type_identity<Ts>{}...);
+}
 
 #endif//GROB_PYTHON_HPP

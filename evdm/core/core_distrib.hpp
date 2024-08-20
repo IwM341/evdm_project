@@ -5,6 +5,7 @@
 #include "../r_conversion.hpp"
 
 #include "core_grid.hpp"
+#include <Eigen/Core>
 #include <Eigen/Eigen>
 #include <Eigen/Dense>
 #include <memory>
@@ -21,12 +22,14 @@ namespace evdm {
         //using const_Vec_t = Eigen::VectorX<T>::ConstSegmentReturnType;
         typedef Eigen::VectorBlock<const Eigen::VectorX<T>> const_Vec_t;
     private:
-        std::shared_ptr<Eigen::VectorX<T>> _Values;
+        Eigen::VectorX<T> _Values;
         Vec_t _ValuesView;
         const_Vec_t _const_ValuesView;
         size_t padding;
 
-        static Eigen::VectorX<T> process_vector(Eigen::VectorX<T> X, size_t _size, size_t padding) {
+        static Eigen::VectorX<T> process_vector(
+            Eigen::VectorX<T> X, size_t _size, size_t padding
+        ) {
             size_t delta = _size % padding;
             if (X.size() >= _size && X.size() % padding == 0) {
                 return std::move(X);
@@ -64,10 +67,10 @@ namespace evdm {
         }
 
         inline _Vec_t& raw_vector() {
-            return *_Values;
+            return _Values;
         }
         inline _Vec_t const& raw_vector()const {
-            return *_Values;
+            return _Values;
         }
 
         inline auto const& grid()const {
@@ -98,17 +101,30 @@ namespace evdm {
         }
 
         Distribution(GridEL_t const& Grid, Eigen::VectorX<T> Values = {}, size_t padding = 128) :
-            Grid(Grid), _Values(std::make_shared< Eigen::VectorX<T>>(process_vector(std::move(Values), grid().size(), padding))),
-            _ValuesView(_Values->segment(0, grid().size())),
-            _const_ValuesView(static_cast<const Eigen::VectorX<T>&>(*_Values).segment(0, grid().size())),
+            Grid(Grid), _Values(process_vector(std::move(Values), grid().size(), padding)),
+            _ValuesView(_Values.segment(0, grid().size())),
+            _const_ValuesView(static_cast<const Eigen::VectorX<T>&>(_Values).segment(0, grid().size())),
             padding(padding)
         {}
 
+        template <
+            typename U, typename Body_vt1,
+            typename GridEL_vt1, GridEL_type grid_type
+        >
+        friend class Distribution;
+
+        template <typename U>
+        Distribution(
+            Distribution<U, Body_vt, GridEL_vt, grid_type> const& _original
+        ): Distribution(
+            _original.Grid, 
+            _original._Values.template cast<T>(), 
+            _original.padding
+           ){}
+
         template <typename U>
         Distribution<U, Body_vt, GridEL_vt, grid_type> as_type() const {
-            return Distribution<U, Body_vt, GridEL_vt, grid_type>(
-                Grid, _Values->template cast<U>()
-                );
+            return Distribution<U, Body_vt, GridEL_vt, grid_type>(*this);
         }
 
         T count(int ptype)const {
@@ -140,7 +156,7 @@ namespace evdm {
             size_t N_size = grid().inner(0).size();
             if (ptype >= 0) {
                 check_ptype(ptype);
-                return _Values->segment(ptype * N_size, N_size);
+                return _Values.segment(ptype * N_size, N_size);
             }
             else {
                 return _ValuesView;
@@ -151,7 +167,7 @@ namespace evdm {
             size_t N_size = grid().inner(0).size();
             if (ptype >= 0) {
                 check_ptype(ptype);
-                return static_cast<const Eigen::VectorX<T> &>(*_Values).
+                return static_cast<const Eigen::VectorX<T> &>(_Values).
                     segment(ptype * N_size, N_size);
             }
             else {
@@ -181,9 +197,10 @@ namespace evdm {
         GridEL_type grid_type
     >
     auto make_Distribution(
-        EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid, Init_t&& init)
+        EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid, Init_t&& init,
+        size_t padding = 128)
     {
-        Distribution<T, Body_vt, GridEL_vt, grid_type> Dstr(Grid);
+        Distribution<T, Body_vt, GridEL_vt, grid_type> Dstr(Grid, {}, padding);
         auto LE = Dstr.Grid.LE();
         if constexpr (!std::is_same_v<bool, std::decay_t<Init_t>>) {
             auto H1 = Dstr.as_histo();
@@ -228,19 +245,33 @@ namespace evdm {
     >
     auto make_Distribution_data(
         EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid,
-        T* _data, size_t _size, size_t padding
+        const T* _data, size_t data_step, size_t _size, size_t padding
     ) {
         size_t _size_grid = Grid.Grid->size();
         size_t _new_size = _size_grid + padding - _size_grid % padding;
         Eigen::VectorX<T> X(_new_size);
         X.setZero();
         size_t _copy_size = std::min(_size, _new_size);
-        Eigen::Map<Eigen::VectorX<T>, Eigen::Unaligned> Data_Map(_data, _copy_size);
-        X.segment(0, _copy_size) = Data_Map;
-        return Distribution<T, Body_vt, GridEL_vt, grid_type>(
-            Grid,
-            std::move(X)
-            );
+        if (data_step == 1) {
+            Eigen::Map<const Eigen::VectorX<T>>
+                Data_Map(_data, _copy_size);
+            X.segment(0, _copy_size) = Data_Map;
+            return Distribution<T, Body_vt, GridEL_vt, grid_type>(
+                Grid,
+                std::move(X)
+                );
+        }
+        else {
+            Eigen::Map<const Eigen::VectorX<T>, Eigen::Unaligned,
+                Eigen::InnerStride<Eigen::Dynamic>
+            > DataMap(_data, _copy_size, data_step);
+            X.segment(0, _copy_size) = DataMap;
+            return Distribution<T, Body_vt, GridEL_vt, grid_type>(
+                Grid,
+                std::move(X)
+                );
+        }
+        
     }
 
     template <

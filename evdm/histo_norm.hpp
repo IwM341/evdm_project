@@ -5,6 +5,7 @@
 *   with different norm
 */
 #include "utils/mc.hpp"
+#include <grob/grid_objects.hpp>
 namespace evdm{
 
     /// @brief calculates L_p norm of difference between two distribs

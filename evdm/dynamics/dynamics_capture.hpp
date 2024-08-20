@@ -179,8 +179,15 @@ namespace evdm {
 		T factor = 1;
 
 		//generate radius
+		#ifdef NO_POW
+		T _xi = G();
+		T r_nd = _xi;
+		factor = 3*_xi*_xi;
+		#else
 		T r_nd = pow(G(), pow_r);//pow(G(),1.0/3.0);
 		factor *= (3 * pow_r * pow(r_nd, (3 * pow_r - 1) / pow_r));
+		#endif	
+		
 		//gain escape velocity from redius
 		//if(r_nd < 0.3){
 		//    r_nd+=0.0;

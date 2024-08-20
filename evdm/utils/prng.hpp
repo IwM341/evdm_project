@@ -1,6 +1,10 @@
 #ifndef PRNG_HPP
 #define PRNG_HPP
-#include <omp.h>
+
+#include <stdint.h>
+#include <type_traits>
+#include <limits>
+
 namespace evdm{
 
     enum class genpol{
@@ -32,40 +36,40 @@ namespace evdm{
     template <typename Value_t>
     inline float int_to_float(Value_t value,MetaPol<genpol::I0E1>,MetaType<float>){
         union {
-            uint32_t _uint;
+            uint_least32_t _uint;
             float _float;
         } m_val;
-        m_val._uint = shift_value<23,uint32_t>(value);
+        m_val._uint = shift_value<23,uint_least32_t>(value);
         m_val._uint |= (127<<23);
         return m_val._float-1;
     }
     template <typename Value_t>
     inline float int_to_float(Value_t value,MetaPol<genpol::E0I1>,MetaType<float>){
         union {
-            uint32_t _uint;
+            uint_least32_t _uint;
             float _float;
         } m_val;
-        m_val._uint = shift_value<23,uint32_t>(value);
+        m_val._uint = shift_value<23,uint_least32_t>(value);
         m_val._uint |= (1<<31 | 127<<23);
         return m_val._float+2;
     }
     template <typename Value_t>
     inline double int_to_float(Value_t value,MetaPol<genpol::I0E1>,MetaType<double>){
         union {
-            uint64_t _uint;
+            uint_least64_t _uint;
             double _float;
         } m_val;
-        m_val._uint = shift_value<52,uint64_t>(value);
+        m_val._uint = shift_value<52,uint_least64_t>(value);
         m_val._uint |= (1023ULL<<52);
         return m_val._float-1;
     }
     template <typename Value_t>
     inline double int_to_float(Value_t value,MetaPol<genpol::E0I1>,MetaType<double>){
         union {
-            uint64_t _uint;
+            uint_least64_t _uint;
             double _float;
         } m_val;
-        m_val._uint = shift_value<52,uint64_t>(value);
+        m_val._uint = shift_value<52,uint_least64_t>(value);
         m_val._uint |= (1ULL<<63 | 1023ULL<<52);
         return m_val._float+2;
     }
@@ -78,10 +82,10 @@ namespace evdm{
 
     template <typename T = float,genpol policy = genpol::I0E1>
     struct  xorshift32f : public _bounds_base <T,policy>{
-        mutable uint32_t state;
+        mutable uint_least32_t state;
 
-        xorshift32f(uint32_t seed = 2121885558):state(seed){}
-        static inline uint32_t next(uint32_t x){
+        xorshift32f(uint_least32_t seed = 2121885558):state(seed){}
+        static inline uint_least32_t next(uint_least32_t x){
             x ^= x << 13;
             x ^= x >> 17;
             x ^= x << 5;
@@ -99,9 +103,9 @@ namespace evdm{
 
     template <typename T = float,genpol policy = genpol::I0E1>
     struct  xorshift64f : public _bounds_base <T,policy> {
-        mutable uint64_t state;
-        xorshift64f(uint64_t seed = 818855585854798547):state(seed){}
-        static inline uint64_t next(uint64_t x){
+        mutable uint_least64_t state;
+        xorshift64f(uint_least64_t seed = 818855585854798547):state(seed){}
+        static inline uint_least64_t next(uint_least64_t x){
             x ^= x << 13;
             x ^= x >> 7;
             x ^= x << 17;

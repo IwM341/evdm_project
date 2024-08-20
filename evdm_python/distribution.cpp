@@ -52,6 +52,18 @@ Py_Distribution Py_Distribution::as_type(const char* type_n)const
 	}
 }
 
+pybind11::dict Py_Distribution::get_object(pybind11::handle self)
+{
+	using namespace pybind11::literals;
+	return pybind11::dict(
+		"type"_a = "evdm.Distribution",
+		"values"_a = get_array(
+				self, -1, true
+		),
+		"padding"_a = get_padding()
+	);
+}
+
 double Py_Distribution::count(int ptype)const
 {
 
@@ -170,9 +182,11 @@ pybind11::tuple Py_Distribution::plot1o(size_t ptype,std::string_view m_measure)
 		measure_var,
 		evdm::measure_1{}, evdm::measure_dEdl{}, evdm::measure_dEdL{}, evdm::measure_dEdL2{}
 	);
+	auto m_histo_full = _distrib.as_histo();
+	auto m_histo_slice = m_histo_full.inner_slice(ptype);
 	std::visit([&](auto m_variant) {
 		evdm::DirstributionPrinting_1order(
-			_distrib.as_histo(), ptype, _distrib.Grid.LE(),
+			m_histo_slice, _distrib.Grid.LE(),
 			Values.mutable_data(),
 			XArray.mutable_data(),
 			YArray.mutable_data(),
@@ -213,7 +227,7 @@ pybind11::tuple Py_Distribution::plot2o(size_t ptype) const
 	}, m_distrib);
 }
 
-pybind11::array Py_Distribution::get_array(pybind11::handle  self, int ptype,bool raw)
+pybind11::array Py_Distribution::get_array(pybind11::handle  self, int ptype,bool raw) 
 {
 	return std::visit(
 		[ptype, self, raw]<_DISTRIB_TMPL_>(
@@ -276,13 +290,18 @@ Py_Distribution CreatePyDistrib(
 	}
 }
 
-Py_Distribution CreateDistribFromNumpy(
-	Py_EL_Grid const& mGridEL,pybind11::array X) 
+Py_Distribution CreateDistribFromDict(
+	Py_EL_Grid const& mGridEL,pybind11::dict m_dict) 
 {
+	pybind11::array X = m_dict["values"].cast<pybind11::array>();
+	size_t padding = m_dict["padding"].cast<size_t>();
+
 	if (X.dtype().kind() == 'f') {
 		if (X.dtype().itemsize() == sizeof(float)) {
 #ifdef DISTRIB_USE_FLOAT
-			return Py_Distribution(mGridEL, (float*)X.mutable_data(), X.size());
+			return Py_Distribution(
+				mGridEL, (float*)X.mutable_data(),X.shape(0), X.size(), padding
+			);
 #else
 			throw pybind11::type_error("unsupported distrib type 'float'");
 #endif
@@ -290,7 +309,9 @@ Py_Distribution CreateDistribFromNumpy(
 		else if (X.dtype().itemsize() == sizeof(double))
 		{
 #ifdef DISTRIB_USE_DOUBLE
-			return Py_Distribution(mGridEL, (double*)X.mutable_data(), X.size());
+			return Py_Distribution(
+				mGridEL, (double*)X.mutable_data(), X.shape(0), X.size(), padding
+			);
 #else
 			throw pybind11::type_error("unsupported distrib type 'double'");
 #endif
@@ -377,14 +398,14 @@ void Py_Distribution::add_to_python_module(pybind11::module_& m)
 			py::arg("ELGrid"),
 			py::arg_v("dtype", "float"),
 			py::arg_v("init", py::none()))
-		.def(py::init(&CreateDistribFromNumpy),
+		.def(py::init(&CreateDistribFromDict),
 			"constructor of Distrib class\n\n"
 			"Parameters:\n"
 			"___________\n"
 			"ELGrid : GridEL\n\tgrid, where distribution is created.\n"
-			"values : array\n\tnumpy array of values.\n",
+			"object : dict representation of distrib",
 			py::arg("ELGrid"),
-			py::arg("values")
+			py::arg("object")
 		).def("plot", &Py_Distribution::plot1o,
 			"returns tuple: (X,Y,triangles,values)\n"
 			"where X,Y - arrays of vertises x and y coords,\n"
@@ -436,16 +457,28 @@ void Py_Distribution::add_to_python_module(pybind11::module_& m)
 			py::arg_v("Nb", 10000), py::arg_v("rden", py::none()),
 			py::arg_v("bar", py::none())
 		)
-		.def("to_numpy", [](py::handle self, int ptype,bool is_raw)->py::array {
-			return py::cast<Py_Distribution&>(self).get_array(self, ptype,is_raw);
-		},
+		.def(
+			"to_numpy", 
+			[](py::handle self, int ptype,bool is_raw)->py::array {
+				return py::cast<Py_Distribution&>(self).get_array(
+					self, ptype,is_raw
+				);
+			},
 			"gives numpy array view to distribution\n\n"
 			"Parameters:\n"
 			"___________\n"
 			"ptype : int\n\twimp type, default -1, meaning all.\n"
 			"is_raw : bool\n\tgives distribution array with padding.",
 			py::arg_v("ptype",-1), py::arg_v("is_raw", false)
-		);
+		)
+		.def_property_readonly(
+			"grid",&Py_Distribution::getGrid,"get grid of distrib")
+		.def("to_object", [](py::handle self)->py::dict {
+			return py::cast<Py_Distribution&>(self).get_object(self);
+		},"return numpy array, so Distrib/Capture could be restored"
+			"from grid and this object:\n"
+			"\tm_array = m_distrib.to_object()\n"
+			"\tm_distrib1 = Distrib(m_distrib.grid(),m_array)\n");
 	
 	py::class_<Py_DistribMeasure>(m, "Metric")
 		.def(
@@ -465,4 +498,14 @@ void Py_Distribution::add_to_python_module(pybind11::module_& m)
 			py::arg_v("ptype", -1)
 		)
 		.def("__call__", &Py_DistribMeasure::call,"compare two distribs");
+}
+
+size_t Py_Distribution::get_padding() const
+{
+	return std::visit([]<_DISTRIB_TMPL_>(
+		evdm::Distribution<_DISTRIB_PARS_> const& dstrb) {
+			return dstrb.get_padding();
+		},
+		m_distrib
+	);
 }

@@ -62,12 +62,33 @@ namespace evdm{
         static value_type get_vtype(){
             static_assert("Body::get_vtype() is not callable");
         }
-        SERIALIZATOR_FUNCTION(PROPERTY_NAMES("Q","rho","phi","Temp","vesc"), PROPERTIES(Q, Rho, Phi, Temp, Vesc))
-        WRITE_FUNCTION(Q,Rho,Phi,Temp,Vesc)
+        SERIALIZATOR_FUNCTION(
+            PROPERTY_NAMES("Q", "rho", "phi", "Temp", "vesc"), 
+            PROPERTIES(Q, Rho, Phi, Temp, Vesc)
+        )
+        WRITE_FUNCTION(Q, Rho, Phi, Temp, Vesc)
         DESERIALIZATOR_FUNCTION(
-            Body,PROPERTY_NAMES("Q","rho","phi","Temp","vesc"), PROPERTY_TYPES(Q, Rho, Phi, Temp,Vesc))
-        READ_FUNCTION(Body,PROPERTY_TYPES(Q,Rho,Phi,Temp,Vesc))
-    
+            Body, PROPERTY_NAMES("Q", "rho", "phi", "Temp", "vesc"), 
+            PROPERTY_TYPES(Q, Rho, Phi, Temp, Vesc)
+        )
+        READ_FUNCTION(Body, PROPERTY_TYPES(Q, Rho, Phi, Temp, Vesc))
+
+
+        Body(Values_t vRho, Values_t vQ,
+            Values_t vPhi, Values_t vTemp,
+            T mVesc
+        ) : Rho(GridR(0, 1, vRho.size()), std::move(vRho)),
+            Q(GridR(0, 1, vRho.size()), std::move(vQ)),
+            Phi(GridR(0, 1, vRho.size()), std::move(vPhi)),
+            VescFunc(
+                GridR(0, 1, vRho.size()),
+                grob::map(std::move(vPhi), std::sqrt)),
+            Temp(GridR(0, 1, vRho.size()), vTemp),
+            Vesc(mVesc),
+        {
+            Rho_max = Rho[Rho.size() - 1];
+            low_steps_num = 2;
+        }
         auto const& getVesc() const{
             return VescFunc;
         }
