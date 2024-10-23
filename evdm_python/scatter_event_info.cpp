@@ -15,6 +15,7 @@ pybind11::dict scatter_event_info::to_object() const
 {
 	using namespace pybind11::literals;
 	return pybind11::dict(
+		"type"_a  = "evdm.scatter_event_info",
 		"name"_a = name,
 		"ptype_in"_a = ptype_in,
 		"ptype_out"_a = ptype_out,

@@ -46,13 +46,68 @@ namespace evdm {
 	};
 
 	template <typename Gen_t>
-	vec3<Gen_vt<Gen_t>> RandomNvec(Gen_t&& G) {
+	vec3<Gen_vt<Gen_t>> RandomNvec(Gen_t& G) {
 		auto cosT = RandomCos(G);
 		auto sinT = std::sqrt(1 - cosT * cosT);
 		auto phi = RandomPhi(G);
 
 		return { sinT * cos(phi),sinT * sin(phi),cosT };
 	}
+
+
+
+	template <typename T>
+	T _cube_f(T x) {
+		return x * x * x;
+	}
+
+	
+
+	template <class Gen_t>
+	inline MCResult < vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t> > Gauss3_Soft8(
+		Gen_t& G, Gen_vt<Gen_t> Vdisp
+	) {
+		constexpr Gen_vt<Gen_t> a = 0.16;
+		auto xi = E0I1_G(G);
+		auto y = std::cbrt(xi);
+		auto x = (a * y) / (1 + (a - 1) * y);
+
+		auto Zx = a + (1 - a) * x;
+		auto deriv_xi_inv = Zx * Zx / (3 * a * y * y);
+
+		auto x8 = 8 * x;
+
+		constexpr Gen_vt < Gen_t> _bf_exp = 
+			8 * std::numbers::inv_sqrtpi* std::numbers::sqrt2;
+		auto target = _bf_exp * (x8 * x8) * std::exp(-x8 * x8 / 2);
+		return { RandomNvec(G) * (x8* Vdisp), target * deriv_xi_inv };
+	}
+
+	template <class Gen_t>
+	inline MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> Gauss3_Soft8(
+		Gen_t& G, Gen_vt<Gen_t> Vdisp, Gen_vt<Gen_t> Vmin) {
+		constexpr Gen_vt<Gen_t> a = 0.16;
+
+		auto xi_min = _cube_f(Vmin / (a* Vdisp + (1 - a) * Vmin));
+
+		auto factor = (1 - xi_min);
+
+		auto xi = xi_min + factor*G();
+		auto y = std::cbrt(xi);
+		auto x = (a * y) / (1 + (a - 1) * y);
+
+		auto Zx = a + (1 - a) * x;
+		auto deriv_xi_inv = Zx * Zx / (3 * a * y * y);
+
+		auto x8 = 8 * x;
+
+		constexpr Gen_vt < Gen_t> _bf_exp =
+			8 * std::numbers::inv_sqrtpi * std::numbers::sqrt2;
+
+		auto target = _bf_exp * (x8 * x8) * std::exp(-x8 * x8 / 2);
+		return { RandomNvec(G) * (x8* Vdisp), target * factor*deriv_xi_inv };
+	}
+
 
 	/// <summary>
 	/// return gauss vector 3 with weight
@@ -65,7 +120,7 @@ namespace evdm {
 	/// <returns></returns>
 	template <class Gen_t>
 	inline MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> Gauss3_BeyondD(
-		Gen_t&& G, Gen_vt<Gen_t> Vdisp,
+		Gen_t& G, Gen_vt<Gen_t> Vdisp,
 		Gen_vt<Gen_t> p = (Gen_vt < Gen_t>)0.8,
 		Gen_vt<Gen_t> max_xi = (Gen_vt < Gen_t>)8)
 	{
@@ -95,6 +150,87 @@ namespace evdm {
 			};
 		}
 	}
+	
+	template <typename cpr_Func_t>
+	struct _named_instance_t {
+		inline static const char* name = (cpr_Func_t{})();
+		inline static bool detect(std::string_view pot_name) {
+			return pot_name == name;
+		}
+	};
+#define NAMED_T(m_name) _named_instance_t<decltype([](){return m_name;})>
+
+
+	struct ThermGaussGenerator_NoTherm : NAMED_T("notherm") {
+
+		template <class Gen_t>
+		inline static MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> gen(
+			Gen_t& G, Gen_vt<Gen_t> Delta_x_2_div_mu, Gen_vt<Gen_t> Vmk, Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			return {vec3<Gen_vt<Gen_t >>(0,0,0), 1};
+		}
+		
+	};
+
+	struct ThermGaussGenerator_Naive : NAMED_T("naive"){
+
+		template <class Gen_t>
+		inline static MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> gen(
+			Gen_t& G, Gen_vt<Gen_t> Delta_x_2_div_mu, Gen_vt<Gen_t> Vmk, 
+			Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			typedef Gen_vt<Gen_t> T;
+			auto Vdisp = std::sqrt(Therm / Mtarget);
+
+			auto V1 = Gauss2Norm(G, Vdisp);
+			auto V2 = Gauss2Norm(G, Vdisp);
+			auto phi1 = RandomPhi(G);
+			auto phi2 = RandomPhi(G);
+			return {
+				vec3<T>(V1 * std::cos(phi1), V1 * std::sin(phi1), V2 * std::cos(phi2)),
+				(T)1
+			};
+		}
+	};
+
+	struct ThermGaussGenerator_Soft8 : NAMED_T("soft"){
+
+		template <class Gen_t>
+		inline static MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> gen(
+			Gen_t& G, Gen_vt<Gen_t> Delta_x_2_div_mu, 
+			Gen_vt<Gen_t> Vmk, Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			typedef Gen_vt<Gen_t> T;
+			auto Vdisp = std::sqrt(Therm / Mtarget);
+			return Gauss3_Soft8(G, Vdisp);
+		}
+	};
+	struct ThermGaussGenerator_Soft8_Treshold : NAMED_T("soft_tresh"){
+
+		template <class Gen_t>
+		inline static MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> gen(
+			Gen_t& G, Gen_vt<Gen_t> Delta_x_2_div_mu, 
+			Gen_vt<Gen_t> Vmk, Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			typedef Gen_vt<Gen_t> T;
+			auto Vdisp = std::sqrt(Therm / Mtarget);
+			auto Vtresh = std::clamp(
+				std::sqrt(Delta_x_2_div_mu) - Vmk, 
+				(T)0, (T)(8 * Vdisp)
+			);
+			return Gauss3_Soft8(G, Vdisp, Vtresh);
+		}
+	};
+
+
+	typedef std::variant<
+		ThermGaussGenerator_NoTherm,
+		ThermGaussGenerator_Naive,
+		ThermGaussGenerator_Soft8,
+		ThermGaussGenerator_Soft8_Treshold
+	> ThermGaussGenerator_Vasriant_t;
+
+
 
 	/// <summary>
 	/// orthogonal complement

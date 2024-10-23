@@ -84,7 +84,7 @@ namespace evdm {
 		Gen_vt<Gen_t> Vesc, Gen_vt<Gen_t> VescMin, 
 		Gen_vt<Gen_t>  mp, Gen_vt<Gen_t>  mk, 
 		Gen_vt<Gen_t>  mp_frac, Gen_vt<Gen_t>  mk_frac,
-		Gen_vt<Gen_t>  m_cm, Gen_vt<Gen_t> deltaE = 0) {
+		Gen_vt<Gen_t>  m_cm, Gen_vt<Gen_t> deltaE_div_m_cm) {
 
 		typedef Gen_vt<Gen_t> number_t;
 		number_t VcmN = Vcm.norm();
@@ -111,7 +111,7 @@ namespace evdm {
 		std::cout << n_v*n_1 << "\t" << n_v*n_2 << "\t" << n_v*n_v << std::endl<< std::endl;
 		*/
 
-		number_t Vu1_squared = Vu.squaredNorm() - deltaE * 2/ m_cm;
+		number_t Vu1_squared = Vu.squaredNorm() - deltaE_div_m_cm;
 		if (Vu1_squared <= 0.0)
 			return MCResult<vec3_t, number_t>(vec3_t(0, 0, 0), 0);
 
@@ -167,6 +167,7 @@ namespace evdm {
 		Gen_vt<Gen_t> mi, Gen_vt<Gen_t> mk, 
 		Gen_vt<Gen_t> mi_frac, Gen_vt<Gen_t> mk_frac,
 		Gen_vt<Gen_t> m_cm, Gen_vt<Gen_t> delta_mk,
+		Gen_vt<Gen_t> deltaE_div_m_cm,
 		dF_Type dF,
 		VescRFuncType const& VescR, 
 		Gen_vt<Gen_t> VescMin,
@@ -196,7 +197,8 @@ namespace evdm {
 
 		//random input velocity
 		auto VelocityMk = HaloVelocity(G, Vesc, Vdisp, mU0);
-		auto V_wimp = VelocityMk.Result;//vec3::PolarCos(sqrt(VelocityMk.Result*VelocityMk.Result+Vesc*Vesc),
+		auto V_wimp = VelocityMk.Result;
+		//vec3::PolarCos(sqrt(VelocityMk.Result*VelocityMk.Result+Vesc*Vesc),
 		//RandomCos(G),RandomPhi(G));
 		factor *= VelocityMk.RemainDensity;
 
@@ -205,7 +207,10 @@ namespace evdm {
 		factor *= n_nd;
 		
 		//thermal generation
-		auto Input_Vel_gen = Gauss3_BeyondD(G, std::sqrt(TempR(r_nd) / mi),0.8,8);
+		auto Input_Vel_gen =
+			ThermGaussGenerator_Naive::gen(
+				G, 0, 0, TempR(r_nd), mi
+			);
 		
 		factor *= Input_Vel_gen.RemainDensity;
 		vec3<T> V1 = Input_Vel_gen.Result;
@@ -226,7 +231,7 @@ namespace evdm {
 
 		// Generating out velocity
 		auto Vumk = VuOut(G, Vcm, Vdelta, Vesc, VescMin, 
-			mi, mk,mi_frac,mk_frac,m_cm, inel_enloss + delta_mk
+			mi, mk,mi_frac,mk_frac,m_cm, deltaE_div_m_cm
 		);
 		vec3<T> Vu1 = Vumk.Result;
 		factor *= Vumk.RemainDensity;
@@ -305,10 +310,11 @@ namespace evdm {
 		auto m_cm = (mk * mi) / (mk + mi);
 		auto mi_frac = (mi) / (mk + mi);
 		auto mk_frac = (mk) / (mk + mi);
+		auto deltaE_div_m_cm = 2 * dm / m_cm;
 		auto action = [&](auto&& dF) {
 			for (size_t i = 0; i < Nmk; ++i) {
 				auto mk_res = Vout1(
-					G,mi, mk, mi_frac, mk_frac,m_cm, dm, 
+					G,mi, mk, mi_frac, mk_frac,m_cm, dm, deltaE_div_m_cm,
 					dF, VescR, VescMin, se.n_e, TempR, Vdisp, mU0, _3p_r);
 				vec3<T> v_nd = std::get<0>(mk_res.Result) / VescMin;
 				

@@ -37,7 +37,9 @@ namespace evdm {
 
 
     template <typename EL_Functype, typename T>
-    inline bin_dedl_t<T> _bin_cut(EL_Functype&& LEf, bin_dedl_t<T> const& m_bin, same_t<T> phi, same_t<T> r) {
+    inline bin_dedl_t<T> _bin_cut(
+        EL_Functype&& LEf, bin_dedl_t<T> const& m_bin, 
+        same_t<T> phi, same_t<T> r) {
         auto bin1 = m_bin;
         auto& [e0, e1] = std::get<0>(bin1);
         auto l0 = std::get<1>(bin1).left;

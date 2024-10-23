@@ -7,6 +7,15 @@
 
 namespace evdm{
 
+    constexpr uint_least64_t u64_max = 
+        std::numeric_limits<uint_least64_t>::max();
+    constexpr uint_least64_t u64_max2 = u64_max /2;
+    constexpr uint_least64_t u64_max4 = u64_max /4;
+    constexpr uint_least64_t u64_max8 = u64_max /8;
+    constexpr uint_least64_t default_seed = u64_max ^ u64_max2 * 3 ^ u64_max8 * 5;
+    constexpr uint_least64_t default_seed32 = default_seed;
+
+    
     enum class genpol{
         //I0I1, //include 0, include 1
         I0E1, //include 0, exclude 1 
@@ -84,7 +93,7 @@ namespace evdm{
     struct  xorshift32f : public _bounds_base <T,policy>{
         mutable uint_least32_t state;
 
-        xorshift32f(uint_least32_t seed = 2121885558):state(seed){}
+        xorshift32f(uint_least32_t seed = (uint32_t)default_seed):state(seed){}
         static inline uint_least32_t next(uint_least32_t x){
             x ^= x << 13;
             x ^= x >> 17;
@@ -99,12 +108,27 @@ namespace evdm{
         void thread_seed(size_t thread_num = 0) const{
             state = next(next(thread_num + 1));
         }
+
+        constexpr static uint_least32_t make_seed(
+            uint_least32_t some_number
+        ) {
+            return next(
+                next(
+                    next(
+                        default_seed32 ^ some_number
+                    ) ^ some_number
+                ) ^ default_seed32
+            );
+        }
+        inline void set_seed(uint_least32_t some_number) {
+            make_seed(some_number);
+        }
     };
 
     template <typename T = float,genpol policy = genpol::I0E1>
     struct  xorshift64f : public _bounds_base <T,policy> {
         mutable uint_least64_t state;
-        xorshift64f(uint_least64_t seed = 818855585854798547):state(seed){}
+        xorshift64f(uint_least64_t seed = default_seed):state(seed){}
         static inline uint_least64_t next(uint_least64_t x){
             x ^= x << 13;
             x ^= x >> 7;
@@ -118,6 +142,20 @@ namespace evdm{
         }
         void thread_seed(size_t thread_num = 0) const{
             state = next(next(thread_num + 1));
+        }
+        constexpr static uint_least64_t make_seed(
+            uint_least64_t some_number
+        ) {
+            return next(
+                next(
+                    next(
+                        default_seed ^ some_number
+                    ) ^ some_number
+                ) ^ default_seed
+            );
+        }
+        inline void set_seed(uint_least64_t some_number) {
+            state = make_seed(some_number);
         }
     };
 
@@ -134,13 +172,23 @@ namespace evdm{
     using xorshift = universal_xorshift_t<T, policy>;
 
     template <typename Gen_t>
-    inline auto E0I1_G(Gen_t&& G) {
+    inline auto E0I1_G(Gen_t& G) {
         if constexpr (G.bounds == genpol::E0I1)
             return G();
         else if (G.bounds == genpol::I0E1)
             return 1-G();
         else
             static_assert(true, "incorrect generator bounds"); 
+    }
+
+    template <typename Gen_t>
+    inline auto I0E1_G(Gen_t& G) {
+        if constexpr (G.bounds == genpol::E0I1)
+            return 1 - G();
+        else if (G.bounds == genpol::I0E1)
+            return G();
+        else
+            static_assert(true, "incorrect generator bounds");
     }
 };
 

@@ -2,6 +2,7 @@
 #define DYNAMIC_PYTHON_HPP
 #include "core_python.hpp"
 #include <evdm/dynamics/dynamics.hpp>
+#include <evdm/utils/prng.hpp>
 
 struct Py_ScatterFactor : public evdm::FormFactor_t {
 	typedef evdm::FormFactor_t Base;
@@ -43,7 +44,8 @@ pybind11::tuple Py_CaptureProcess(
 	float dm_v_disp,
 	size_t Nmk,
 	float r_pow = 2, // the r sistribution
-	float weight = 1 // result will be multiplyed by weight
+	float weight = 1, // result will be multiplyed by weight
+	size_t seed = evdm::default_seed
 	);
 void Py_ScatterProcess(
 	Py_Matrix & ScatterAccum,
@@ -52,11 +54,8 @@ void Py_ScatterProcess(
 	float deltaM,
 	float NucleiM,
 	const Py_ScatterEvent& sc_event,
-	size_t Nmk,
-	size_t Nmk_per_traj,
-	bool count_evap,
-	float weight,
-	pybind11::handle update_function
+	pybind11::handle Nmk_v,
+	pybind11::kwargs ExtraArgs
 );
 
 std::string make_compare_sc_event(

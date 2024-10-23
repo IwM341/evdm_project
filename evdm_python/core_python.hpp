@@ -2,6 +2,7 @@
 #define CORE_PYTHON_HPP
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/functional.h>
 #include <tuple>
 #include <set>
 #include "value_types.hpp"
@@ -65,10 +66,9 @@ struct Py_BodyModel {
 	Py_BodyModel(pybind11::array_t<float> const& RhoValues,float Velocity, 
 		pybind11::handle Temp = pybind11::none());
 #endif
-	Py_BodyModel(pybind11::handle  const& RhoObject,
+	Py_BodyModel(pybind11::handle  const& RhoObject, double Velocity,
 				std::string_view dtype,
-				std::optional<size_t> _size,
-				double Velocity, pybind11::handle Temp = pybind11::none());
+				pybind11::handle Temp = pybind11::none());
 
 	void setTemp(pybind11::handle mTemp);
 
@@ -82,7 +82,7 @@ struct Py_BodyModel {
 	pybind11::tuple getQ()const;
 
 
-	pybind11::dict get_object() const;
+	pybind11::dict get_object(pybind11::handle self) const;
 	static Py_BodyModel from_dict(pybind11::dict const& Object);
 
 	static void add_to_python_module(pybind11::module_& m);
@@ -92,6 +92,7 @@ struct Py_BodyModel {
 struct Py_EL_Grid {
 	ELGrid_Variant_t m_grid;
 	
+	/// @brief size of inner part of grid
 	size_t size()const;
 	size_t ptypes()const;
 	const char* dtype()const;
@@ -140,6 +141,12 @@ struct Py_EL_Grid {
 					),4*Ne, TrajPoolInit
 				)
 			) {}
+	Py_EL_Grid refine(size_t Ne, size_t Nl) const;
+	
+	static Py_EL_Grid from_dict(Py_BodyModel BM, pybind11::dict const& grid_dict);
+	static Py_EL_Grid from_dict1(pybind11::dict const& grid_dict);
+	
+	pybind11::dict get_object(pybind11::handle self);
 
 	Py_BodyModel getBody()const;
 	pybind11::array getPlot(bool is_internal) const;
@@ -157,8 +164,12 @@ struct Py_EL_Grid {
 	size_t get_e_index(double e)const;
 	pybind11::dict get_el(
 		std::variant<size_t, std::pair<size_t, size_t>> index)const;
-	pybind11::array get_E_array()const;
-	pybind11::array get_L_array(size_t index, bool hidden)const;
+
+
+	pybind11::array get_E_array(pybind11::handle self)const;
+	pybind11::array get_L_array(
+		pybind11::handle,size_t index, bool hidden
+	)const;
 
 
 
@@ -198,7 +209,7 @@ struct Py_Distribution {
 
 	template <typename T>
 	Py_Distribution(Py_EL_Grid const& mGridEL,
-		T * _data, size_t _stride,size_t _size,size_t padding) :
+		const T * _data, size_t _stride,size_t _size,size_t padding) :
 		m_distrib(
 			std::visit([&](auto const& _grid)->Distrib_Variant_t {
 				return evdm::make_Distribution_data<T>(_grid, _data, _stride,_size,padding);
@@ -210,6 +221,12 @@ struct Py_Distribution {
 	Py_Distribution(
 		evdm::Distribution<T, Bt, Gt, g_type> const& distrib) :
 		m_distrib(distrib) {}
+
+	static Py_Distribution CreatePyDistribFromArray(
+		Py_EL_Grid const& mGridEL,
+		pybind11::array values
+	);
+	static Py_Distribution from_dict(pybind11::dict const&);
 
 	Py_EL_Grid getGrid()const;
 	
@@ -229,16 +246,22 @@ struct Py_Distribution {
 	pybind11::array get_array(
 		pybind11::handle self, int ptype,bool raw = false);
 
+	pybind11::tuple get_E_distrib(int ptype) const;
+	double get_avarage(pybind11::handle Functor, int ptype) const;
+
 	double count(int ptype = -1)const;
 	pybind11::tuple get_r_dense(
 		pybind11::handle ptypes,
 		double r_min, double  r_max, size_t Nr,
-		size_t Nperbin,
+		pybind11::handle Nperbin,
 		pybind11::handle opt_dense_funct,
 		pybind11::handle update_function) const;
 
 	pybind11::tuple plot2o(size_t ptype)const;
-	pybind11::tuple plot1o(size_t ptype , std::string_view m_measure)const;
+	pybind11::tuple plot1o(
+		size_t ptype , 
+		std::string_view m_measure,
+		std::string_view LE_Space)const;
 
 	static void add_to_python_module(pybind11::module_& m);
 	size_t get_padding() const;
@@ -251,6 +274,7 @@ Py_Distribution CreatePyDistrib(
 Py_Distribution CreateDistribFromDict(
 	Py_EL_Grid const& mGridEL, pybind11::dict X
 );
+
 double compare_distribs(
 	Py_Distribution const& D1,
 	Py_Distribution const& D2,
@@ -321,8 +345,10 @@ struct scatter_event_info {
 };
 struct Py_Capture : public Py_Distribution {
 	using Py_Distribution::Py_Distribution;
-	inline Py_Capture(Py_Distribution const& _distrib) :
-		Py_Distribution(_distrib) {}
+	inline Py_Capture(Py_Distribution _distrib) :
+		Py_Distribution(std::move(_distrib)) {}
+
+	static Py_Capture from_dict(pybind11::dict const&);
 
 	std::vector<scatter_event_info> events;
 	static void add_to_python_module(pybind11::module_& m);
@@ -391,13 +417,73 @@ struct Py_Matrix{
 		evdm::GridMatrix<T, Bt, Gt, g_type> mat,
 		evdm::Distribution<T, Bt, Gt, g_type> distrib
 	) : m_matrix(std::make_pair(std::move(mat), std::move(distrib))) {
-		if (mat.get_padding() != distrib.get_padding()) {
-			throw pybind11::value_error(
-				"paddings of matrix and evap vector do not match"
-			);
-		}
+		std::visit([](auto const& _p) {
+			if (_p.first.get_padding() != _p.second.get_padding()) {
+				throw pybind11::value_error(
+					"paddings of matrix and evap vector do not match"
+				);
+			}
+		}, m_matrix);
 	}
 
+	template <typename T>
+	Py_Matrix(Py_EL_Grid const& mGridEL,
+		const T* m_data, size_t N,
+		size_t _OuterStride, size_t _InnerStride,
+		const T* m_data_evap, size_t Nevap, size_t _strideEvap,
+		int padding = -1) :
+		m_matrix(
+			std::visit([&](auto const& _grid)->Matrix_Variant_t {
+				size_t grid_size = _grid.Grid->size();
+
+				size_t mat_padding = (N >= grid_size) ?
+					evdm::min_deg_2(N - grid_size) : 1;
+				
+
+				size_t vec_padding = (Nevap >= grid_size) ?
+					evdm::min_deg_2(Nevap - grid_size) : 1;
+				if (padding > 0) {
+					mat_padding = padding;
+					vec_padding = padding;
+				}
+
+				if (Nevap != 0 && m_data_evap != nullptr) {
+					return std::make_pair(
+						evdm::make_Matrix<T>(_grid, m_data, grid_size,
+							_OuterStride, _InnerStride, mat_padding),
+						evdm::make_Distribution_data<T>(
+							_grid, m_data_evap, _strideEvap, grid_size, vec_padding
+						)
+					);
+				}
+				else {
+					return std::make_pair(
+						evdm::make_Matrix<T>(_grid, m_data, N,
+							_OuterStride, _InnerStride, mat_padding),
+						evdm::make_Distribution<T>(
+							_grid, false, mat_padding
+						)
+					);
+				}
+			}, mGridEL.m_grid)
+		) {}
+
+	static Py_Matrix fromArray_impl(
+		Py_EL_Grid const& mGridEL,
+		pybind11::array const& Mat,
+		pybind11::array const& Evap,
+		int padding
+	);
+	static Py_Matrix fromArray1(
+		Py_EL_Grid const& mGridEL,
+		pybind11::array const& Mat, 
+		pybind11::array const& Evap
+	);
+	static Py_Matrix fromArray2 
+		(Py_EL_Grid const& mGridEL,
+		pybind11::array const& Mat);
+	static Py_Matrix from_dict(pybind11::dict const&);
+	
 	size_t get_padding() const;
 
 
@@ -433,6 +519,8 @@ struct Py_Matrix{
 		pybind11::handle self,int p_in,int p_out,bool raw
 	);
 	pybind11::dict get_object(pybind11::handle self);
+	static Py_Matrix from_object(Py_EL_Grid const& grid, pybind11::dict const&);
+
 	pybind11::array get_diag(
 		pybind11::handle self, int p_in, int p_out, bool raw
 	);
@@ -446,6 +534,50 @@ struct Py_Matrix{
 	static void add_to_python_module(pybind11::module_& m);
 
 };
+
+
+
+template <typename Grid_t>
+std::vector<size_t> get_N_distrib_from_handle(Grid_t const& Grid, pybind11::handle h) {
+	if (pybind11::isinstance<pybind11::array>(h)) {
+		auto A = h.cast< pybind11::array_t<size_t>>();
+		if (Grid.size() != A.size()) {
+			pybind11::index_error("Array of values not match grid size");
+		}
+		return std::vector<size_t>((size_t*)A.data(), (size_t*)A.data() + A.size());
+	}
+	if (pybind11::isinstance<pybind11::function>(h)) {
+		typedef decltype(Grid.grid()[0].left) T;
+		try {
+			auto F_el = h.cast < std::function<size_t(T, T)>>();
+			(void)(F_el(0, 0));
+			std::vector<size_t> NRet(Grid.size());
+			auto it = NRet.begin();
+			for (auto [de, dl] : Grid) {
+				*it = F_el(de.center(), dl.center());
+				++it;
+			}
+			return NRet;
+		}
+		catch (std::exception& e) {
+			auto F_el = h.cast < std::function<size_t(T, T, T, T)>>();
+			(void)(F_el(0, 0, 0, 0));
+			std::vector<size_t> NRet(Grid.size());
+			auto it = NRet.begin();
+			for (auto [de, dl] : Grid) {
+				auto [e0, e1] = de;
+				auto [l0, l1] = dl;
+				*it = F_el(e0, e1, l0, l1);
+				++it;
+			}
+			return NRet;
+		}
+	}
+	else {
+		pybind11::value_error("expect function or array to make distrib of N");
+		return {};
+	}
+}
 
 
 #endif//CORE_PYTHON_HPP

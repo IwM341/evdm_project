@@ -20,9 +20,42 @@ namespace evdm{
         T T_in_theta; /// regularized by theta period
         T theta_max;  /// max theta parametr of trajectory
         
+
         typedef grob::GridFunction<grob::splineD1D,grob::GridUniform<T>,std::vector<T>> 
             GridFunction_t;
         GridFunction_t theta_tau; /// function of theta of tau
+
+        template <typename...Args>
+        inline static traj_info constructor(Args&&...args) {
+            return traj_info{ std::forward<Args>(args)... };
+        }
+
+        SERIALIZATOR_FUNCTION(
+            PROPERTY_NAMES("rmin","rmax", "umin_l2", "umax"
+                "dul", "su", "su_minus_2_q",
+                "u_delta_0z", "u_delta_1z",
+                "T_in_theta","theta_max",
+                "theta_tau"
+            ),
+            PROPERTIES(rmin, rmax, umin_l2, umax,
+                dul, su, su_minus_2_q, 
+                u_delta_0z,  u_delta_1z,
+                T_in_theta,theta_max
+            )
+        )
+        DESERIALIZATOR_FUNCTION(constructor,
+            PROPERTY_NAMES("rmin", "rmax", "umin_l2", "umax"
+                "dul", "su", "su_minus_2_q",
+                "u_delta_0z", "u_delta_1z",
+                "T_in_theta", "theta_max",
+                "theta_tau"
+            ),
+            PROPERTY_TYPES(rmin, rmax, umin_l2, umax,
+                dul, su, su_minus_2_q,
+                u_delta_0z, u_delta_1z,
+                T_in_theta, theta_max
+            )
+        )
     };
     
     struct hidden_reg_l{

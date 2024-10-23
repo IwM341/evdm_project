@@ -35,7 +35,7 @@ namespace evdm {
             Array_t &&X, size_t _N,
             size_t padding) {
             size_t delta = _N % padding;
-            if (X.cols() >= _N && X.size() % padding == 0) {
+            if (X.cols() >= _N && X.cols() == X.rows() && X.cols() % padding == 0) {
                 if constexpr (
                     std::is_same_v<std::decay_t<Array_t>, _Mat_t>
                 ) {
@@ -155,7 +155,7 @@ namespace evdm {
 
 
         template <typename U,typename T1,typename T2,GridEL_type grt1>
-        friend class GridMatrix;
+        friend struct GridMatrix;
 
         template <typename U>
         GridMatrix(
@@ -165,6 +165,12 @@ namespace evdm {
                 original.Grid, 
                 original._Values.template cast<T>(),
                 original.padding){}
+
+        GridMatrix(GridMatrix const& original) :
+            GridMatrix(
+                original.Grid,
+                original._Values,
+                original.padding) {}
 
         template <typename U>
         GridMatrix<U, Body_vt, GridEL_vt, grid_type> 
@@ -280,7 +286,28 @@ namespace evdm {
     {
         Eigen::Map<const Matrix_t<T>> data_view(_mdata, N, N);
         return GridMatrix<T, Body_vt, GridEL_vt, grid_type> 
-            (Grid, data_view);
+            (Grid, data_view, padding);
+    }
+
+    template <
+        typename T, typename Body_vt,
+        typename GridEL_vt, GridEL_type grid_type
+    >
+    auto make_Matrix(
+        EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid,
+        const T* _mdata, 
+        size_t N,
+        size_t _strid_outer, size_t _strid_inner, 
+        size_t padding)
+    {
+        typedef Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride_t;
+        Eigen::Map<
+            const Matrix_t<T>,
+            Eigen::Unaligned,
+            Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>
+        > data_view(_mdata, N, N, stride_t(_strid_outer, _strid_inner));
+        return GridMatrix<T, Body_vt, GridEL_vt, grid_type>
+            (Grid, data_view, padding);
     }
 
 }; //namespace evdm

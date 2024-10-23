@@ -32,11 +32,9 @@ namespace evdm{
         typedef grob::GridUniformHisto<T> GridE;
         typedef grob::GridUniformHisto<T> GridL;
         typedef grob::GridRangeLight<size_t> Range;
-        typedef grob::MultiGrid< Range,
-            grob::ConstValueVector<
-            grob::MultiGrid<GridE, std::vector<GridL>>
-            >
-        > GridEL_t;
+        typedef grob::MultiGrid<GridE, std::vector<GridL>> InnerEL_t;
+        typedef grob::ConstValueVector<InnerEL_t> MGContainer_t;
+        typedef grob::MultiGrid< Range, MGContainer_t> GridEL_t;
 
         /// @brief greates GridCUU grid
         /// @tparam NL_E_Lambda 
@@ -47,7 +45,6 @@ namespace evdm{
         /// @return
         template <typename NL_E_Lambda>
         inline static GridEL_t construct(size_t ptypes, T Emin, size_t Ne, NL_E_Lambda&& Nl_E_func) {
-
             auto E_Grid = GridE(Emin, 0, std::max((size_t)2, Ne + 1));
             return grob::mesh_grids(grob::GridRangeLight<size_t>(ptypes),
                 grob::make_grid_f(E_Grid,
@@ -60,6 +57,40 @@ namespace evdm{
                 )
             );
         }
+
+        static GridEL_t Refine(GridEL_t const& G,size_t Er,size_t Lr) {
+            if (Er == 0 || Lr == 0) {
+                throw std::exception("rifine parameter Er or Lr is zero");
+            }
+            Range R1 = G.grid();
+            InnerEL_t const & grid = G.inner(0);
+            auto const& mgrid_e = grid.grid().unhisto();
+            GridE Egrid_new = GridE(
+                mgrid_e.front(), 
+                mgrid_e.back(), 
+                (mgrid_e.size() - 1) * Er + 1
+            );
+            const size_t Nl_old = grid.inner().size();
+            std::vector<GridL> GridL_s(Nl_old * Lr);
+            for (size_t i = 0; i < Nl_old; ++i) {
+                auto const& mgrid_l = grid.inner(i).unhisto();
+                for (size_t j = 0; j < Lr; ++j) {
+                    GridL_s[i*Lr + j] = GridL(
+                        mgrid_l.front(),
+                        mgrid_l.back(),
+                        (mgrid_l.size() - 1) * Lr + 1
+                    );
+                }
+            }
+            return GridEL_t(R1,
+                MGContainer_t(
+                    InnerEL_t(
+                        std::move(Egrid_new), std::move(GridL_s)
+                    ), R1.size()
+                )
+            );
+        }
+
         inline const char* type() {
             return "GridCUU";
         }
@@ -71,11 +102,9 @@ namespace evdm{
         typedef grob::GridVectorHisto<T> GridE;
         typedef grob::GridVectorHisto<T> GridL;
         typedef grob::GridRangeLight<size_t> Range;
-        typedef grob::MultiGrid< Range,
-            grob::ConstValueVector<
-            grob::MultiGrid<GridE, std::vector<GridL>>
-            >
-        > GridEL_t;
+        typedef grob::MultiGrid<GridE, std::vector<GridL>> InnerEL_t;
+        typedef grob::ConstValueVector<InnerEL_t> MGContainer_t;
+        typedef grob::MultiGrid< Range, MGContainer_t> GridEL_t;
 
         /// @brief  greates GridCVV grid
         /// @param ptypes number of m-states
@@ -121,6 +150,47 @@ namespace evdm{
                 )
             );
         }
+
+        static GridEL_t Refine(GridEL_t const& G, size_t Er, size_t Lr) {
+            if (Er == 0 || Lr == 0) {
+                throw std::exception("rifine parameter Er or Lr is zero");
+            }
+            Range R1 = G.grid();
+            InnerEL_t const& grid = G.inner(0);
+            auto const& mgrid_e = grid.grid().unhisto();
+            
+            std::vector<T> Epoints( (mgrid_e.size() - 1)* Er + 1);
+            std::vector<GridL> Lpoints;
+            Lpoints.reserve(Epoints.size());
+
+            Epoints.back() = mgrid_e.back();
+            for (size_t i = 0; i < mgrid_e.size() - 1; ++i) {
+                T h = (mgrid_e[i + 1] - mgrid_e[i]) / Er;
+                std::vector<T> const & ml_g = grid.inner(i);
+                for (size_t j = 0; j < Er; ++j) {
+                    Epoints[Er * i + j] = mgrid_e[i] + h * j;
+
+                    std::vector<T> Lg((ml_g.size() - 1) * Lr + 1);
+                    Lg.back() = ml_g.back();
+                    for (size_t k = 0; k < ml_g.size() - 1;++k) {
+                        T h_l = (ml_g[k + 1] - ml_g[k]) / Er;
+                        for (size_t m = 0; m < Lr; ++m) {
+                            Lg[k * Lr + m] = ml_g[k] + h_l * m;
+                        }
+                    }
+                    Lpoints.push_back(std::move(Lg));
+                }
+            }
+
+            return GridEL_t(R1,
+                MGContainer_t(
+                    InnerEL_t(
+                        std::move(Epoints), std::move(Lpoints)
+                    ),R1.size()
+                )
+            );
+        }
+
         inline const char* type() {
             return "GridCVV";
         }
@@ -146,6 +216,9 @@ namespace evdm{
         }
         inline size_t size_e()const {
             return this->inner(0).grid().size();
+        }
+        GridEL refine(size_t Ne, size_t Nl) const{
+            return Helper::Refine(*this, Ne, Nl);
         }
     };
 

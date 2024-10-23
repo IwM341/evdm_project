@@ -8,6 +8,19 @@
 #include <pybind11/stl.h>
 #include <format>
 
+Py_Distribution Py_Distribution::CreatePyDistribFromArray(
+	Py_EL_Grid const& mGridEL, 
+	pybind11::array values
+) {
+	auto array_var = array_variant<DISTRIB_TYPE_LIST>(values);
+	return std::visit([&]<class T>( pybind11::array_t<T> const& m_array) {
+		size_t _stride = m_array.strides()[0] / sizeof(T);
+		size_t extra_size = m_array.size() - mGridEL.size()*mGridEL.ptypes();
+		size_t padding = evdm::min_deg_2(extra_size);
+		return Py_Distribution(mGridEL, m_array.data(), _stride, m_array.size(), padding);
+	}, array_var);
+}
+
 Py_EL_Grid Py_Distribution::getGrid()const {
 	return std::visit([](const auto& distrib) {
 		return Py_EL_Grid(distrib.Grid);
@@ -60,6 +73,7 @@ pybind11::dict Py_Distribution::get_object(pybind11::handle self)
 		"values"_a = get_array(
 				self, -1, true
 		),
+		"grid"_a = getGrid(),
 		"padding"_a = get_padding()
 	);
 }
@@ -82,7 +96,7 @@ double Py_Distribution::count(int ptype)const
 pybind11::tuple Py_Distribution::get_r_dense(
 	pybind11::handle ptypes,
 	double r_min, double  r_max, size_t Nr,
-	size_t Nperbin,
+	pybind11::handle Nperbin,
 	pybind11::handle opt_dense_funct,
 	pybind11::handle update_function) const
 {
@@ -113,7 +127,7 @@ pybind11::tuple Py_Distribution::get_r_dense(
 		}
 	}
 	auto dense_function = [opt_dense_funct](double t_r) {
-		return opt_dense_funct.call(t_r).cast<double>();
+		return opt_dense_funct.operator()(t_r).cast<double>();
 	};
 	bool is_given_dense = !opt_dense_funct.is_none();
 
@@ -126,24 +140,53 @@ pybind11::tuple Py_Distribution::get_r_dense(
 		make_progress_func(update_function);
 	
 	return  std::visit(
-		[&m_ptypes,Nperbin,rgrid = std::move(rGrid), ProgF]
-		(auto const& distrib)->pybind11::tuple {
+		[&m_ptypes,Nperbin,rgrid = std::move(rGrid), &ProgF]<_DISTRIB_TMPL_>(
+			evdm::Distribution<_DISTRIB_PARS_> const& distrib
+		)->pybind11::tuple 
+		{
 			using Gen_t = decltype(distrib.get_grid_vtype());
-			auto r_dence_func = distrib.r_dens(
-				m_ptypes, evdm::xorshift<Gen_t>{},
-				std::move(rgrid),
-				Nperbin, ProgF
-			);
-			return make_python_function_1D(r_dence_func);
+			
+			int NperBin_i = -1;
+			try {
+				NperBin_i = Nperbin.cast<int>();
+			}catch(pybind11::cast_error &){
+				NperBin_i = -1;
+			}
+			if (NperBin_i > 0) {
+				auto r_dence_func = distrib.r_dens(
+					m_ptypes, evdm::xorshift<Gen_t>{},
+					std::move(rgrid),
+					NperBin_i, ProgF
+				);
+				return make_python_function_1D(r_dence_func);
+			}
+			else {
+				auto Nperbin_v = 
+					get_N_distrib_from_handle(
+						distrib.grid().inner(0), Nperbin
+					);
+				return make_python_function_1D(
+					distrib.r_dens(
+						m_ptypes, evdm::xorshift<Gen_t>{},
+						std::move(rgrid),
+						Nperbin_v, ProgF
+					)
+				);
+			}
+			
+			
 		},
 		m_distrib
 	);
 	
 }
 
-pybind11::tuple Py_Distribution::plot1o(size_t ptype,std::string_view m_measure) const
+pybind11::tuple Py_Distribution::plot1o(
+	size_t ptype,
+	std::string_view m_measure,
+	std::string_view LE_Space) const
 {
-	return std::visit([ptype, m_measure]<_DISTRIB_TMPL_>(
+	return std::visit([ptype, m_measure, LE_Space]<_DISTRIB_TMPL_>(
 	const evdm::Distribution<_DISTRIB_PARS_>& _distrib) {
 
 	if (ptype > _distrib.grid().grid().size()) {
@@ -184,16 +227,27 @@ pybind11::tuple Py_Distribution::plot1o(size_t ptype,std::string_view m_measure)
 	);
 	auto m_histo_full = _distrib.as_histo();
 	auto m_histo_slice = m_histo_full.inner_slice(ptype);
-	std::visit([&](auto m_variant) {
+
+	size_t le_space_var_num = 0;
+	if (LE_Space == "latent" || LE_Space == "inner") {
+		le_space_var_num = 1;
+	}
+	auto LE_func_variant = evdm::make_variant_alt(
+		le_space_var_num,
+		_distrib.Grid.LE(),
+		[](auto x) {return 1; }
+	);
+
+	std::visit([&](auto m_variant,auto && le_func_plot) {
 		evdm::DirstributionPrinting_1order(
-			m_histo_slice, _distrib.Grid.LE(),
+			m_histo_slice, _distrib.Grid.LE(), le_func_plot,
 			Values.mutable_data(),
 			XArray.mutable_data(),
 			YArray.mutable_data(),
 			TrIndexes.mutable_data(), m_sizes,
 			m_variant
 		);
-	}, m_mes_variant);
+	}, m_mes_variant, LE_func_variant);
 	
 	return pybind11::make_tuple(XArray, YArray, TrIndexes, Values);
 	
@@ -286,7 +340,11 @@ Py_Distribution CreatePyDistrib(
 		throw pybind11::type_error("unsupported distrib value type 'double'");
 #endif
 	} else {
-		throw pybind11::type_error("wrong data type: " + std::string(_dtype) + ", expect float or double");
+		throw pybind11::type_error(
+			"wrong data type: " + 
+			std::string(_dtype) + 
+			", expect float or double"
+		);
 	}
 }
 
@@ -296,34 +354,34 @@ Py_Distribution CreateDistribFromDict(
 	pybind11::array X = m_dict["values"].cast<pybind11::array>();
 	size_t padding = m_dict["padding"].cast<size_t>();
 
-	if (X.dtype().kind() == 'f') {
-		if (X.dtype().itemsize() == sizeof(float)) {
-#ifdef DISTRIB_USE_FLOAT
-			return Py_Distribution(
-				mGridEL, (float*)X.mutable_data(),X.shape(0), X.size(), padding
-			);
-#else
-			throw pybind11::type_error("unsupported distrib type 'float'");
-#endif
-		}
-		else if (X.dtype().itemsize() == sizeof(double))
-		{
-#ifdef DISTRIB_USE_DOUBLE
-			return Py_Distribution(
-				mGridEL, (double*)X.mutable_data(), X.shape(0), X.size(), padding
-			);
-#else
-			throw pybind11::type_error("unsupported distrib type 'double'");
-#endif
-		}
-		else {
-			throw pybind11::type_error("error: unsupported len of data type of array");
-		}
-	}
-	else {
-		throw pybind11::type_error("error: unsupported data type of array");
+	if (X.ndim() != 1) {
+		throw pybind11::value_error("except one dimentional array");
 	}
 	
+	size_t m_size = X.size();
+	auto array_vars = array_variant<DISTRIB_TYPE_LIST>(X);
+	return std::visit([&]<class T>(pybind11::array_t<T> const&m_array) {
+		size_t stride = m_array.strides(0)/sizeof(T);
+		return Py_Distribution(
+			mGridEL, (const T*)X.data(), stride, m_size, padding
+		);
+	}, array_vars);
+	
+}
+Py_Distribution Py_Distribution::from_dict(pybind11::dict const& distr_dict) {
+	pybind11::handle G = distr_dict["grid"];
+	if (pybind11::isinstance<pybind11::dict>(G)) {
+		return CreateDistribFromDict(
+			Py_EL_Grid::from_dict1(
+				G.cast<pybind11::dict>()
+			), distr_dict
+		);
+	}
+	else {
+		return CreateDistribFromDict(
+			G.cast<Py_EL_Grid>(), distr_dict
+		);
+	}
 }
 
 double compare_distribs(
@@ -406,7 +464,18 @@ void Py_Distribution::add_to_python_module(pybind11::module_& m)
 			"object : dict representation of distrib",
 			py::arg("ELGrid"),
 			py::arg("object")
-		).def("plot", &Py_Distribution::plot1o,
+		)
+		.def(py::init(&Py_Distribution::from_dict))
+		.def("__getstate__", [](py::handle self)->py::dict {
+				return py::cast<Py_Distribution&>(self).get_object(self);
+			}
+		)
+		.def("__setstate__", [](py::handle self, py::dict state) {
+				self.attr("__init__")(state);
+			}
+		)
+		.def(py::init(&Py_Distribution::CreatePyDistribFromArray))
+		.def("plot", &Py_Distribution::plot1o,
 			"returns tuple: (X,Y,triangles,values)\n"
 			"where X,Y - arrays of vertises x and y coords,\n"
 			"triangles - triangles (N,3) shape array of indexes\n"
@@ -414,12 +483,18 @@ void Py_Distribution::add_to_python_module(pybind11::module_& m)
 			"Parameters:\n"
 			"___________\n"
 			"ptype : int\n\twimp type.\n"
-			"mes : str\n\t measure of bins (standart is dEdL, no measure - '1' or '')\n\n"
+			"mes : str\n\t measure of bins "
+			"(standart is dEdL, no measure - '1' or '')\n"
+			"space: str\n\t"
+			"if space = 'latent', L would be from 0 to 1, "
+			"otherwise - from 0 to Lmax(E)\n\n"
 			"to plot using matplotlib type:\n\t"
 			"import matplotlib.tri as mtri\n\t"
 			"plt.tricontourf(triang,Z)\n\t"
 			"plt.triplot(triang,color = 'black')",
-			py::arg("ptype"), py::arg_v("mes","dEdL"))
+			py::arg("ptype"), 
+			py::arg_v("mes","dEdL"),
+			py::arg_v("space",""))
 		.def("plot2", &Py_Distribution::plot2o,
 			"returns tuple: (vertexes,triangles,values)\n"
 			"where vertexes - (N,2) shape array of vert coords,\n"
@@ -441,6 +516,19 @@ void Py_Distribution::add_to_python_module(pybind11::module_& m)
 			"creating Distrib with another dtype")
 		.def("copy", &Py_Distribution::copy)
 		.def_property_readonly("grid", &Py_Distribution::getGrid)
+		.def(
+			"avarage",
+			&Py_Distribution::get_avarage, 
+			"calc avarage over distribution of F(e,l), "
+			"where l \\in [0,1]", 
+			py::arg("F"),
+			py::arg_v("ptype", -1)
+		).def(
+			"Edistrib",
+			&Py_Distribution::get_E_distrib,
+			"reduce distribution to energy distribution",
+			py::arg_v("ptype",-1)
+		)
 		.def("rdens", &Py_Distribution::get_r_dense,
 			"git density function, i.e. d^N/d^3r\n\n"
 			"Parameters:\n"
@@ -507,5 +595,36 @@ size_t Py_Distribution::get_padding() const
 			return dstrb.get_padding();
 		},
 		m_distrib
+	);
+}
+
+pybind11::tuple Py_Distribution::get_E_distrib(int ptype) const {
+
+	return std::visit(
+		[ptype]<_DISTRIB_TMPL_>(
+			evdm::Distribution<_DISTRIB_PARS_> const& distrib
+		)
+	{
+		auto Edistrib = evdm::get_E_distrib(distrib, ptype);
+		return pybind11::make_tuple(
+			make_py_array(distrib.grid().inner(0).grid().unhisto()),
+			make_py_array(Edistrib)
+		);
+	}, m_distrib
+	);
+}
+
+double Py_Distribution::get_avarage(
+	pybind11::handle Functor, int ptype
+) const {
+	typedef std::function<double(double, double)> FuncType;
+	return std::visit(
+		[F = Functor.cast<FuncType>(), ptype]
+		<_DISTRIB_TMPL_>(
+			evdm::Distribution<_DISTRIB_PARS_> const& distrib
+		) ->double
+		{
+			return evdm::avarage_by_grid(distrib, ptype,F);
+		},m_distrib
 	);
 }

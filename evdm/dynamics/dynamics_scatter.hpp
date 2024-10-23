@@ -9,7 +9,7 @@ namespace evdm {
 		Gen_vt<Gen_t> Vesc, Gen_vt<Gen_t> VescMin,
 		Gen_vt<Gen_t>  mp, Gen_vt<Gen_t>  mk,
 		Gen_vt<Gen_t>  mp_frac, Gen_vt<Gen_t>  mk_frac,
-		Gen_vt<Gen_t>  m_cm, Gen_vt<Gen_t> deltaE = 0) {
+		Gen_vt<Gen_t>  m_cm, Gen_vt<Gen_t> deltaE_div_m_cm = 0) {
 
 		typedef Gen_vt<Gen_t> number_t;
 		number_t VcmN = Vcm.norm();
@@ -36,7 +36,7 @@ namespace evdm {
 		std::cout << n_v*n_1 << "\t" << n_v*n_2 << "\t" << n_v*n_v << std::endl<< std::endl;
 		*/
 
-		number_t Vu1_squared = Vu.squaredNorm() - deltaE * 2 / m_cm;
+		number_t Vu1_squared = Vu.squaredNorm() - deltaE_div_m_cm;
 		if (Vu1_squared <= 0.0)
 			return MCResult<vec3_t, number_t>(vec3_t(0, 0, 0), 0);
 
@@ -56,16 +56,20 @@ namespace evdm {
 		typename dF_Type,
 		typename VescR_t,
 		typename NR_t,
-		typename Temp_t
+		typename Temp_t,
+		typename ThermGen_t
 	>
 	inline MCResult<
 		vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>
 	> Vout1_Scatter(
 		vec3<Gen_vt<Gen_t>> V_wimp,
-		Gen_t&& G,
+		Gen_vt<Gen_t> V_wimp_norm,
+		Gen_t& G,
+		ThermGen_t ThrmGen,
 		Gen_vt<Gen_t> mi, Gen_vt<Gen_t> mk,
 		Gen_vt<Gen_t> mi_frac, Gen_vt<Gen_t> mk_frac,
 		Gen_vt<Gen_t> m_cm, Gen_vt<Gen_t> delta_mk,
+		Gen_vt<Gen_t> deltaE_div_m_cm,
 		dF_Type dF,
 		VescR_t const VescR,
 		Gen_vt<Gen_t> VescMin,
@@ -77,7 +81,9 @@ namespace evdm {
 		factor *= n_nd;
 
 		//thermal generation
-		auto Input_Vel_gen = Gauss3_BeyondD(G, std::sqrt(TempR / mi), 0.8, 8);
+		
+		MCResult< vec3<T>, T> Input_Vel_gen = 
+			ThermGen_t::gen(G, deltaE_div_m_cm, V_wimp_norm, TempR, mi);
 		factor *= Input_Vel_gen.RemainDensity;
 		vec3<T> V1 = Input_Vel_gen.Result;
 		//Vcm - is a vrlocity of momentum center
@@ -96,7 +102,7 @@ namespace evdm {
 		// Generating out velocity
 		auto Vumk = VuOut_evap(
 			G, Vcm, Vu, VescR, VescMin, mi, mk, mi_frac, mk_frac, m_cm,
-			inel_enloss + delta_mk);
+			deltaE_div_m_cm);
 		vec3<T> Vu1 = Vumk.Result;
 		factor *= Vumk.RemainDensity;
 
@@ -124,6 +130,7 @@ namespace evdm {
 
 	template <
 		typename Gen_t,
+		typename ThermGenerator_t,
 		typename HistoBank_t,
 		typename HistoEvap_t,
 		typename LEFunc_t,
@@ -134,10 +141,12 @@ namespace evdm {
 		typename PhiFunc_t,
 		typename SFunc_t,
 		typename TempFunc_t,
-		typename VescFunc_t
+		typename VescFunc_t,
+		typename Nmk_Vec_t
 	>
 	inline void ScatterImpl(
 		Gen_t&& G,
+		ThermGenerator_t ThermGen,
 		Gen_vt<Gen_t> mk, Gen_vt<Gen_t> dm,
 		Gen_vt<Gen_t> mi,
 		ScatterEvent const& se,
@@ -154,7 +163,7 @@ namespace evdm {
 		TempFunc_t const& TempR,
 		VescFunc_t const& VescR,
 		Gen_vt<Gen_t> VescMin,
-		size_t Nmk,
+		Nmk_Vec_t const & Nmk_v,
 		size_t Nmk_per_traj,
 		Gen_vt<Gen_t> weight,
 		progress_omp_function<>& m_progress_func
@@ -163,16 +172,24 @@ namespace evdm {
 			bin_traj_p_vt_t<std::decay_t<decltype(TrajPoolVec[0])>>
 			Traj_t;
 		auto FromFactorVar_Action = [&,_G=G, &Nir = se.n_e](auto&& dF) {
+
+			
+
 			const size_t N_in = ScatMat_bank.Grid.size();
 			progress_omp_bar<> m_bar(
 				m_progress_func, N_in, std::max((int)(N_in / 1000), 1)
 			);
 			auto m_cm = mk * mi / (mk + mi);
+
+			auto deltaE_div_m_cm = 2 * dm / m_cm;
+
 			auto mi_frac = mi / (mk + mi);
 			auto mk_frac = mk / (mk + mi);
-			auto G = _G;
-			#pragma	omp parallel for private(G)
+			const auto _seed = _G.state;
+			#pragma	omp parallel for 
 			for (int i = 0; i < N_in; ++i) {
+				auto G = _G;
+				G.set_seed(_seed ^ i + 1);
 				auto IJ = ScatMat_bank.Grid.FromLinear(i);
 
 				auto el_bin = ScatMat_bank.Grid[IJ];
@@ -188,7 +205,12 @@ namespace evdm {
 
 				auto m_bin_el_gen = gen_EL(m_mes, el_bin, G, LEf);
 
-
+				size_t Nmk = 0;
+				if constexpr (std::is_same_v<Nmk_Vec_t, size_t>) {
+					Nmk = Nmk_v;
+				} else {
+					Nmk = Nmk_v[i];
+				}
 				for (size_t nm = 0; nm < Nmk; ++nm) {
 					auto [e, l,Lmax] = m_bin_el_gen();
 					auto Ltmp = l * Lmax;
@@ -221,7 +243,15 @@ namespace evdm {
 						auto cth2 = std::cos(theta / 2);
 						auto sth2 = std::sin(theta / 2);
 						Traj_t r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
-
+						
+#ifndef NDEBUG
+						auto _C0 = Phi(std::sqrt(u0)) + e - Ltmp * Ltmp / u0;
+						auto _C0_p = Phi(std::sqrt(u0*(1+1e-4))) + e - Ltmp * Ltmp / (u0 * (1 + 1e-4));
+						auto _C0_m = Phi(std::sqrt(u0 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 - 1e-4));
+						auto _C1 = Phi(std::sqrt(u1)) + e - Ltmp * Ltmp / u1;
+						auto _C1_p = Phi(std::sqrt(u1 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 + 1e-4));
+						auto _C1_m = Phi(std::sqrt(u1 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 - 1e-4));
+#endif
 						auto renorm_factor =
 							d_theta_undim /
 							(2 * Tin_Teheta * std::sqrt(S_func(r, r0, r1)));
@@ -235,7 +265,9 @@ namespace evdm {
 						Traj_t v_esc_nd = VescR(r);
 						auto [Vout, factor] =
 							Vout1_Scatter(
-								V_in, G, mi, mk, mi_frac, mk_frac, m_cm, dm, dF,
+								V_in,v, G, ThermGen, 
+								mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm, 
+								dF,
 								v_esc_nd * VescMin, VescMin,
 								Nir(r), TempR(r)
 							);
@@ -246,8 +278,12 @@ namespace evdm {
 
 						auto final_factor = factor * mk_factor * renorm_factor;
 						if (e_out < 0) {
-							Traj_t L_nd = r * std::sqrt(v_nd.x() * v_nd.x() + v_nd.y() * v_nd.y());
-							Traj_t l_out = (Lmax > 0 ? L_nd / Lmax : 0);
+							Traj_t L_nd = r * std::sqrt(
+								v_nd.x() * v_nd.x() + 
+								v_nd.y() * v_nd.y()
+							);
+							Traj_t Lmax_out = LEf(-e_out);
+							Traj_t l_out = (Lmax_out > 0 ? L_nd / Lmax_out : 0);
 							OutHisto.put_force(final_factor, e_out, l_out);
 						}
 						else if (count_evap) {

@@ -30,7 +30,12 @@ namespace evdm{
         T NewtonStep(T const &x,T const &F,T const &D_F){
             return x - F/D_F;
         }
-
+        
+        template <typename Grid_type_t,typename Func_type_t,typename Values_t>
+        inline auto construct_func_01(Values_t&& m_values) {
+            size_t N = m_values.size();
+            return Func_type_t(Grid_type_t(0, 1, N), std::move(m_values));
+        }
     };
 
 
@@ -77,15 +82,25 @@ namespace evdm{
         Body(Values_t vRho, Values_t vQ,
             Values_t vPhi, Values_t vTemp,
             T mVesc
-        ) : Rho(GridR(0, 1, vRho.size()), std::move(vRho)),
-            Q(GridR(0, 1, vRho.size()), std::move(vQ)),
-            Phi(GridR(0, 1, vRho.size()), std::move(vPhi)),
+        ) : Rho(__detail::construct_func_01<GridR,decltype(Rho)>( std::move(vRho))),
+            Q(__detail::construct_func_01<GridR, decltype(Q)>(std::move(vQ))),
+            Phi(__detail::construct_func_01<GridR, decltype(Phi)>(std::move(vPhi))),
             VescFunc(
-                GridR(0, 1, vRho.size()),
-                grob::map(std::move(vPhi), std::sqrt)),
-            Temp(GridR(0, 1, vRho.size()), vTemp),
-            Vesc(mVesc),
+                GridR(0, 1, Rho.size()),
+                grob::map(Phi, [](T x)->T {return std::sqrt(x); })
+            ),
+            Temp(GridR(0, 1, Rho.size()), vTemp),
+            Vesc(mVesc)
         {
+            if (
+                Rho.size() != Q.size() ||
+                Rho.size() != Phi.size() ||
+                Rho.size() != Temp.size() ||
+                Rho.size() != Q.size()
+            ) {
+                throw std::range_error("constructing evdm.Body:"
+                    "arrays of Rho,Q,Phi,Temp don't have same size");
+            }
             Rho_max = Rho[Rho.size() - 1];
             low_steps_num = 2;
         }
@@ -121,12 +136,11 @@ namespace evdm{
             RFunc1_t Rho(std::forward<ArgsToCreateRho>(args)...);
             auto Grid = Rho.Grid;
             T h = Grid.h();
-            Body B{RFunc1_t(std::move(Rho)),
-                    RFunc2_t(Grid,std::vector<T>(Grid.size(),0)),
-                    RFunc2_t(Grid,std::vector<T>(Grid.size(),0)),
-                    RFunc2_t(Grid,std::vector<T>(Grid.size(),0)),
-                    RFunc2_t(Grid,std::vector<T>(Grid.size(),0))
-                };
+            Body B(std::move(Rho.Values),
+                    std::vector<T>(Grid.size(),0),
+                    std::vector<T>(Grid.size(),0),
+                    std::vector<T>(Grid.size(),0),0
+                   );
             B.low_steps_num = 2;
             B.Q[0] = B.Rho[0];
             B.Phi[0] = 0;
@@ -168,6 +182,22 @@ namespace evdm{
         struct LE_func_t{
             RFunc2_t Internal_lm;
             RFunc2_t Internal_um;
+
+            static LE_func_t constructor(
+                RFunc2_t Internal_lm,
+                RFunc2_t Internal_um
+            ) {
+                return LE_func_t(std::move(Internal_lm), std::move(Internal_um));
+            }
+            SERIALIZATOR_FUNCTION(
+                PROPERTY_NAMES("i_lm", "i_um"),
+                PROPERTIES(Internal_lm, Internal_um)
+            )
+            DESERIALIZATOR_FUNCTION(
+                constructor,
+                PROPERTY_NAMES("i_lm", "i_um"),
+                PROPERTY_TYPES(Internal_lm, Internal_um)
+            )
 
             /// @brief Lmax^2(e>0, internal
             inline auto i_lmq(T const &e)const{

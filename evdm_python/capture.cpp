@@ -65,6 +65,22 @@ Py_Capture::Py_Capture(
 		m_py_object["events"].cast<decltype(events)>()
 	) {}
 
+Py_Capture Py_Capture::from_dict(pybind11::dict const & distr_dict) {
+	pybind11::handle G = distr_dict["grid"];
+	if (pybind11::isinstance<pybind11::dict>(G)) {
+		return Py_Capture(
+			Py_EL_Grid::from_dict1(
+				G.cast<pybind11::dict>()
+			), distr_dict
+		);
+	}
+	else {
+		return Py_Capture(
+			G.cast<Py_EL_Grid>(), distr_dict
+		);
+	}
+}
+
 Py_Capture Py_Capture::copy() const
 {
 	return Py_Capture(static_cast<Py_Distribution const&>(*this));
@@ -75,6 +91,7 @@ pybind11::dict Py_Capture::get_object(pybind11::handle self)
 	return pybind11::dict(
 		"type"_a = "evdm.Capture",
 		"values"_a = get_array(self, -1, true),
+		"grid"_a = getGrid(),
 		"events"_a = grob::map(
 			events,
 			[](scatter_event_info const& event) {
@@ -111,7 +128,19 @@ void Py_Capture::add_to_python_module(pybind11::module_& m) {
 			"values : array\n\tnumpy array of values.\n",
 			py::arg("ELGrid"),
 			py::arg("values")
+		).def(py::init(&Py_Capture::from_dict))
+		.def("__getstate__", [](py::handle self)->py::dict {
+			return py::cast<Py_Capture&>(self).get_object(self);
+			}
 		)
+		.def("__setstate__", [](py::handle self, py::dict state) {
+				self.attr("__init__")(state);
+			}
+		)
+		.def(py::init(&Py_Distribution::CreatePyDistribFromArray))
+		.def("to_object", [](py::handle self)->py::dict {
+			return py::cast<Py_Capture&>(self).get_object(self);
+		})
 		.def("as_type", &Py_Distribution::as_type, 
 			"creating Capture with another dtype",
 			py::arg("dtype")

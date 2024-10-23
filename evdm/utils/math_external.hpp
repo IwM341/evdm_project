@@ -31,6 +31,13 @@ namespace evdm {
 
 	template <typename T>
 	constexpr T pi = (T)std::numbers::pi;
+
+	template <typename T>
+	size_t min_deg_2(T x) {
+		size_t ctl_x = std::countl_zero(x ? x - 1 : 0);
+		size_t m_lim = std::numeric_limits<T>::digits;
+		return ((size_t)1 << (m_lim - ctl_x));
+	}
 };
 
 #endif

@@ -14,17 +14,21 @@ pybind11::tuple Py_CaptureProcess(
 	float dm_v_disp,
 	size_t Nmk,
 	float r_pow, // the r sistribution
-	float weight// result will be multiplyed by weught
-)
-{
+	float weight,// result will be multiplyed by weught
+	size_t seed
+) {
 	auto m_compare =
 		make_compare_sc_event(sc_event, ptype_in, ptype_out, CaptAccum.events);
 	if (!m_compare.empty()) {
 		throw pybind11::value_error(m_compare);
 	}
+	if (seed == 0) {
+		seed = std::numeric_limits<size_t>::max();
+	}
 	auto [sum, dsum] = std::visit([&]<_DISTRIB_TMPL_>(evdm::Distribution<_DISTRIB_PARS_> &mDistrib) {
 		typedef decltype(mDistrib.get_grid_vtype()) T;
-		return evdm::Capture(mDistrib, ptype_out, sc_event, evdm::xorshift<T>{},
+		evdm::xorshift<T> G(seed);
+		return evdm::Capture(mDistrib, ptype_out, sc_event, G,
 			M_DM, deltaM, NucleiM, body_halo_v, dm_v_disp, r_pow, Nmk, weight);
 
 	}, CaptAccum.m_distrib);
@@ -55,7 +59,8 @@ void add_pycapture_to_python_module(pybind11::module_& m) {
 		"Nmk : int\n\tnumber of monte-carle steps.\n"
 		"r_pow :float\n\t"
 		"impact on r distribution: r = (xi)^(r_pow), where xi uniforemly distributed.\n"
-		"weight :float\n\t[optional] scale factor, default - 1.",
+		"weight :float\n\t[optional] scale factor, default - 1.\n\t"
+		"seed : int\n\t[optional] for random generator",
 		py::arg("capt_vector"),
 		py::arg("ptype_in"),
 		py::arg("ptype_out"),
@@ -67,6 +72,7 @@ void add_pycapture_to_python_module(pybind11::module_& m) {
 		py::arg("Vdisp"),
 		py::arg("Nmk"),
 		py::arg_v("r_pow", 2.0),
-		py::arg_v("weight", 1.0)
+		py::arg_v("weight", 1.0),
+		py::arg_v("seed", evdm::default_seed)
 	);
 }

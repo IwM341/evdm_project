@@ -1,6 +1,6 @@
 #include "core_python.hpp"
 #include <pybind11/stl.h>
-
+#include "grob_python.hpp"
 
 Py_Matrix make_Py_Matrix_from_arrays(
 	Py_EL_Grid const& m_grid,
@@ -254,6 +254,31 @@ pybind11::dict Py_Matrix::get_object(pybind11::handle self)
 	);
 }
 
+
+
+Py_Matrix Py_Matrix::from_object(Py_EL_Grid const& grid, pybind11::dict const& m_dict)
+{
+	if (m_dict["type"].cast<std::string_view>() != "evdm.Matrix") {
+		throw pybind11::value_error("expect evdm.Matrix type");
+	}
+	pybind11::array mat_arr = m_dict["matrix"];
+	pybind11::array evap_arr = m_dict["evap"];
+	size_t padding = m_dict["padding"].cast<size_t>();
+	auto _events = m_dict["events"];
+	std::vector<pybind11::handle>
+		m_events(_events.begin(), _events.end());
+
+	auto events = grob::map(
+		m_events,
+		[](pybind11::handle D_ev) {
+			return scatter_event_info(D_ev.cast< pybind11::dict>());
+		}
+	);
+	Py_Matrix Matr = Py_Matrix::fromArray_impl(grid, mat_arr, evap_arr, padding);
+	Matr.events = events;
+	return Matr;
+}
+
 pybind11::array Py_Matrix::get_diag(pybind11::handle self, int p_in, int p_out, bool raw) {
 	return std::visit(
 		[p_in, p_out, self, raw]<_MATRIX_TMPL_>(
@@ -286,6 +311,8 @@ pybind11::array Py_Matrix::get_evap(pybind11::handle self, int p_type, bool raw)
 	}, m_matrix
 	);
 }
+
+
 
 Py_Distribution Py_Matrix::get_diag_distrib() {
 	return std::visit(
@@ -343,6 +370,9 @@ void Py_Matrix::add_to_python_module(pybind11::module_& m) {
 			"dtype : string\n\tfloat or double.\n",
 			py::arg("ELGrid"),
 			py::arg_v("dtype", "float"))
+		.def(py::init(&Py_Matrix::fromArray1))
+		.def(py::init(&Py_Matrix::fromArray2))
+		.def(py::init(&Py_Matrix::from_object))
 		.def("__repr__", &Py_Matrix::repr)
 		.def("__str__", &Py_Matrix::repr)
 		.def("copy",&Py_Matrix::copy)
@@ -354,7 +384,7 @@ void Py_Matrix::add_to_python_module(pybind11::module_& m) {
 		.def("calc_diag", &Py_Matrix::calc_diag,
 			"make diag values -summ of scatter probabilities")
 		.def("",&Py_Matrix::evap_distrib,
-			"make new evolution matrix (S_{ii} = -\sum_j{S_{ji}})")
+			"make new evolution matrix (S_{ii} = -\\sum_j{S_{ji}})")
 		.def("to_numpy", [](
 			py::handle self, int ptype_in, int ptype_out,bool raw)->py::array {
 				return py::cast<Py_Matrix&>(self).get_matrix(
@@ -385,7 +415,7 @@ void Py_Matrix::add_to_python_module(pybind11::module_& m) {
 		)
 		.def("to_object", [](py::handle self) {
 				return py::cast<Py_Matrix&>(self).get_object(self);
-		},"serialization into tuple(scatter_matrix,evaporation_vector)")
+		},"serialization into object dict")
 		.def("diag_distrib", &Py_Matrix::get_diag_distrib,
 			"givesdistribution of diag scatter matrix.\n\n"
 				"Parameters:\n"
@@ -396,3 +426,84 @@ void Py_Matrix::add_to_python_module(pybind11::module_& m) {
 		.def_property_readonly("grid", &Py_Matrix::getGrid)
 		.def_property_readonly("events", &Py_Matrix::get_events);
 }
+
+Py_Matrix Py_Matrix::fromArray_impl(
+	Py_EL_Grid const& mGridEL,
+	pybind11::array const& Mat,
+	pybind11::array const& Evap,
+	int padding)
+{
+	auto array_var = array_variant<DISTRIB_TYPE_LIST>(Mat);
+
+	return std::visit([&]<class T>(pybind11::array_t<T> const& mMat) {
+		pybind11::array_t<T> const& mEvap = Evap;
+		size_t gr_size = mGridEL.size() * mGridEL.ptypes();
+		if (mMat.ndim() != 2) {
+			throw pybind11::index_error("evdm.Matrix: ndim of matrix != 2");
+		}
+		if (mMat.shape()[0] < gr_size || mMat.shape()[1] < gr_size) {
+			throw pybind11::index_error(
+				"evdm.Matrix: matrix shouldn't have less size than grid"
+			);
+		}
+		if (mMat.shape()[0] != mMat.shape()[1]) {
+			throw pybind11::index_error(
+				"expect square matrix"
+			);
+		}
+		if (mEvap.shape()[0] < gr_size) {
+			throw pybind11::index_error(
+				"evdm.Matrix: evap shouldn't have less size than grid"
+			);
+		}
+		size_t m_stride_outer = mMat.strides()[0] / sizeof(T);
+		size_t m_stride_inner = mMat.strides()[1] / sizeof(T);
+
+		size_t m_stride_evap = mEvap.strides()[0] / sizeof(T);
+
+		return Py_Matrix(mGridEL, mMat.data(), gr_size,
+			m_stride_outer, m_stride_inner,
+			mEvap.data(), mEvap.size(), m_stride_evap, padding);
+	}, array_var);
+}
+
+Py_Matrix Py_Matrix::fromArray1(
+	Py_EL_Grid const& mGridEL,
+	pybind11::array const& Mat, 
+	pybind11::array const& Evap)
+{
+	return Py_Matrix::fromArray_impl(mGridEL, Mat, Evap,-1);
+}
+
+Py_Matrix Py_Matrix::fromArray2(
+	Py_EL_Grid const& mGridEL,
+	pybind11::array const& Mat
+) 
+{
+	auto array_var = array_variant<DISTRIB_TYPE_LIST>(Mat);
+
+	return std::visit([&]<class T>(pybind11::array_t<T> const& mMat) {
+		size_t gr_size = mGridEL.size() * mGridEL.ptypes();
+		if (mMat.ndim() != 2) {
+			throw pybind11::index_error("evdm.Matrix: ndim of matrix != 2");
+		}
+		if (mMat.shape()[0] < gr_size || mMat.shape()[1] < gr_size) {
+			throw pybind11::index_error(
+				"evdm.Matrix: matrix shouldn't have less size than grid"
+			);
+		}
+		if (mMat.shape()[0] != mMat.shape()[1] ) {
+			throw pybind11::index_error(
+				"expect square matrix"
+			);
+		}
+		
+		size_t m_stride_outer = mMat.strides()[0] / sizeof(T);
+		size_t m_stride_inner = mMat.strides()[1] / sizeof(T);
+
+		return Py_Matrix(mGridEL, mMat.data(), gr_size,
+			m_stride_outer, m_stride_inner,
+			(T*)nullptr, 0, 1,-1);
+	}, array_var);
+}
+

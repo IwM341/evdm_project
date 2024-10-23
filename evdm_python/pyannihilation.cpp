@@ -44,6 +44,13 @@ void Py_Pre_Ann::add_ann(Py_Matrix& AnnMatrix, size_t ptype0, size_t ptype1, dou
 	}, m_preann, AnnMatrix.m_matrix);
 }
 
+Py_EL_Grid Py_Pre_Ann::getGrid() const
+{
+	return std::visit([](const auto& item) {
+		return Py_EL_Grid(item.Grid);
+	}, m_preann);
+}
+
 void Py_Pre_Ann::add_to_python_module(pybind11::module& m)
 {
 	namespace py = pybind11;
@@ -63,7 +70,7 @@ void Py_Pre_Ann::add_to_python_module(pybind11::module& m)
 			"Parameters:\n\t"
 			"matrix : input matrix to build (modify)\n\t"
 			"ptype0, ptype1: scattering types\n\t"
-			"a0 : coefficient of \sigma_{ann} v_esc = const annihilation\n\t"
-			"av : coefficient of \sigma_{ann} v_esc = const * v^2 annihilation\n",
+			"a0 : coefficient of \\sigma_{ann} v_esc = const annihilation\n\t"
+			"av : coefficient of \\sigma_{ann} v_esc = const * v^2 annihilation\n",
 			py::arg("matrix"), py::arg("ptype0"), py::arg("ptype1"), py::arg("a0"), py::arg("av"));
 }

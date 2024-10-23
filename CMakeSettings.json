@@ -29,6 +29,11 @@
           "name": "CMAKE_CXX_STANDARD",
           "value": "17",
           "type": "STRING"
+        },
+        {
+          "name": "BUILD_TESTS",
+          "value": "False",
+          "type": "BOOL"
         }
       ]
     },
@@ -61,6 +66,16 @@
         {
           "name": "BUILD_TESTS",
           "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "SCATTER_METHOD_USE_NOTHERM",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "SCATTER_METHOD_USE_SOFT_TRESH",
+          "value": "False",
           "type": "BOOL"
         }
       ]

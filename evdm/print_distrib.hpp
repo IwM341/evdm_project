@@ -274,12 +274,14 @@ namespace evdm{
 
     template <
         typename HistoValuesType, typename LE_Functype,
+        typename LE_Functype_plot,
         typename ValueArray, typename XArray_t, typename YArray_t, 
         typename TriangleArray,typename measure_t = measure_dEdL
     >
     void DirstributionPrinting_1order(
         HistoValuesType const& Ni,
         LE_Functype&& LE,
+        LE_Functype_plot && LE_plot,
         ValueArray&& Values,
         XArray_t && XArray,
         YArray_t&& YArray,
@@ -310,10 +312,10 @@ namespace evdm{
             XArray[I0+2] = e1;
             XArray[I0+3] = e1;
 
-            YArray[I0] = L00;
-            YArray[I0 + 1] = L01;
-            YArray[I0 + 2] = L10;
-            YArray[I0 + 3] = L11;
+            YArray[I0] = l0*LE_plot(-e0);
+            YArray[I0 + 1] = l1 * LE_plot(-e0);
+            YArray[I0 + 2] = l0 * LE_plot(-e1);
+            YArray[I0 + 3] = l1 * LE_plot(-e1);
             for (size_t i = 0; i < 3; ++i) {
                 Triangles[6 * bin_index + i] = I0 + i;
             }

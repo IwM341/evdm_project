@@ -4,6 +4,7 @@
 #include <pybind11/functional.h>
 #include <set>
 #include <pybind11/stl.h>
+#include <grob/object_serialization.hpp>
 
 size_t Py_EL_Grid::size() const
 {
@@ -240,24 +241,47 @@ pybind11::dict Py_EL_Grid::get_el(
 
 }
 
-pybind11::array Py_EL_Grid::get_E_array()const {
+pybind11::array Py_EL_Grid::get_E_array(pybind11::handle self)const {
 	return std::visit(
-		[]<_GRID_EL_TMPL_>
+		[self]<_GRID_EL_TMPL_>
 		(const  evdm::EL_Grid<_GRID_EL_PARS_> &m_gr)->pybind11::array
 	{
-		return make_py_array(m_gr.Grid->inner(0).grid().unhisto());
+		if constexpr (_m_grid_t == evdm::GridEL_type::GridCVV) {
+			return make_py_array_view(
+				m_gr.Grid->inner(0).grid().unhisto(),
+				self
+			);
+		}
+		else {
+			return make_py_array(
+				m_gr.Grid->inner(0).grid().unhisto()
+			);
+		}
+		
 	},m_grid);
 }
-pybind11::array Py_EL_Grid::get_L_array(size_t index, bool hidden)const {
+pybind11::array Py_EL_Grid::get_L_array(
+	pybind11::handle self,size_t index, bool hidden
+)const {
 	return std::visit(
-		[index, hidden]<_GRID_EL_TMPL_>
+		[self,index, hidden]<_GRID_EL_TMPL_>
 		(const  evdm::EL_Grid<_GRID_EL_PARS_> &m_gr)->pybind11::array
 	{
-		_T2 Lm = m_gr.LE()(-m_gr.Grid->inner(0).grid()[index].center());
 		auto const& m_grid = m_gr.Grid->inner(0).inner(index).unhisto();
+		if (hidden) {
+			if constexpr (_m_grid_t == evdm::GridEL_type::GridCVV) {
+				return make_py_array_view(m_grid, self);
+			}
+			else {
+				return make_py_array(m_grid);
+			}
+		}
+		_T2 Lm = m_gr.LE()(-m_gr.Grid->inner(0).grid()[index].center());
 		return make_py_array(
 			grob::as_container(
-				[hidden, Lm, &m_grid](size_t i)->_T2 {return hidden ? m_grid[i] : Lm * m_grid[i]; },
+				[hidden, Lm, &m_grid](size_t i)->_T2 {
+					return hidden ? m_grid[i] : Lm * m_grid[i]; 
+				},
 				m_grid.size()
 			)
 		);
@@ -631,6 +655,293 @@ Py_EL_Grid CreateELGrid(
 
 }
 
+
+struct NpDictSerializator {
+
+	template <typename T>
+	struct serializable_s : std::false_type {};
+
+	template <typename T>
+	struct deserializable_s : std::false_type {};
+
+	template <typename T,typename...Args>
+	struct serializable_s<
+		std::vector<T, Args...>
+	> : std::is_arithmetic<T> {};
+
+	template <typename T,typename...Args>
+	struct deserializable_s<
+		std::vector<T, Args...>
+	> : std::is_arithmetic<T> {};
+
+
+	template <typename T>
+	pybind11::object MakePrimitive(T const & value) {
+		return pybind11::cast(
+			value,
+			pybind11::return_value_policy::automatic_reference
+		);
+	}
+	template <typename Keys_t,typename Values_t>
+	pybind11::object MakeDict(Keys_t && keys, Values_t && values) {
+		pybind11::dict m_dict;
+		for (size_t i = 0; i < keys.size(); ++i) {
+			if constexpr (
+				std::is_same_v<
+					std::decay_t<decltype(keys[i])>,
+					std::string
+				>
+			) {
+				m_dict[keys[i].c_str()] = values[i];
+			}
+			else if constexpr (
+				std::is_same_v<
+					std::decay_t<decltype(keys[i])>, 
+					std::string_view
+				>
+			) {
+				std::string X(keys[i].begin(), keys[i].end() );
+				m_dict[X.c_str()] = values[i];
+			} else {
+				m_dict[keys[i]] = values[i];
+			}
+		}
+		return m_dict;
+	}
+
+	template <typename Values_t>
+	pybind11::object MakeArray(Values_t&& values) {
+		typedef std::decay_t<decltype(values[0])> value_type;
+		if constexpr (std::is_fundamental_v<value_type>) {
+			return pybind11::cast(make_py_array(values));
+		} else {
+			pybind11::list L;
+			size_t N = values.size();
+			for (size_t i = 0; i < N;++i) {
+				L.append(values[i]);
+			}
+			return L;
+		}
+	}
+
+	template <typename...Ts>
+	pybind11::object Make(std::vector<Ts...> const& value) {
+		return make_py_array(value);
+	}
+
+	template <typename T, typename...Args>
+	std::vector<T, Args...> get_impl(
+		std::type_identity<std::vector<T,Args...>>,
+		pybind11::handle Obj) 
+	{
+		try {
+			pybind11::array_t<T> m_array = Obj.cast<pybind11::array_t<T>>();
+			if (m_array.ndim() != 1) {
+				throw pybind11::index_error("number of dimentions in array should be 1 to cast to std::vector");
+			}
+			const T* _ptr = m_array.data();
+			size_t _stride = m_array.strides()[0]/sizeof(T);
+			size_t _size = m_array.shape()[0];
+			std::vector<T, Args...> Ret(_size);
+			for (size_t i = 0; i < _size; ++i) {
+				Ret[i] = *(_ptr + i * _stride);
+			}
+			return Ret;
+		}
+		catch (pybind11::cast_error&) {
+			
+		}
+
+		std::vector<T, Args...> Ret;
+		for (auto it = Obj.begin(); it != Obj.end();++it) {
+			Ret.push_back(it->cast<T>());
+		}
+
+		return Ret;
+	}
+	
+
+	template <typename T>
+	T GetPrimitive(pybind11::handle Obj) {
+		return pybind11::cast<T>(Obj);
+	}
+	template <typename T>
+	T Get(pybind11::handle Obj) {
+		return get_impl(std::type_identity<T>{}, Obj);
+	}
+
+
+	auto BeginArray(pybind11::handle Obj) {
+		return Obj.begin();
+	}
+	auto EndArray(pybind11::handle Obj) {
+		return Obj.end();
+	}
+
+	auto BeginDict(pybind11::handle Obj) {
+		return pybind11::cast<pybind11::dict>(Obj).begin();
+	}
+	auto EndDict(pybind11::handle Obj) {
+		return pybind11::cast<pybind11::dict>(Obj).end();
+	}
+	template <typename Iter_type>
+	auto GetKey(Iter_type it) {
+		return it->first.template cast<std::string_view>();
+	}
+	template <typename Iter_type>
+	auto GetValue(Iter_type it) {
+		return it->second;
+	}
+	template <typename Iter_type>
+	auto GetItem(Iter_type it) {
+		return *it;
+	}
+	template <typename T>
+	pybind11::handle GetPrimitive(pybind11::handle Obj, T & value) {
+		return value = Obj.cast<T>();
+		grob::GridUniform<T>::Serialize;
+	}
+};
+
+pybind11::dict Py_EL_Grid::get_object(pybind11::handle self) {
+	using namespace pybind11::literals;
+
+	return std::visit([this]<class B_vt,class Gr_vt,evdm::GridEL_type _m_grid_t>(
+		evdm::EL_Grid<B_vt, Gr_vt, _m_grid_t> const& grid
+		) 
+	{
+		NpDictSerializator  S;
+		auto m_dict = pybind11::dict(
+			"type"_a = "evdm.GridEL",
+			"body_t"_a = type_name<B_vt>(),
+			"grid_t"_a = type_name<Gr_vt>()
+		);
+		// Saving grid values
+		if constexpr (_m_grid_t == evdm::GridEL_type::GridCUU) {
+			m_dict["gtype"] = "CUU";
+		}
+		else {
+			m_dict["gtype"] = "CVV";
+		}
+		m_dict["body"] = getBody();
+		m_dict["grid"] = grid.Grid->Serialize(S);
+		m_dict["LE"] = grid._LE->Serialize(S);
+		m_dict["Trajs"] = grob::Serialize(*grid._TrajPools, S);
+		return m_dict;
+	}, m_grid);
+
+}
+
+Py_EL_Grid Py_EL_Grid::from_dict(Py_BodyModel BM, pybind11::dict const& grid_dict) {
+	if (grid_dict["type"].cast<std::string_view>() != "evdm.GridEL") {
+		throw pybind11::type_error(
+			"bad attempt to restore evdm.GridEL from not evdm.GridEL value"
+		);
+	}
+	auto Body_var_t = type_from_str(
+		grid_dict["body_t"].cast<std::string_view>(),
+		std::type_identity<std::tuple<BODY_TYPE_LIST>>{}
+	);
+	auto Grid_var_t = type_from_str(
+		grid_dict["grid_t"].cast<std::string_view>(),
+		std::type_identity<std::tuple<GRID_EL_TYPE_LIST>>{}
+	);
+	constexpr static auto _CUU = evdm::GridEL_type::GridCUU;
+	constexpr static auto _CVV = evdm::GridEL_type::GridCVV;
+	
+	std::string_view _kind_str = grid_dict["gtype"].cast<std::string_view>();
+	size_t _kind = (_kind_str == "CUU" ? 0 : (_kind_str == "CVV" ? 1 : 2));
+
+	std::variant< GRID_KIND_TYPE_LIST> m_grid_type;
+	if (_kind >= std::tuple_size_v<std::tuple<GRID_KIND_TYPE_LIST>>) {
+		throw pybind11::type_error("unsupported gtype");
+	}
+	m_grid_type = evdm::make_variant<
+		std::variant< GRID_KIND_TYPE_LIST>
+	>(_kind, [](auto m_T) {
+		return typename decltype(m_T)::type{};
+	});
+	
+	return std::visit(
+		[&]<class B_vt,class Gr_vt, evdm::GridEL_type _grid_kind>(
+			evdm::BodyModel<B_vt> const &body, 
+			std::type_identity< Gr_vt>, 
+			evdm::GridEL_type_t<_grid_kind>)->Py_EL_Grid
+	{
+		typedef evdm::EL_Grid<B_vt, Gr_vt, _grid_kind> EL_Grid_full_t;
+		
+		typedef typename EL_Grid_full_t::GridEL_t mGridEL_t;
+		typedef typename EL_Grid_full_t::LE_func_t LE_func_t;
+		typedef typename EL_Grid_full_t::TrajPool_t TrajPool_t;
+
+		NpDictSerializator S;
+		
+		mGridEL_t m_grid = mGridEL_t::DeSerialize(grid_dict["grid"], S);
+
+				
+		if (grid_dict.contains("LE")) {
+			LE_func_t LE_Func = LE_func_t::DeSerialize(grid_dict["LE"], S);
+			if (grid_dict.contains("Trajs")) {
+				TrajPool_t Trajs = 
+					grob::DeSerialize< TrajPool_t>(grid_dict["Trajs"], S);
+				return Py_EL_Grid(
+					evdm::EL_Grid<B_vt, Gr_vt, _grid_kind>(
+						body, std::move(m_grid),
+						std::move(LE_Func),
+						std::move(Trajs)
+						)
+				);
+			}
+			else {
+				Py_EL_Grid(
+					evdm::EL_Grid<B_vt, Gr_vt, _grid_kind>(
+						body, std::move(m_grid),
+						std::move(LE_Func)
+					)
+				);
+			}
+		}
+		else {
+			size_t Ne = pyget<size_t>( 2*m_grid.size_e(),grid_dict,"NLe");
+			if (grid_dict.contains("Trajs")) {
+				TrajPool_t Trajs =
+					grob::DeSerialize< TrajPool_t>(grid_dict["Trajs"], S);
+				return Py_EL_Grid(
+					evdm::EL_Grid<B_vt, Gr_vt, _grid_kind>(
+						body, std::move(m_grid),
+						Ne,
+						std::move(Trajs)
+						)
+				);
+			}
+			else {
+				Py_EL_Grid(
+					evdm::EL_Grid<B_vt, Gr_vt, _grid_kind>(
+						body, std::move(m_grid),Ne)
+				);
+			}
+		}
+		
+	}, BM.m_body, Grid_var_t, m_grid_type);
+		
+	
+}
+
+Py_EL_Grid Py_EL_Grid::from_dict1(pybind11::dict const& grid_dict) {
+	pybind11::handle B = grid_dict["body"];
+	if (pybind11::isinstance<pybind11::dict>(B)) {
+		return Py_EL_Grid::from_dict(
+			Py_BodyModel::from_dict(
+				B.cast<pybind11::dict>()
+			), grid_dict
+		);
+	} else {
+		return Py_EL_Grid::from_dict(
+			B.cast<Py_BodyModel>(), grid_dict
+		);
+	}
+}
+
 void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 {
 	namespace py = pybind11;
@@ -660,12 +971,42 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 			py::arg_v("RhoE", py::none()),
 			py::arg_v("RhoL", py::none()),
 			py::arg_v("dtype", "float")
+		).def("refine",&Py_EL_Grid::refine,
+			"make refeined grid by dividing E step by Er"
+			"and L step by Lr",
+			py::arg("Er"), py::arg("Lr")
+		).def(py::init(&Py_EL_Grid::from_dict))
+		.def(py::init(&Py_EL_Grid::from_dict1))
+		.def("__getstate__", [](py::handle self)->py::dict {
+				return py::cast<Py_EL_Grid&>(self).get_object(self);
+			}
 		)
-		.def_property_readonly("size", &Py_EL_Grid::size, "number of bins in EL grid")
-		.def_property_readonly("full_size", [](Py_EL_Grid const& _G) { return _G.size() * _G.ptypes(); }, "full size of grid (considering all ptypes)")
-		.def_property_readonly("dtype", &Py_EL_Grid::dtype, "type of grid")
-		.def_property_readonly("ptypes", &Py_EL_Grid::ptypes, "number of particles")
-		.def("__repr__", &Py_EL_Grid::repr)
+		.def("__setstate__", [](py::handle self, py::dict state) {
+				self.attr("__init__")(state);
+			}
+		)
+		.def(
+			"to_object", 
+			[](py::handle self)->py::dict {
+				return py::cast<Py_EL_Grid&>(self).get_object(self);
+			}
+		).def_property_readonly(
+			"size", 
+			&Py_EL_Grid::size, 
+			"number of bins in EL grid"
+		).def_property_readonly(
+			"full_size", 
+			[](Py_EL_Grid const& _G) { return _G.size() * _G.ptypes(); }, 
+			"full size of grid (considering all ptypes)"
+		).def_property_readonly(
+			"dtype", 
+			&Py_EL_Grid::dtype, 
+			"type of grid"
+		).def_property_readonly(
+			"ptypes", 
+			&Py_EL_Grid::ptypes, 
+			"number of particles"
+		).def("__repr__", &Py_EL_Grid::repr)
 		.def_property_readonly("body", &Py_EL_Grid::getBody)
 		.def("plot", &Py_EL_Grid::getPlot,
 			"gives array of shape (N,2,2):\n"
@@ -706,9 +1047,32 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 		.def("_get_index",&Py_EL_Grid::get_index,
 			py::arg("e"), py::arg("l"), py::arg_v("linear",false), py::arg_v("hidden",false))
 		.def("_get_el",&Py_EL_Grid::get_el, py::arg("index"))
-		.def("_get_e_array", &Py_EL_Grid::get_E_array)
-		.def("_get_l_array", &Py_EL_Grid::get_L_array, 
-			py::arg("e_index"), py::arg_v("hidden",false))
+		.def(
+			"Epoints", 
+			[](pybind11::handle self) {
+				return self.cast<Py_EL_Grid>().get_E_array(self);
+			}
+		).def("Lpoints", [](pybind11::handle self, size_t index) {
+				return self.cast<Py_EL_Grid>().get_L_array(
+					self, index, false
+				);
+			},py::arg("index")
+		).def(
+			"lpoints", 
+			[](pybind11::handle self,size_t index) {
+				return self.cast<Py_EL_Grid>().get_L_array(
+					self, index,true
+				);
+			}, py::arg("index")
+				)
 		.def("_get_traj_all",&Py_EL_Grid::_get_traj_all,py::arg("e"), py::arg("l"))
 		.def("_get_traj_all_inter", &Py_EL_Grid::_get_traj_all_inter, py::arg("e"), py::arg("l"));
+}
+
+Py_EL_Grid Py_EL_Grid::refine(size_t Ne, size_t Nl) const {
+	return std::visit(
+		[Ne, Nl](auto const& grid){
+			return Py_EL_Grid(grid.refine(Ne,Nl));
+		},m_grid
+	);
 }

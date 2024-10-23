@@ -5,7 +5,7 @@
 #include <evdm/core/core_distrib.hpp>
 #include <evdm/core/core_matrix.hpp>
 #include <evdm/core/core_annihilation.hpp>
-
+#include <evdm/dynamics/dynamics.hpp>
 #include <variant>
 
 //#define BODY_MODEL_USE_FLOAT
@@ -59,26 +59,19 @@
 	#endif
 #endif
 
-using GridCUU_t =
-std::integral_constant<
-	evdm::GridEL_type,
-	evdm::GridEL_type::GridCUU
->;
-using GridCVV_t =
-std::integral_constant<
-	evdm::GridEL_type,
-	evdm::GridEL_type::GridCVV
->;
+using GridCUU_t = evdm::GridEL_type_t< evdm::GridEL_type::GridCUU>;
+using GridCVV_t = evdm::GridEL_type_t< evdm::GridEL_type::GridCVV>;
+
 
 #ifdef GRID_EL_USE_CUU
 	#ifdef GRID_EL_USE_CVV
-		#define GRID_KIND_TYPE_LIST float, double
+		#define GRID_KIND_TYPE_LIST GridCUU_t, GridCVV_t
 	#else
-		#define GRID_KIND_TYPE_LIST  float
+		#define GRID_KIND_TYPE_LIST  GridCUU_t
 	#endif
 #else
 	#ifdef GRID_EL_USE_CVV
-		#define GRID_KIND_TYPE_LIST  double
+		#define GRID_KIND_TYPE_LIST  GridCVV_t
 	#else
 		#error "GRID_EL_USE_CUU  or GRID_EL_USE_CVV should be defined"
 	#endif
@@ -301,4 +294,53 @@ using PreAnn_Variant_t =
 		evdm::GridAnnPreMatrix<float, float, float, evdm::GridEL_type::GridCVV>
 	>;*/
 variant_type_t<convert_matrix_ann_tp, distrib_tp_t>;
+
+#define SCATTER_COUNT \
+	((defined SCATTER_METHOD_USE_NAIVE) + \
+	 (defined SCATTER_METHOD_USE_SOFT) + \
+	 (defined SCATTER_METHOD_USE_NOTHERM) + \
+	 (defined SCATTER_METHOD_USE_SOFT_TRESH))
+
+using ScatterMethodVariant_t =
+	std::variant <
+#ifdef SCATTER_METHOD_USE_NAIVE
+	evdm::ThermGaussGenerator_Naive
+#endif //SCATTER_METHOD_USE_NAIVE
+#if (SCATTER_COUNT > 1)
+	,
+#endif 
+#ifdef SCATTER_METHOD_USE_SOFT
+	evdm::ThermGaussGenerator_Soft8
+#endif //SCATTER_METHOD_USE_SOFT
+
+#if (SCATTER_COUNT > 2)
+	,
+#endif
+#ifdef SCATTER_METHOD_USE_NOTHERM
+	evdm::ThermGaussGenerator_NoTherm
+#endif // SCATTER_METHOD_USE_NOTHERM
+#if (SCATTER_COUNT > 3)
+	,
+#endif
+#ifdef SCATTER_METHOD_USE_SOFT_TRESH
+	evdm::ThermGaussGenerator_Soft8_Treshold
+#endif // SCATTER_METHOD_USE_SOFT_TRESH
+>;
+
+#define SCATTER_MEASURE_USE_COUNT \
+	( (defined SCATTER_MEASURE_USE_DEDL) + \
+	 (defined SCATTER_MEASURE_USE_DEDL2) )
+
+using ScatterMeasureVariant_t =
+std::variant<
+#ifdef SCATTER_MEASURE_USE_DEDL
+	evdm::measure_dEdL
+#endif // SCATTER_MEASURE_USE_DEDL
+#if (SCATTER_MEASURE_USE_COUNT > 1)
+	,
+#endif // (SCATTER_MEASURE_USE_COUNT > 1)
+#ifdef SCATTER_MEASURE_USE_DEDL2
+	evdm::measure_dEdL2
+#endif
+>;
 

@@ -33,7 +33,8 @@ namespace evdm{
         typename Phi_Func_t,
         typename _F2_t,
         typename Gen_t,
-        typename RGrid_t
+        typename RGrid_t,
+        typename N_mk_t
     >
     auto convert_r_density(
         HistoType const &H_vec,
@@ -42,8 +43,8 @@ namespace evdm{
         EL_Functype const & LEf,
         Phi_Func_t const & Phi,
         _F2_t _F2,
-        Gen_t G,
-        RGrid_t r_grid,size_t Nmk_per_bin,
+        Gen_t _G,
+        RGrid_t r_grid, N_mk_t const & Nmk_per_bin_distrib,
         progress_omp_function<> m_prog_bar_func = progress_omp_function<>())
     {
         const size_t Nrg = r_grid.size();
@@ -55,10 +56,14 @@ namespace evdm{
         
 
 
-        progress_omp_bar<> m_prog_bar(m_prog_bar_func, Nrg, 
-            std::max((int)Nrg / 100,(int)1));
-        #pragma omp parallel for private(G)
+        progress_omp_bar<> m_prog_bar(m_prog_bar_func, Nrg,
+            std::max((int)Nrg / 100, (int)1));
+        auto seed = _G.state;
+
+        #pragma omp parallel for
         for (int ird = 0; ird < Nrg; ++ird) {
+            auto G = _G;
+            G.set_seed(seed ^ (ird + 1));
             auto& dense_accum = RDens[ird];
             T r = RDens.Grid[ird];
             T phi_r = (r < 1 ? Phi(r) : 1/r);
@@ -122,8 +127,20 @@ namespace evdm{
                         }*/
 
                         double RDensValue = 0;
+                        size_t Nmk_per_bin = 0;
+                        if constexpr (
+                            std::is_arithmetic_v<N_mk_t>
+                        ) {
+                            Nmk_per_bin = Nmk_per_bin_distrib;
+                        } else {
+                            Nmk_per_bin = static_cast<size_t>(
+                                Nmk_per_bin_distrib[IJ_LinIndex]
+                            );
+                        }
+
                         double factor = Bin_Dens*2 / (Nmk_per_bin * 3);
                         auto bin_gen = mc_d3v(r, phi_r, c_bin, G, LEf);
+
                         for (size_t n = 0; n < Nmk_per_bin; ++n) {
                             auto [EL, dense] = bin_gen();
                             auto [tE, tl, Lmax] = EL;

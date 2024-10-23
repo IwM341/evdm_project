@@ -19,7 +19,7 @@ inline evdm::progress_omp_function<> make_progress_func(
 		else if (pybind11::hasattr(update_function, "__call__")) {
 			ProgF = evdm::progress_omp_function(
 				[update_function](int m_curr, int m_full) {
-					update_function.call(m_curr, m_full);
+					update_function.operator()(m_curr, m_full);
 				}
 			);
 		}

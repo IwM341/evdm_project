@@ -9,6 +9,7 @@
 #include <Eigen/Eigen>
 #include <Eigen/Dense>
 #include <memory>
+//#include <pybind11/pybind11.h>
 
 namespace evdm {
     template <typename T, typename Body_vt, typename GridEL_vt, GridEL_type grid_type>
@@ -94,10 +95,10 @@ namespace evdm {
             return _const_ValuesView;
         }
         inline auto as_histo() {
-            return grob::make_histo_view(grid(), values());
+            return grob::make_histo_view(grid(), grob::vector_view<T>(values().data(), grid().size()));
         }
         inline auto as_histo() const {
-            return grob::make_histo_view(grid(), values());
+            return grob::make_histo_view(grid(), grob::vector_view<const T>(values().data(), grid().size()));
         }
 
         Distribution(GridEL_t const& Grid, Eigen::VectorX<T> Values = {}, size_t padding = 128) :
@@ -111,7 +112,7 @@ namespace evdm {
             typename U, typename Body_vt1,
             typename GridEL_vt1, GridEL_type grid_type
         >
-        friend class Distribution;
+        friend struct Distribution;
 
         template <typename U>
         Distribution(
@@ -121,6 +122,12 @@ namespace evdm {
             _original._Values.template cast<T>(), 
             _original.padding
            ){}
+
+        Distribution(Distribution  const& _original ) : Distribution(
+            _original.Grid,
+            _original._Values,
+            _original.padding
+        ) {}
 
         template <typename U>
         Distribution<U, Body_vt, GridEL_vt, grid_type> as_type() const {
@@ -175,10 +182,10 @@ namespace evdm {
             }
         }
 
-        template <typename Gen_t, typename RGrid_t>
+        template <typename Gen_t, typename RGrid_t,typename Nmk_distr_t>
         auto r_dens(
             std::vector<size_t> ptypes, Gen_t&& G, RGrid_t&& RGrid,
-            size_t Nmk_per_bin = 1000,
+            Nmk_distr_t const & Nmk_distrib = 1000,
             progress_omp_function<> m_prog_bar_func = progress_omp_function<>()
         ) const {
             for (auto ptype : ptypes) {
@@ -187,7 +194,7 @@ namespace evdm {
             return convert_r_density(
                 as_histo(), TrajPools(),
                 ptypes, Grid.LE(), body().Phi, body()._DD_F_C(1),
-                G, std::forward<RGrid_t>(RGrid), Nmk_per_bin, m_prog_bar_func
+                G, std::forward<RGrid_t>(RGrid), Nmk_distrib, m_prog_bar_func
             );
         }
     };
@@ -208,13 +215,11 @@ namespace evdm {
                 auto type = std::get<0>(bin);
                 auto [e0, e1] = std::get<0>(bin.tail());
                 auto [l0, l1] = std::get<1>(bin.tail());
-                auto Lm0 = LE(-e0);
-                auto Lm1 = LE(-e1);
                 val = evdm::integrateAB2([&](auto e) {
                     auto Lm = LE(-e);
                 return evdm::integrateAB2([&](auto l) {
                     return init(e, l);
-                    }, Lm * l0, Lm * l1, 1);
+                    }, l0, l1, 1);
                     }, e0, e1, 1);
             }
         }
@@ -264,7 +269,7 @@ namespace evdm {
         else {
             Eigen::Map<const Eigen::VectorX<T>, Eigen::Unaligned,
                 Eigen::InnerStride<Eigen::Dynamic>
-            > DataMap(_data, _copy_size, data_step);
+            > DataMap(_data, _copy_size, Eigen::InnerStride<Eigen::Dynamic>(data_step));
             X.segment(0, _copy_size) = DataMap;
             return Distribution<T, Body_vt, GridEL_vt, grid_type>(
                 Grid,
@@ -299,5 +304,80 @@ namespace evdm {
             Grid,
             std::move(X)
             );
+    }
+
+    template <
+        typename T,typename B_vt,typename G_vt,GridEL_type grid_type,
+        typename Functor_t
+    >
+    T avarage_by_grid(
+        Distribution<T,B_vt,G_vt, grid_type> const & dstr,
+        int ptype,
+        Functor_t && F_EL
+    ) {
+        auto get_sum_count = [&](size_t m_ptype) {
+            auto H = dstr.as_histo();
+            auto H1 = H.inner_slice(m_ptype);
+            T sum = 0;
+            T avarage = 0;
+
+            for (auto [mbin, value] : H1) {
+                avarage += value;
+                auto [e, l] = mbin.center();
+                sum += value * F_EL(e, l);
+            }
+            return std::tuple<T, T>(sum, avarage);
+        };
+        if (ptype >= 0) {
+            auto [sum, count] = get_sum_count(ptype);
+            return sum / count;
+        }
+        else {
+            T full_sum = 0;
+            T full_count = 0;
+            size_t ptypemax = dstr.grid().ptypes();
+            for (size_t ptype = 0; ptype < ptypemax; ++ptype) {
+                auto [sum, count] = get_sum_count(ptype);
+                full_sum += sum;
+                full_count += count;
+            }
+            return full_sum / full_count;
+        }
+        
+    }
+
+    template <
+        typename T, typename B_vt, typename G_vt, GridEL_type grid_type
+    >
+    std::vector<T> get_E_distrib(
+        Distribution<T, B_vt, G_vt, grid_type> const& dstr,
+        int ptype = -1
+    ) {
+        size_t gridEsize = dstr.grid().inner(0).grid().size();
+        //pybind11::print("grid size = ", gridEsize);
+        std::vector<T> CountValues(gridEsize,0);
+        //pybind11::print("CountValues.size()", CountValues.size());
+        //CountValues.resize(gridEsize);
+        //for (auto& x : CountValues) { x = 0; }
+        auto put_E_distrib = [&](size_t m_ptype,T * data) {
+            auto H = dstr.as_histo();
+            auto H1 = H.inner_slice(m_ptype);
+            for (size_t i = 0; i < gridEsize; ++i) {
+                data[i] += H1.inner_slice(i).count();
+            }
+        };
+
+        
+        
+        if (ptype >= 0) {
+            put_E_distrib(ptype, CountValues.data());
+        }
+        else {
+            size_t ptypemax = dstr.grid().ptypes();
+            for (size_t pt = 0; pt < ptypemax; ++pt) {
+                put_E_distrib(pt, CountValues.data());
+            }
+        }
+        return CountValues;
     }
 }; //namespace evdm 
