@@ -22,7 +22,7 @@
         },
         {
           "name": "GRID_EL_USE_DOUBLE",
-          "value": "False",
+          "value": "True",
           "type": "BOOL"
         },
         {
@@ -65,7 +65,7 @@
         },
         {
           "name": "BUILD_TESTS",
-          "value": "True",
+          "value": "False",
           "type": "BOOL"
         },
         {

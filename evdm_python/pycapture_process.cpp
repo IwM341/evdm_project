@@ -1,6 +1,7 @@
 #include "dynamic_python.hpp"
 #include <evdm/core/core_dynamics_capture.hpp>
 #include <evdm/utils/prng.hpp>
+#include "capture_python.hpp"
 
 pybind11::tuple Py_CaptureProcess(
 	Py_Capture& CaptAccum,
@@ -27,6 +28,7 @@ pybind11::tuple Py_CaptureProcess(
 	}
 	auto [sum, dsum] = std::visit([&]<_DISTRIB_TMPL_>(evdm::Distribution<_DISTRIB_PARS_> &mDistrib) {
 		typedef decltype(mDistrib.get_grid_vtype()) T;
+		pybind11::gil_scoped_release m_gil_release;
 		evdm::xorshift<T> G(seed);
 		return evdm::Capture(mDistrib, ptype_out, sc_event, G,
 			M_DM, deltaM, NucleiM, body_halo_v, dm_v_disp, r_pow, Nmk, weight);
@@ -36,7 +38,11 @@ pybind11::tuple Py_CaptureProcess(
 	auto sce_info = sc_event.unique ?
 		scatter_event_info(sc_event.name, ptype_in, ptype_out, sum, Nmk) :
 		scatter_event_info();
-	CaptAccum.events.push_back(sce_info);
+	{
+		pybind11::gil_scoped_acquire m_lock;
+		CaptAccum.events.push_back(sce_info);
+	}
+	
 	return pybind11::make_tuple(sum, dsum);
 }
 

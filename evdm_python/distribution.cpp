@@ -1,4 +1,4 @@
-#include "core_python.hpp"
+#include "distrib_python.hpp"
 #include <evdm/print_distrib.hpp>
 #include "debugdef.hpp"
 #include <evdm/measure.hpp>
@@ -17,7 +17,7 @@ Py_Distribution Py_Distribution::CreatePyDistribFromArray(
 		size_t _stride = m_array.strides()[0] / sizeof(T);
 		size_t extra_size = m_array.size() - mGridEL.size()*mGridEL.ptypes();
 		size_t padding = evdm::min_deg_2(extra_size);
-		return Py_Distribution(mGridEL, m_array.data(), _stride, m_array.size(), padding);
+		return Py_Distribution(mGridEL, m_array.data(), _stride, m_array.size());
 	}, array_var);
 }
 
@@ -86,8 +86,8 @@ double Py_Distribution::count(int ptype)const
 			throw pybind11::index_error("ptype is more than ptypes number");
 		}
 		auto H1 = distrib.as_histo();
-		DEBUG1(H1.Grid.size());
-		DEBUG1(H1.Values.size());
+		VERBOSE_VAR1(H1.Grid.size());
+		VERBOSE_VAR1(H1.Values.size());
 		return distrib.count(ptype);
 			
 	},m_distrib);
@@ -363,7 +363,7 @@ Py_Distribution CreateDistribFromDict(
 	return std::visit([&]<class T>(pybind11::array_t<T> const&m_array) {
 		size_t stride = m_array.strides(0)/sizeof(T);
 		return Py_Distribution(
-			mGridEL, (const T*)X.data(), stride, m_size, padding
+			mGridEL, (const T*)X.data(), stride, m_size
 		);
 	}, array_vars);
 	
@@ -399,8 +399,8 @@ double compare_distribs(
 				static_cast<void*>(D2.Grid.body.get())
 			) 
 			{
-				throw pybind11::value_error(
-					"compared distributions should have grids of the same Body"
+				pybind11::print(
+					"Warning: compared distributions should have grids of the same Body"
 				);
 			}
 			if (measure == "dEdl") {
@@ -411,7 +411,7 @@ double compare_distribs(
 			}
 			else if (measure == "dEdL2")
 			{
-				evdm::distrib_norm(D1, D2, p_deg, evdm::measure_dEdL2{});
+				return evdm::distrib_norm(D1, D2, p_deg, evdm::measure_dEdL2{});
 			}
 			else {
 				throw pybind11::type_error(

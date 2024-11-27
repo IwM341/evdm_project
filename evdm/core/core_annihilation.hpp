@@ -11,6 +11,12 @@ namespace evdm {
         GridEL_t Grid;
         Matrix_t<T> A0, Av;
 
+        GridAnnPreMatrix(
+            GridEL_t const& Grid,
+            Matrix_t<T> _A0,
+            Matrix_t<T> _Av
+        ):Grid(Grid),A0(std::move(_A0)),Av(std::move(_Av)){}
+
         template <typename Gen_t>
         GridAnnPreMatrix(GridEL_t const &Grid, size_t Nmk_traj, 
             Gen_t && G,progress_omp_function<> m_progress):
@@ -40,6 +46,27 @@ namespace evdm {
         }
         //A0 - annihilation when sigma v ~ 1
         //Av - annihilation when sigma v ~ v^2
+
+        template <typename U>
+        GridAnnPreMatrix(
+            GridAnnPreMatrix<U, Body_vt, GridEL_vt, grid_type> const& original
+        ) : Grid(original.Grid),
+            A0(original.A0.template cast<T>()),
+            Av(original.Av.template cast<T>()) {}
+
+        GridAnnPreMatrix(GridAnnPreMatrix const& original) :
+            Grid(original.Grid),
+            A0(original.A0),
+            Av(original.Av)
+        {}
+
+        template <typename U>
+        GridAnnPreMatrix<U, Body_vt, GridEL_vt, grid_type>
+            as_type() const {
+            return GridAnnPreMatrix<
+                U, Body_vt, GridEL_vt, grid_type
+            >(*this);
+        }
 
     };
 

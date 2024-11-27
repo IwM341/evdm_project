@@ -1,19 +1,98 @@
 #include "annihilation.hpp"
 #include "progress_log.hpp"
 #include <evdm/utils/variant_tools.hpp>
-Py_Pre_Ann::Py_Pre_Ann(Py_EL_Grid const& mGridEL, size_t Nmk_bin, std::string_view dtype, pybind11::handle update_function):
-	m_preann(std::visit([Nmk_bin, dtype,&update_function]<_GRID_EL_TMPL_,typename T>(const  evdm::EL_Grid<_GRID_EL_PARS_>& m_gr,evdm::self_type<T>)->PreAnn_Variant_t
+#include "grid_python.hpp"
+#include "matrix_python.hpp"
+#include "grob_python.hpp"
+#include <type_traits>
+#include <pybind11/eigen.h>
+
+
+void Py_Pre_Ann::add_to_python_module(pybind11::module& m)
+{
+	namespace py = pybind11;
+	py::class_<Py_Pre_Ann>(m, "Ann", "python class for pre annihilation matrix")
+		.def(py::init<Py_EL_Grid const&, size_t, std::string_view, py::handle>(),
+			"constructor.\n\n"
+			"Parameters:\n\t"
+			"grid : el grid.\n\t"
+			"Nmk : number of MK integratons per bin.\n\t"
+			"dtype : type of values.\n\t"
+			"bar : update progress bar function.\n",
+			py::arg("grid"), py::arg("Nmk"),
+			py::arg_v("dtype", "float"), py::arg_v("bar", py::none())
+		).def("__repr__", &Py_Pre_Ann::repr)
+		.def(py::init([](
+			Py_EL_Grid const& G,
+			py::array const& A0,
+			py::array const& Av)
+			{
+				using namespace pybind11::literals;
+				return Py_Pre_Ann::from_object(G, py::dict("A0"_a = A0, "Av"_a = Av));
+			}), 
+			py::arg("Grid"),py::arg("A0"), py::arg("Av")
+		).def_property_readonly("A0",
+			[](pybind11::handle self) {
+				return self.cast<Py_Pre_Ann &>().A0(self);
+			}
+		).def_property_readonly("Av",
+			[](pybind11::handle self) {
+				return self.cast<Py_Pre_Ann &>().Av(self);
+			}
+		)
+		.def("__str__", &Py_Pre_Ann::repr)
+		.def(py::init(&Py_Pre_Ann::from_object))
+		.def(py::init(&Py_Pre_Ann::from_dict))
+		.def(py::pickle([](py::handle self)->py::dict {
+				return py::cast<Py_Pre_Ann&>(self).get_object(self);
+			}, &Py_Pre_Ann::from_dict)
+		).def("copy", &Py_Pre_Ann::copy)
+		.def("as_type", &Py_Pre_Ann::as_type,
+			"creating Ann with another dtype",
+			py::arg("dtype"))
+		.def("to_object", [](py::handle self) {
+				return py::cast<Py_Pre_Ann&>(self).get_object(self);
+			},"serialization into object dict"
+		).def_property_readonly("grid", &Py_Pre_Ann::getGrid)
+		.def("add_to_matrix", &Py_Pre_Ann::add_ann,
+			"build part of annihilation matrix of ptype0, ptype1, the matrix would by Aij += a0*a_0_ij+av*a_v_ij"
+			"where annihilation determines by dN_i/dt = (n_{\\infty} \\sigma_{ann} v_esc) (A_{ij}  N_j) N_i"
+			"Parameters:\n\t"
+			"matrix : input matrix to build (modify)\n\t"
+			"ptype0, ptype1: scattering types\n\t"
+			"a0 : coefficient of \\sigma_{ann} v_esc = const annihilation\n\t"
+			"av : coefficient of \\sigma_{ann} v_esc = const * v^2 annihilation\n",
+			py::arg("matrix"), py::arg("ptype0"), py::arg("ptype1"), py::arg("a0"), py::arg("av")
+		);
+}
+
+
+Py_Pre_Ann::Py_Pre_Ann(
+	Py_EL_Grid const& mGridEL, size_t Nmk_bin, 
+	std::string_view dtype, pybind11::handle update_function):
+	m_preann(
+		std::visit([Nmk_bin, dtype,&update_function]
+			<_GRID_EL_TMPL_,typename T>
+			(const  evdm::EL_Grid<_GRID_EL_PARS_>& m_gr,
+				evdm::self_type<T>)->PreAnn_Variant_t
 	{
 		evdm::progress_omp_function<> m_prog = make_progress_func(update_function);
 		if constexpr (std::is_same_v<T, void>) {
 			throw pybind11::type_error("unrecongnesed dtype");
 		}
 		else {
-			if constexpr (evdm::variant_consist_of_v<evdm::GridAnnPreMatrix<T, _T1, _T2, _m_grid_t>, PreAnn_Variant_t>) {
-				return evdm::GridAnnPreMatrix<T, _T1, _T2, _m_grid_t>(m_gr, Nmk_bin, evdm::xorshift<_T2>{}, m_prog);
+			if constexpr (evdm::variant_consist_of_v<
+				evdm::GridAnnPreMatrix<T, _T1, _T2, _m_grid_t>, 
+				PreAnn_Variant_t
+			>) {
+				pybind11::gil_scoped_release m_lock;
+				return evdm::GridAnnPreMatrix<T, _T1, _T2, _m_grid_t>(
+					m_gr, Nmk_bin, evdm::xorshift<_T2>{},
+					m_prog
+				);
 			}
 			else {
-				throw pybind11::type_error("unsupported dtype");
+				throw pybind11::type_error("unsupported dtype of annihilation");
 			}
 		}
 	}, mGridEL.m_grid, 
@@ -44,6 +123,23 @@ void Py_Pre_Ann::add_ann(Py_Matrix& AnnMatrix, size_t ptype0, size_t ptype1, dou
 	}, m_preann, AnnMatrix.m_matrix);
 }
 
+pybind11::array Py_Pre_Ann::A0(pybind11::handle self) {
+	return std::visit(
+		[self]<_DISTRIB_TMPL_>(
+			evdm::GridAnnPreMatrix<_DISTRIB_PARS_> & m_ann
+			) {
+		return make_array_from_eigen(m_ann.A0, self);
+	}, m_preann);
+}
+pybind11::array Py_Pre_Ann::Av(pybind11::handle self) {
+	return std::visit(
+		[self]<_DISTRIB_TMPL_>(
+			evdm::GridAnnPreMatrix<_DISTRIB_PARS_> & m_ann
+			) {
+		return make_array_from_eigen(m_ann.Av, self);
+	}, m_preann);
+}
+
 Py_EL_Grid Py_Pre_Ann::getGrid() const
 {
 	return std::visit([](const auto& item) {
@@ -51,26 +147,81 @@ Py_EL_Grid Py_Pre_Ann::getGrid() const
 	}, m_preann);
 }
 
-void Py_Pre_Ann::add_to_python_module(pybind11::module& m)
-{
-	namespace py = pybind11;
-	py::class_<Py_Pre_Ann>(m, "AnnPre","python class for pre annihilation matrix")
-		.def(py::init<Py_EL_Grid const& ,size_t,std::string_view,py::handle>(),
-			"constructor.\n\n"
-			"Parameters:\n\t"
-			"grid : el grid.\n\t"
-			"Nmk : number of MK integratons per bin.\n\t"
-			"dtype : type of values.\n\t"
-			"bar : update progress bar function.\n",
-			py::arg("grid"), py::arg("Nmk"),
-			py::arg_v("dtype","float"), py::arg_v("bar", py::none()))
-		.def("add_to_matrix",&Py_Pre_Ann::add_ann,
-			"build part of annihilation matrix of ptype0, ptype1, the matrix would by Aij += a0*a_0_ij+av*a_v_ij"
-			"where annihilation determines by dN_i/dt = (n_{\\infty} \\sigma_{ann} v_esc) (A_{ij}  N_j) N_i"
-			"Parameters:\n\t"
-			"matrix : input matrix to build (modify)\n\t"
-			"ptype0, ptype1: scattering types\n\t"
-			"a0 : coefficient of \\sigma_{ann} v_esc = const annihilation\n\t"
-			"av : coefficient of \\sigma_{ann} v_esc = const * v^2 annihilation\n",
-			py::arg("matrix"), py::arg("ptype0"), py::arg("ptype1"), py::arg("a0"), py::arg("av"));
+Py_Pre_Ann Py_Pre_Ann::as_type(const char* type_name) const {
+	auto m_type = type_from_str(
+		type_name,
+		std::type_identity<std::tuple< DISTRIB_TYPE_LIST >> {}
+	);
+	return std::visit([this]<class U>(std::type_identity<U>) {
+		return as_type_t<U>();
+	}, m_type);
 }
+
+
+
+Py_Pre_Ann Py_Pre_Ann::from_object(
+	Py_EL_Grid const& Grid,
+	pybind11::dict const& m_dict) 
+{
+	pybind11::array A0 = m_dict["A0"].cast< pybind11::array>();
+	pybind11::array Av = m_dict["Av"].cast< pybind11::array>();
+	auto A0_var = array_variant<DISTRIB_TYPE_LIST>(A0);
+	return std::visit(
+		[&Av]<_DISTRIB_TMPL_>(
+			evdm::EL_Grid<_T2,_T3,_m_grid_t> const& Grid,
+			pybind11::array_t<_T1> const & A0
+		){
+		pybind11::array_t<_T1> const& _Av =
+			Av.cast<pybind11::array_t<_T1>>();
+
+
+		//throw std::runtime_error("not implemented");
+
+		return Py_Pre_Ann(
+			evdm::GridAnnPreMatrix<_DISTRIB_PARS_>{
+				Grid,
+					A0.cast<evdm::Matrix_t<_T1>>(),
+					Av.cast<evdm::Matrix_t<_T1>>()
+			}
+		);
+	}, Grid.m_grid, A0_var);
+}
+Py_Pre_Ann Py_Pre_Ann::from_dict(pybind11::dict const& distr_dict) {
+	pybind11::handle G = distr_dict["grid"];
+	if (pybind11::isinstance<pybind11::dict>(G)) {
+		return Py_Pre_Ann::from_object(
+			Py_EL_Grid::from_dict1(
+				G.cast<pybind11::dict>()
+			), distr_dict
+		);
+	}
+	else {
+		return Py_Pre_Ann::from_object(
+			G.cast<Py_EL_Grid>(), distr_dict
+		);
+	}
+}
+pybind11::dict Py_Pre_Ann::get_object(pybind11::handle self){
+	using namespace pybind11::literals;
+	return pybind11::dict(
+		"type"_a = "evdm.Ann",
+		"A0"_a = A0(self),
+		"Av"_a = Av(self),
+		"grid"_a = getGrid()
+	);
+}
+std::string Py_Pre_Ann::repr() const {
+	return std::visit([]<_DISTRIB_TMPL_>(
+		evdm::GridAnnPreMatrix<_DISTRIB_PARS_> const& m_pr) 
+		{
+			return std::string("Ann( dtype = ") + 
+				type_name<_T1>() + ")";
+		}, m_preann
+	);
+}
+Py_Pre_Ann Py_Pre_Ann::copy() const {
+	return std::visit([](auto const& m_pr) {
+			return Py_Pre_Ann(m_pr);
+		}, m_preann
+	);
+} 

@@ -5,6 +5,8 @@
 #include "progress_log.hpp"
 #include "value_types.hpp"
 #include <evdm/measure.hpp>
+#include "matrix_python.hpp"
+
 void Py_ScatterProcess(
 	Py_Matrix& ScatterAccum,
 	int ptype_in, int ptype_out,
@@ -16,7 +18,7 @@ void Py_ScatterProcess(
 	pybind11::kwargs ExtraArgs
 ) {
 	size_t Nmk_per_traj = pyget<size_t>(1, ExtraArgs, "Nmk_traj");
-	bool count_evap = pyget<bool>(false, ExtraArgs, "count_evap");
+	bool count_evap = true;// pyget<bool>(false, ExtraArgs, "count_evap");
 	size_t seed = pyget<size_t>(evdm::default_seed, ExtraArgs, "seed");
 	pybind11::handle update_function = pyget<pybind11::handle>(
 		pybind11::none(), ExtraArgs,"bar"
@@ -94,6 +96,8 @@ void Py_ScatterProcess(
 			Nmk = Nmk_v.cast<size_t>();
 		}
 		catch (pybind11::cast_error&) {}
+
+		pybind11::gil_scoped_release m_unlock;
 		if (Nmk) {
 			evdm::Scatter(
 				m_mat, m_evp, count_evap, ptype_in, ptype_out,
@@ -117,7 +121,12 @@ void Py_ScatterProcess(
 	auto sce_info = sc_event.unique ?
 		scatter_event_info(sc_event.name, ptype_in, ptype_out, 0, Nmk) :
 		scatter_event_info();
-	ScatterAccum.events.push_back(sce_info);
+
+	{
+		pybind11::gil_scoped_acquire m_lock;
+		ScatterAccum.events.push_back(sce_info);
+	}
+
 }
 
 

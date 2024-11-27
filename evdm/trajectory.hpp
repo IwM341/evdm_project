@@ -68,7 +68,9 @@ namespace evdm{
         if (e >= 0.5 && L2 >= (1 - e) - 1e-7) {
             return 0;
         }
-        else {
+        else if (e <= 0) {
+            return std::numeric_limits<T>::max();
+        } else {
             return reT(e, L2) + pi<T> / (2 * e * std::sqrt(e));
         }
         

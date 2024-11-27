@@ -32,14 +32,19 @@ namespace evdm {
         auto Sfunc = [&](auto r, auto rmin, auto rmax) {
             return m_body.S(r, rmin, rmax);
         };
-        ScatterImpl(
-            G, ThermGen,
-            mk, dm, mi, se,
-            mHisto_full, EvapVector, count_evap,
-            LEf, _F2, mMatrix.Grid.TrajPools(),
-            m_measure, Phi, Sfunc, Temp,
-            mEvap.body().VescFunc, mEvap.body().Vesc,
-            Nmk_v, Nmk_per_traj, weight, m_progress_func
+        std::visit(
+            [&](auto const& dF) {
+                ScatterImpl(
+                    std::type_identity< GridEL_vt>{}, G, ThermGen,
+                    mk, dm, mi, dF,se.n_e,
+                    mHisto_full, EvapVector, count_evap,
+                    LEf, _F2, mMatrix.Grid.TrajPools(),
+                    m_measure, Phi, Sfunc, Temp,
+                    mEvap.body().VescFunc, mEvap.body().Vesc,
+                    Nmk_v, Nmk_per_traj, weight, m_progress_func
+                );
+            },
+            se.sf
         );
     }
 };//namespace evdm 

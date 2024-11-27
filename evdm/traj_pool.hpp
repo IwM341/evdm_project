@@ -31,7 +31,7 @@ namespace evdm{
         }
 
         SERIALIZATOR_FUNCTION(
-            PROPERTY_NAMES("rmin","rmax", "umin_l2", "umax"
+            PROPERTY_NAMES("rmin","rmax", "umin_l2", "umax",
                 "dul", "su", "su_minus_2_q",
                 "u_delta_0z", "u_delta_1z",
                 "T_in_theta","theta_max",
@@ -40,11 +40,11 @@ namespace evdm{
             PROPERTIES(rmin, rmax, umin_l2, umax,
                 dul, su, su_minus_2_q, 
                 u_delta_0z,  u_delta_1z,
-                T_in_theta,theta_max
+                T_in_theta,theta_max, theta_tau
             )
         )
         DESERIALIZATOR_FUNCTION(constructor,
-            PROPERTY_NAMES("rmin", "rmax", "umin_l2", "umax"
+            PROPERTY_NAMES("rmin", "rmax", "umin_l2", "umax",
                 "dul", "su", "su_minus_2_q",
                 "u_delta_0z", "u_delta_1z",
                 "T_in_theta", "theta_max",
@@ -53,7 +53,8 @@ namespace evdm{
             PROPERTY_TYPES(rmin, rmax, umin_l2, umax,
                 dul, su, su_minus_2_q,
                 u_delta_0z, u_delta_1z,
-                T_in_theta, theta_max
+                T_in_theta, theta_max,
+                theta_tau
             )
         )
     };

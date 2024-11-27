@@ -129,7 +129,10 @@ namespace evdm {
 
 
 	template <
+		typename Grid_vt,
 		typename Gen_t,
+		typename ScatterFactor_t,
+		typename NDensityEvent_t,
 		typename ThermGenerator_t,
 		typename HistoBank_t,
 		typename HistoEvap_t,
@@ -144,12 +147,14 @@ namespace evdm {
 		typename VescFunc_t,
 		typename Nmk_Vec_t
 	>
-	inline void ScatterImpl(
-		Gen_t&& G,
+	void ScatterImpl(
+		std::type_identity< Grid_vt>,
+		Gen_t&& _G,
 		ThermGenerator_t ThermGen,
 		Gen_vt<Gen_t> mk, Gen_vt<Gen_t> dm,
 		Gen_vt<Gen_t> mi,
-		ScatterEvent const& se,
+		ScatterFactor_t const & dF,
+		NDensityEvent_t const & Nir,
 		HistoBank_t& ScatMat_bank,
 		HistoEvap_t&& EvapDistrib,
 		bool count_evap,
@@ -168,133 +173,127 @@ namespace evdm {
 		Gen_vt<Gen_t> weight,
 		progress_omp_function<>& m_progress_func
 	) {
-		typedef
-			bin_traj_p_vt_t<std::decay_t<decltype(TrajPoolVec[0])>>
-			Traj_t;
-		auto FromFactorVar_Action = [&,_G=G, &Nir = se.n_e](auto&& dF) {
+		typedef Grid_vt Traj_t;
 
-			
+		
+		const size_t N_in = ScatMat_bank.Grid.size();
+		progress_omp_bar<> m_bar(
+			m_progress_func, N_in, std::max((int)(N_in / 1000), 1)
+		);
+		auto m_cm = mk * mi / (mk + mi);
 
-			const size_t N_in = ScatMat_bank.Grid.size();
-			progress_omp_bar<> m_bar(
-				m_progress_func, N_in, std::max((int)(N_in / 1000), 1)
-			);
-			auto m_cm = mk * mi / (mk + mi);
+		auto deltaE_div_m_cm = 2 * dm / m_cm;
 
-			auto deltaE_div_m_cm = 2 * dm / m_cm;
+		auto mi_frac = mi / (mk + mi);
+		auto mk_frac = mk / (mk + mi);
+		const auto _seed = _G.state;
+		#pragma	omp parallel for 
+		for (int i = 0; i < N_in; ++i) {
+			auto G = _G;
+			G.set_seed(_seed ^ i + 1);
+			auto IJ = ScatMat_bank.Grid.FromLinear(i);
 
-			auto mi_frac = mi / (mk + mi);
-			auto mk_frac = mk / (mk + mi);
-			const auto _seed = _G.state;
-			#pragma	omp parallel for 
-			for (int i = 0; i < N_in; ++i) {
-				auto G = _G;
-				G.set_seed(_seed ^ i + 1);
-				auto IJ = ScatMat_bank.Grid.FromLinear(i);
+			auto el_bin = ScatMat_bank.Grid[IJ];
 
-				auto el_bin = ScatMat_bank.Grid[IJ];
+			auto OutHisto = ScatMat_bank.Values[i];
 
-				auto OutHisto = ScatMat_bank.Values[i];
+			const bin_traj_pool_t<Traj_t>& el_trajpool = TrajPoolVec[i];
 
-				const bin_traj_pool_t<Traj_t>& el_trajpool = TrajPoolVec[i];
+			auto TinFunc = make_bin_traj_pool_Tin_func(
+				el_trajpool, LEf, _F2_value);
+			auto ToutFunc = make_bin_traj_pool_Tout_func(
+				el_trajpool, LEf);
 
-				auto TinFunc = make_bin_traj_pool_Tin_func(
-					el_trajpool, LEf, _F2_value);
-				auto ToutFunc = make_bin_traj_pool_Tout_func(
-					el_trajpool, LEf);
+			auto m_bin_el_gen = gen_EL(m_mes, el_bin, G, LEf);
 
-				auto m_bin_el_gen = gen_EL(m_mes, el_bin, G, LEf);
+			size_t Nmk = 0;
+			if constexpr (std::is_same_v<Nmk_Vec_t, size_t>) {
+				Nmk = Nmk_v;
+			} else {
+				Nmk = Nmk_v[i];
+			}
+			for (size_t nm = 0; nm < Nmk; ++nm) {
+				auto [e, l,Lmax] = m_bin_el_gen();
+				auto Ltmp = l * Lmax;
 
-				size_t Nmk = 0;
-				if constexpr (std::is_same_v<Nmk_Vec_t, size_t>) {
-					Nmk = Nmk_v;
-				} else {
-					Nmk = Nmk_v[i];
-				}
-				for (size_t nm = 0; nm < Nmk; ++nm) {
-					auto [e, l,Lmax] = m_bin_el_gen();
-					auto Ltmp = l * Lmax;
+				auto [u0, u1, theta_max] =
+					TinFunc.u0_u1_theta1(e, l, Lmax);
+				u0 = std::clamp(u0, (decltype(u0))0, (decltype(u0))1);
+				u1 = std::clamp(u1, (decltype(u1))0, (decltype(u1))1);
+				auto r0 = std::sqrt(u0);
+				auto r1 = std::sqrt(u1);
+				auto [tp_i, tp_j] = el_trajpool.Grid.pos(e, l);
 
-					auto [u0, u1, theta_max] =
-						TinFunc.u0_u1_theta1(e, l, Lmax);
-					u0 = std::clamp(u0, (decltype(u0))0, (decltype(u0))1);
-					u1 = std::clamp(u1, (decltype(u1))0, (decltype(u1))1);
-					auto r0 = std::sqrt(u0);
-					auto r1 = std::sqrt(u1);
-					auto [tp_i, tp_j] = el_trajpool.Grid.pos(e, l);
+				auto const& th00 = el_trajpool[{tp_i, tp_j}].theta_tau;
+				//prelimenary trajectory
 
-					auto const& th00 = el_trajpool[{tp_i, tp_j}].theta_tau;
-					//prelimenary trajectory
+				auto Tin_Teheta = TinFunc.tin_theta(e, l);
 
-					auto Tin_Teheta = TinFunc.tin_theta(e, l);
+				auto Tin = Tin_Teheta * theta_max;
+				auto Tout = ToutFunc(e, l, Ltmp);
 
-					auto Tin = Tin_Teheta * theta_max;
-					auto Tout = ToutFunc(e, l, Ltmp);
+				auto mk_factor =
+					weight * Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
 
-					auto mk_factor =
-						weight * Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
+				for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
+					auto tau = G();
+					auto [theta_undim, d_theta_undim] = th00(tau);
+					auto theta = theta_undim * theta_max;
+					auto d_theta = d_theta_undim * theta_max;
 
-					for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
-						auto tau = G();
-						auto [theta_undim, d_theta_undim] = th00(tau);
-						auto theta = theta_undim * theta_max;
-						auto d_theta = d_theta_undim * theta_max;
-
-						auto cth2 = std::cos(theta / 2);
-						auto sth2 = std::sin(theta / 2);
-						Traj_t r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
+					auto cth2 = std::cos(theta / 2);
+					auto sth2 = std::sin(theta / 2);
+					Traj_t r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
 						
 #ifndef NDEBUG
-						auto _C0 = Phi(std::sqrt(u0)) + e - Ltmp * Ltmp / u0;
-						auto _C0_p = Phi(std::sqrt(u0*(1+1e-4))) + e - Ltmp * Ltmp / (u0 * (1 + 1e-4));
-						auto _C0_m = Phi(std::sqrt(u0 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 - 1e-4));
-						auto _C1 = Phi(std::sqrt(u1)) + e - Ltmp * Ltmp / u1;
-						auto _C1_p = Phi(std::sqrt(u1 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 + 1e-4));
-						auto _C1_m = Phi(std::sqrt(u1 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 - 1e-4));
+					auto _C0 = Phi(std::sqrt(u0)) + e - Ltmp * Ltmp / u0;
+					auto _C0_p = Phi(std::sqrt(u0*(1+1e-4))) + e - Ltmp * Ltmp / (u0 * (1 + 1e-4));
+					auto _C0_m = Phi(std::sqrt(u0 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 - 1e-4));
+					auto _C1 = Phi(std::sqrt(u1)) + e - Ltmp * Ltmp / u1;
+					auto _C1_p = Phi(std::sqrt(u1 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 + 1e-4));
+					auto _C1_m = Phi(std::sqrt(u1 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 - 1e-4));
 #endif
-						auto renorm_factor =
-							d_theta_undim /
-							(2 * Tin_Teheta * std::sqrt(S_func(r, r0, r1)));
+					auto renorm_factor =
+						d_theta_undim /
+						(2 * Tin_Teheta * std::sqrt(S_func(r, r0, r1)));
 
-						Traj_t v2 = downbound(Phi(r) + e, 0);
-						auto v = std::sqrt(v2);
-						Traj_t vt = upbound(Ltmp / r, v);
-						Traj_t vr = ssqrt(v2 - vt * vt);
+					Traj_t v2 = downbound(Phi(r) + e, 0);
+					auto v = std::sqrt(v2);
+					Traj_t vt = upbound(Ltmp / r, v);
+					Traj_t vr = ssqrt(v2 - vt * vt);
 
-						vec3<Traj_t > V_in(vt * VescMin, 0, vr * VescMin);
-						Traj_t v_esc_nd = VescR(r);
-						auto [Vout, factor] =
-							Vout1_Scatter(
-								V_in,v, G, ThermGen, 
-								mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm, 
-								dF,
-								v_esc_nd * VescMin, VescMin,
-								Nir(r), TempR(r)
-							);
+					vec3<Traj_t > V_in(vt * VescMin, 0, vr * VescMin);
+					Traj_t v_esc_nd = VescR(r);
+					auto [Vout, factor] =
+						Vout1_Scatter(
+							V_in,v, G, ThermGen, 
+							mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm, 
+							dF,
+							v_esc_nd * VescMin, VescMin,
+							Nir(r), TempR(r)
+						);
 
-						vec3<Traj_t > v_nd = Vout / VescMin;//OK
-						Traj_t e_out = (v_nd.squaredNorm() - v_esc_nd * v_esc_nd);
+					vec3<Traj_t > v_nd = Vout / VescMin;//OK
+					Traj_t e_out = (v_nd.squaredNorm() - v_esc_nd * v_esc_nd);
 
 
-						auto final_factor = factor * mk_factor * renorm_factor;
-						if (e_out < 0) {
-							Traj_t L_nd = r * std::sqrt(
-								v_nd.x() * v_nd.x() + 
-								v_nd.y() * v_nd.y()
-							);
-							Traj_t Lmax_out = LEf(-e_out);
-							Traj_t l_out = (Lmax_out > 0 ? L_nd / Lmax_out : 0);
-							OutHisto.put_force(final_factor, e_out, l_out);
-						}
-						else if (count_evap) {
-							EvapDistrib.Values[i] += final_factor;
-						}
+					auto final_factor = factor * mk_factor * renorm_factor;
+					if (e_out < 0) {
+						Traj_t L_nd = r * std::sqrt(
+							v_nd.x() * v_nd.x() + 
+							v_nd.y() * v_nd.y()
+						);
+						Traj_t Lmax_out = LEf(-e_out);
+						Traj_t l_out = (Lmax_out > 0 ? L_nd / Lmax_out : 0);
+						OutHisto.put_force(final_factor, e_out, l_out);
+					}
+					else {
+						EvapDistrib.Values[i] += final_factor;
 					}
 				}
-				m_bar.next();
 			}
-		};
-		std::visit(FromFactorVar_Action, se.sf);
+			m_bar.next();
+		}
 	}
 
 

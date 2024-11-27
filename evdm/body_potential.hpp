@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <numbers>
 #include <limits>
+#include "utils/math_external.hpp"
 namespace evdm{
 
     namespace __detail{
@@ -78,7 +79,6 @@ namespace evdm{
         )
         READ_FUNCTION(Body, PROPERTY_TYPES(Q, Rho, Phi, Temp, Vesc))
 
-
         Body(Values_t vRho, Values_t vQ,
             Values_t vPhi, Values_t vTemp,
             T mVesc
@@ -104,6 +104,18 @@ namespace evdm{
             Rho_max = Rho[Rho.size() - 1];
             low_steps_num = 2;
         }
+
+        template <typename U>
+        Body<U> as_type() const {
+            auto to_U = [](auto const& vec) {
+                return Body<U>::Values_t(vec.Values.begin(), vec.Values.end());
+            };
+            return Body<U>(
+                to_U(Rho),to_U(Q),to_U(Phi),to_U(Temp),Vesc
+            );
+        }
+        
+
         auto const& getVesc() const{
             return VescFunc;
         }
@@ -294,7 +306,7 @@ namespace evdm{
                 auto r1 = Phi.Grid[i+1];
                 auto f0 = FuncArray[i] - e;
                 auto f1 = FuncArray[i+1] - e;
-                auto r = sqrt((r1*r1*f0-r0*r0*f1)/(f0-f1));
+                auto r = ssqrt((r1*r1*f0-r0*r0*f1)/(f0-f1));
                 return {r*r*(Phi(r)-e),r};
             }
         }
@@ -432,7 +444,7 @@ namespace evdm{
             T f2 = (3*Rho[im]+Q[im])/4;
             auto msqrt = std::sqrt(std::max((T)0,f1*f1+2*f0*f2))/f2;
             auto avar = u0 + f1/f2;
-            return {std::sqrt(avar-msqrt),std::sqrt(avar+msqrt)};
+            return {ssqrt(avar-msqrt),ssqrt(avar+msqrt)};
         }
 
         inline std::pair<T,T> find_rmin_rmax(T const& e,T const& L2,LE_func_t const &LE,

@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.9)
 
 set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ version selection")
 
+
+project(evdm_python_mudule LANGUAGES CXX VERSION 1.2.3)
+
 option(GEN_R_NO_POW "in capture r generator, use r = g() instead g()^p" OFF)
 if(${GEN_R_NO_POW})
    add_compile_definitions(NO_POW)
@@ -35,9 +38,32 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/type_properties.cmake)
 
 
 
-project(evdm_python_mudule LANGUAGES CXX VERSION 1.2.3)
 
 
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  message(Clang)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  message(GCC)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+    message(Intel)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    message(MSVC)
+else()
+    message(ERROR)
+endif()
+
+if( CMAKE_BUILD_TYPE MATCHES Debug OR
+       CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
+    
+    if (MSVC)
+        add_compile_options(/bigobj)
+        message("/bigobj option set")
+    else ()
+        add_compile_options(-Wa,-mbig-obj)
+        message("-Wa,-mbig-obj option set")
+    endif()
+endif()
 
 set(P_SOURCES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/evdm_python)
 set(FORM_FACTOR_SOURCES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/NuclearFormFactors)
@@ -73,7 +99,7 @@ endif()
 find_package(Grob)
 if(NOT Grob_FOUND)
     message("Grob not found, download from git")
-    #CPMAddPackage("gh:IwM341/GridObject@1.0.2")
+    CPMAddPackage("gh:IwM341/GridObject@1.0.3")
 endif()
 
 

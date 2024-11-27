@@ -1,16 +1,27 @@
-#include "core_python.hpp"
+#include "grid_python.hpp"
 #include "debugdef.hpp"
 #include "grob_python.hpp"
 #include <pybind11/functional.h>
 #include <set>
 #include <pybind11/stl.h>
 #include <grob/object_serialization.hpp>
+#include <variant>
+#include <format>
+
 
 size_t Py_EL_Grid::size() const
 {
 	return std::visit([](auto const& ELgrid) {
 			return ELgrid.Grid->inner(0).size();
 		}, m_grid);
+}
+
+size_t Py_EL_Grid::size_e() const
+{
+	return std::visit(
+		[]<_GRID_EL_TMPL_>(evdm::EL_Grid<_GRID_EL_PARS_> const& G) {
+		return G.getLE_inner_grid().grid().size();
+	},m_grid);
 }
 
 size_t Py_EL_Grid::ptypes() const
@@ -71,7 +82,7 @@ pybind11::array Py_EL_Grid::getPlot(bool is_internal) const
 			//pybind11::array_t<T> X0(N), X1(N), Y0(N), Y1(N);
 
 			pybind11::array_t<T> Points(pybind11::array::ShapeContainer({N,2,2 }));
-			DEBUG1(Points.size());
+			VERBOSE_VAR1(Points.size());
 			auto vector_view = [_data = Points.mutable_data(), N, &Points](size_t shift) {
 				return grob::as_container([_data, shift,&Points](size_t i)->T& {
 						if (4 * i + shift >= Points.size()) {
@@ -166,10 +177,10 @@ pybind11::tuple Py_EL_Grid::getLE() const
 		[](auto const& EL_grid_w) {
 			typedef decltype(EL_grid_w.get_bm_vtype()) T;
 			size_t Ne = 2*(EL_grid_w.Grid->size_e()+1);
-			DEBUG1(Ne);
+			VERBOSE_VAR1(Ne);
 			auto _grid_e = grob::GridUniform<T>(-EL_grid_w.body->Phi[0], 0, Ne);
-			DEBUG1(_grid_e);
-			DEBUG1(EL_grid_w.LE()(-_grid_e[0]));
+			VERBOSE_VAR1(_grid_e);
+			VERBOSE_VAR1(EL_grid_w.LE()(-_grid_e[0]));
 			return make_python_function_1D(
 				grob::make_function(
 					_grid_e,
@@ -211,7 +222,7 @@ size_t Py_EL_Grid::get_e_index(double e)const {
 	}, m_grid);
 }
 
-pybind11::dict Py_EL_Grid::get_el(
+pybind11::dict Py_EL_Grid::get_el_all(
 	std::variant<size_t, std::pair<size_t, size_t>> index)const {
 
 	return std::visit([]<_GRID_EL_TMPL_,typename T>
@@ -240,6 +251,40 @@ pybind11::dict Py_EL_Grid::get_el(
 	}, m_grid,index);
 
 }
+pybind11::tuple Py_EL_Grid::get_el(
+	std::variant<size_t, std::pair<size_t, size_t>> index)const {
+
+	return std::visit([]<_GRID_EL_TMPL_, typename T>
+		(const  evdm::EL_Grid<_GRID_EL_PARS_> &m_gr, T m_index)->pybind11::tuple
+	{
+		grob::MultiIndex<size_t, size_t> real_index;
+		const auto& grid = m_gr.Grid->inner(0);
+		if constexpr (std::is_same_v<decltype(m_index), size_t>) {
+			real_index = grid.FromLinear(m_index);
+		}
+		else {
+			real_index = grob::MultiIndex<size_t, size_t>(
+				m_index.first, m_index.second
+			);
+		}
+		auto m_bin = grid[real_index];
+		auto [e0, e1] = std::get<0>(m_bin);
+		auto [l0, l1] = std::get<1>(m_bin);
+
+		using namespace pybind11::literals;
+		return pybind11::make_tuple(
+			e0, e1,l0, l1);
+	}, m_grid, index);
+
+}
+pybind11::array_t<size_t> Py_EL_Grid::indexes(pybind11::handle self) const {
+	return std::visit(
+		[self]<_GRID_EL_TMPL_>(evdm::EL_Grid<_GRID_EL_PARS_> const& G)->
+		pybind11::array_t<size_t> 
+	{
+		return make_py_array_view(G.getLE_inner_grid().indexes(), self);
+	},m_grid);
+}
 
 pybind11::array Py_EL_Grid::get_E_array(pybind11::handle self)const {
 	return std::visit(
@@ -261,13 +306,24 @@ pybind11::array Py_EL_Grid::get_E_array(pybind11::handle self)const {
 	},m_grid);
 }
 pybind11::array Py_EL_Grid::get_L_array(
-	pybind11::handle self,size_t index, bool hidden
+	pybind11::handle self,int index, bool hidden
 )const {
 	return std::visit(
-		[self,index, hidden]<_GRID_EL_TMPL_>
+		[self,index_ = index, hidden]<_GRID_EL_TMPL_>
 		(const  evdm::EL_Grid<_GRID_EL_PARS_> &m_gr)->pybind11::array
 	{
-		auto const& m_grid = m_gr.Grid->inner(0).inner(index).unhisto();
+		auto const& m_grid = m_gr.Grid->inner(0).inner(index_).unhisto();
+		size_t size_e = m_gr.getLE_inner_grid().grid().size();
+		auto index = index_;
+		if (index < 0) {
+			index = index + size_e;
+		}
+		if (index >= size_e || index < 0) {
+			throw pybind11::index_error(
+				std::format("index {} out of range", index)
+			);
+		}
+
 		if (hidden) {
 			if constexpr (_m_grid_t == evdm::GridEL_type::GridCVV) {
 				return make_py_array_view(m_grid, self);
@@ -338,7 +394,7 @@ std::function<double(double, double)>
 	if (pi == PNameFunctorNames.size()) {
 		throw pybind11::value_error("unexpected param name");
 	}
-	
+	/*
 	return std::visit([my_functor_t](const auto& grid) {
 		auto el_find = [&mel_grid = grid.getLE_inner_grid()](double e, double l) {
 			return mel_grid.LinearIndex(mel_grid.pos(e, l));
@@ -417,7 +473,7 @@ std::function<double(double, double)>
 			_default
 		);
 	}, m_grid);
-
+	*/
 	return [](double,double) ->double {return 0; };
 }
 
@@ -441,8 +497,13 @@ pybind11::tuple Py_EL_Grid::getRminRmax(double e, double l) const {
 	}, m_grid);
 }
 
-pybind11::list Py_EL_Grid::getTrajTFuncs(pybind11::handle output_param_name,bool LE_mult) const
+
+pybind11::list Py_EL_Grid::getTrajTFuncs(
+	pybind11::handle output_param_name,
+	bool LE_mult) const
 {
+	return pybind11::list();
+	/*
 	namespace py = pybind11;
 	const std::set<std::string> TinNames = {
 		"tin","TIN","t_in","T_in","Tin","T_IN"
@@ -462,6 +523,29 @@ pybind11::list Py_EL_Grid::getTrajTFuncs(pybind11::handle output_param_name,bool
 	const std::set<std::string> ThetaNames = {
 		"theta","theta_max","ThetaMax","thetamax","maxtheta"
 	};
+	size_t var_index;
+	auto pname = output_param_name.cast<std::string>();
+	if (TinNames.contains(pname)) {
+		var_index = 0;
+	}
+	else if (ToutNames.contains(pname)) {
+		var_index = 1;
+	}
+	else if (TallNames.contains(pname)) {
+		var_index = 2;
+	}
+	else if (RminNames.contains(pname)) {
+		var_index = 3;
+	}
+	else if (RmaxNames.contains(pname)) {
+		var_index = 4;
+	}
+	else if (ThetaNames.contains(pname)) {
+		var_index = 5;
+	}
+	else {
+		throw py::value_error("unknown par name");
+	}
 	return std::visit(
 		[&]<typename Bvt,typename Gvt, evdm::GridEL_type gt>
 			(evdm::EL_Grid<Bvt, Gvt, gt> const& elg) 
@@ -473,35 +557,10 @@ pybind11::list Py_EL_Grid::getTrajTFuncs(pybind11::handle output_param_name,bool
 			auto RmaxGetter = evdm::traj_info_transform_t<evdm::tit_ext_v::rmax>{};
 			auto RthetaGetter = evdm::traj_info_transform_t<evdm::tit_ext_v::theta>{};
 
-			size_t var_index;
-			auto pname = output_param_name.cast<std::string>();
-			if (TinNames.contains(pname)) {
-				var_index = 0;
-			}
-			else if (ToutNames.contains(pname)) {
-				var_index = 1;
-			}
-			else if (TallNames.contains(pname)) {
-				var_index = 2;
-			} 
-			else if (RminNames.contains(pname)) {
-				var_index = 3;
-			}
-			else if (RmaxNames.contains(pname)) {
-				var_index = 4;
-			}
-			else if (ThetaNames.contains(pname)) {
-				var_index = 5;
-			}
-			else {
-				throw py::value_error("unknown par name");
-			}
 			auto Getter =
 				evdm::make_variant_alt(var_index,
 					TinGetter, ToutGetter, TallGetter,RminGetter,
 					RmaxGetter, RthetaGetter);
-			
-
 			std::vector<evdm::bin_traj_pool_t<Gvt>> const &TrPl = elg.TrajPools();
 
 			return std::visit([&](auto const& getter) {
@@ -523,7 +582,7 @@ pybind11::list Py_EL_Grid::getTrajTFuncs(pybind11::handle output_param_name,bool
 				return Pools;
 			}, Getter);
 		}, m_grid
-	);
+	);*/
 }
 
 
@@ -537,8 +596,8 @@ Py_EL_Grid CreateELGrid(
 	std::string const & dtype,
 	pybind11::kwargs const & kwargs) 
 {
-	DEBUG1(ptypes);
-	DEBUG1(Ne);
+	VERBOSE_VAR1(ptypes);
+	VERBOSE_VAR1(Ne);
 
 	auto _kwarg = [&kwargs](const char* argname, auto default_value)->decltype(default_value) {
 		if(kwargs.contains(argname))
@@ -556,10 +615,10 @@ Py_EL_Grid CreateELGrid(
 
 	auto ret_action = [&](auto marker)-> Py_EL_Grid {
 		typedef typename decltype(marker)::type T;
-		//DEBUG1(type_name<T>());
+		//VERBOSE_VAR1(type_name<T>());
 		return std::visit(
 			[&](auto const& BM_p) {
-				//DEBUG1(type_name<decltype(BM_p->get_vtype())>());
+				//VERBOSE_VAR1(type_name<decltype(BM_p->get_vtype())>());
 				auto RhoE_func = [&](T t_e)->T 
 				{
 					return pybind11::cast<T>(RhoE_func_opt(t_e));
@@ -575,11 +634,11 @@ Py_EL_Grid CreateELGrid(
 				catch (...) {}
 				if (nl_size >= 0) 
 				{
-					DEBUG1("nl >=0");
+					VERBOSE_VAR1("nl >=0");
 					auto Nl_func = [nl_size](auto t_e) {return nl_size; };
 					if (RhoE_func_opt.is_none()) 
 					{
-						DEBUG1("RhoE_func_opt is none");
+						VERBOSE_VAR1("RhoE_func_opt is none");
 						return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, 0, 0, marker, 
 							std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCUU>{}, 
 							TPPars);
@@ -587,7 +646,7 @@ Py_EL_Grid CreateELGrid(
 					else {
 						if (RhoL_func_opt.is_none()) 
 						{
-							DEBUG1("RhoL_func_opt is none");
+							VERBOSE_VAR1("RhoL_func_opt is none");
 							auto _RhoL_func = [&](T t_e, T t_l)->T {
 								return 1;
 							};
@@ -603,20 +662,20 @@ Py_EL_Grid CreateELGrid(
 					}
 				}
 				else {
-					DEBUG1("nl determined by function");
+					VERBOSE_VAR1("nl determined by function");
 					auto Nl_func = [nl_size,&Nl_func_or_size](auto t_e)->size_t {
 						return pybind11::cast<double>(Nl_func_or_size(t_e)); 
 					};
 					if (RhoE_func_opt.is_none()) 
 					{
-						DEBUG1("RhoE_func_opt is none");
+						VERBOSE_VAR1("RhoE_func_opt is none");
 						return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, 0, 0, marker, 
 							std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCUU>{},
 							TPPars);
 					}
 					else {
 						if (RhoL_func_opt.is_none()) {
-							DEBUG1("RhoL_func_opt is none");
+							VERBOSE_VAR1("RhoL_func_opt is none");
 							auto _RhoL_func = [&](T t_e, T t_l)->T {
 								return 1;
 							};
@@ -633,9 +692,8 @@ Py_EL_Grid CreateELGrid(
 				}
 			}, BM.m_body);
 	};
-	DEBUG1(__PRETTY_FUNCTION__);
 	if (dtype == "float") {
-		DEBUG1("float");
+		VERBOSE_VAR1("float");
 #ifdef GRID_EL_USE_FLOAT
 		return ret_action(Py_EL_Grid::m_type_marker<float>{});
 #else
@@ -643,7 +701,7 @@ Py_EL_Grid CreateELGrid(
 #endif
 	}
 	else if (dtype == "double") {
-		DEBUG1("double");
+		VERBOSE_VAR1("double");
 #ifdef GRID_EL_USE_DOUBLE
 		return ret_action(Py_EL_Grid::m_type_marker<double>{});
 #else
@@ -893,7 +951,7 @@ Py_EL_Grid Py_EL_Grid::from_dict(Py_BodyModel BM, pybind11::dict const& grid_dic
 				);
 			}
 			else {
-				Py_EL_Grid(
+				return Py_EL_Grid(
 					evdm::EL_Grid<B_vt, Gr_vt, _grid_kind>(
 						body, std::move(m_grid),
 						std::move(LE_Func)
@@ -915,7 +973,7 @@ Py_EL_Grid Py_EL_Grid::from_dict(Py_BodyModel BM, pybind11::dict const& grid_dic
 				);
 			}
 			else {
-				Py_EL_Grid(
+				return Py_EL_Grid(
 					evdm::EL_Grid<B_vt, Gr_vt, _grid_kind>(
 						body, std::move(m_grid),Ne)
 				);
@@ -941,14 +999,39 @@ Py_EL_Grid Py_EL_Grid::from_dict1(pybind11::dict const& grid_dict) {
 		);
 	}
 }
-
+pybind11::array GetBins(Py_EL_Grid const& self) {
+	return std::visit(
+		[]<_GRID_EL_TMPL_>(
+			evdm::EL_Grid<_GRID_EL_PARS_> const& grid
+		)->pybind11::array {
+			typedef typename evdm::EL_Grid<_GRID_EL_PARS_>::GEL_vt T;
+			auto const& grid_el = grid.getLE_inner_grid();
+			pybind11::array_t<T> m_array(pybind11::array::ShapeContainer({ grid_el.size(),(size_t)4}));
+			T* data = m_array.mutable_data();
+			size_t i = 0;
+			for (auto [e0e1, l0l1] : grid_el) {
+				if (4 * i + 3 >= m_array.size()) {
+					throw pybind11::index_error("in bins property c++ error!");
+				}
+				data[4 * i] = e0e1.left;
+				data[4 * i + 1] = e0e1.right;
+				data[4 * i + 2] = l0l1.left;
+				data[4 * i + 3] = l0l1.right;
+				++i;
+			}
+			return m_array;
+		}, self.m_grid
+	);
+}
 void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 {
 	namespace py = pybind11;
 	using pyobj_ref = py::object const&;
 	constexpr auto val_ref_pol = py::return_value_policy::reference_internal;
-	py::class_<Py_EL_Grid>(m, "GridEL")
-		.def(py::init(&CreateELGrid),
+
+	auto m_lass = py::class_<Py_EL_Grid>(m, "GridEL")
+		.def(
+			py::init(&CreateELGrid),
 			"constructs E-L Grid\n\n"
 			"Parameters:\n"
 			"___________\n"
@@ -971,40 +1054,52 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 			py::arg_v("RhoE", py::none()),
 			py::arg_v("RhoL", py::none()),
 			py::arg_v("dtype", "float")
-		).def("refine",&Py_EL_Grid::refine,
+		)
+		.def(
+			"refine",&Py_EL_Grid::refine,
 			"make refeined grid by dividing E step by Er"
 			"and L step by Lr",
 			py::arg("Er"), py::arg("Lr")
-		).def(py::init(&Py_EL_Grid::from_dict))
+		)
+		.def(py::init(&Py_EL_Grid::from_dict))
 		.def(py::init(&Py_EL_Grid::from_dict1))
-		.def("__getstate__", [](py::handle self)->py::dict {
-				return py::cast<Py_EL_Grid&>(self).get_object(self);
+		.def(
+			"__getstate__", 
+			[](py::handle self)->py::dict { 
+				return py::cast<Py_EL_Grid&>(self).get_object(self); 
 			}
 		)
-		.def("__setstate__", [](py::handle self, py::dict state) {
+		.def(
+			"__setstate__", 
+			[](py::handle self, py::dict state) { 
 				self.attr("__init__")(state);
 			}
 		)
 		.def(
 			"to_object", 
-			[](py::handle self)->py::dict {
-				return py::cast<Py_EL_Grid&>(self).get_object(self);
-			}
+			[](py::handle self)->py::dict { 
+				return py::cast<Py_EL_Grid&>(self).get_object(self); 
+			},
+			"serialize to dict"
 		).def_property_readonly(
-			"size", 
-			&Py_EL_Grid::size, 
+			"size",
+			&Py_EL_Grid::size,
 			"number of bins in EL grid"
 		).def_property_readonly(
-			"full_size", 
-			[](Py_EL_Grid const& _G) { return _G.size() * _G.ptypes(); }, 
+			"size_e",
+			&Py_EL_Grid::size_e,
+			"number of bins in E subgrid"
+		).def_property_readonly(
+			"full_size",
+			[](Py_EL_Grid const& _G) { return _G.size() * _G.ptypes(); },
 			"full size of grid (considering all ptypes)"
 		).def_property_readonly(
-			"dtype", 
-			&Py_EL_Grid::dtype, 
+			"dtype",
+			&Py_EL_Grid::dtype,
 			"type of grid"
 		).def_property_readonly(
-			"ptypes", 
-			&Py_EL_Grid::ptypes, 
+			"ptypes",
+			&Py_EL_Grid::ptypes,
 			"number of particles"
 		).def("__repr__", &Py_EL_Grid::repr)
 		.def_property_readonly("body", &Py_EL_Grid::getBody)
@@ -1021,7 +1116,7 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 			"is_internal : bool\n\tif true, plot in internal representation.",
 			py::arg_v("is_internal", false)
 		)
-		.def("LE", &Py_EL_Grid::getLE,
+		.def_property_readonly("LE", &Py_EL_Grid::getLE,
 			"return tuple (E array,L(E) array)"
 		)
 		.def("print_debug", &Py_EL_Grid::printd1)
@@ -1034,24 +1129,35 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 			py::arg_v("pname", "T"),
 			py::arg_v("ld", true)
 		)
-		.def("le_functor", &Py_EL_Grid::getLE_callFunc,
+		.def_property_readonly("le_functor", &Py_EL_Grid::getLE_callFunc,
 			"returns functor of lmax(e) function", val_ref_pol)
 		.def("traj_functor", &Py_EL_Grid::getTraj_callFunc,
 			"return functor of required param:\n"
 			"T0,T1,Tin0,Tin1,Tout,rmin,rmax,theta,Tinth", val_ref_pol,
 			py::arg_v("pname", "T")
 		)
-		.def("rmp",&Py_EL_Grid::getRminRmax,
+		.def("rmp", &Py_EL_Grid::getRminRmax,
 			"returns (rmin,rmax)(e,l_undim)",
 			py::arg("e"), py::arg("l"))
-		.def("_get_index",&Py_EL_Grid::get_index,
-			py::arg("e"), py::arg("l"), py::arg_v("linear",false), py::arg_v("hidden",false))
-		.def("_get_el",&Py_EL_Grid::get_el, py::arg("index"))
-		.def(
+		.def("_get_index", &Py_EL_Grid::get_index,
+			py::arg("e"), py::arg("l"), py::arg_v("linear", false), py::arg_v("hidden", false))
+		.def("_get_el", &Py_EL_Grid::get_el_all, py::arg("index"))
+		.def("__getitem__", &Py_EL_Grid::get_el)
+		.def_property_readonly(
+			"indexes",
+			[](py::handle self) {
+				return self.cast<Py_EL_Grid&>().indexes(self);
+		
+			},
+			"indexes of bins, where l = 0"
+		)
+		.def_property_readonly("bins", &GetBins,"array of all bins size*4: [[e0,e1,l0,l1]_0,...]")
+		.def_property_readonly(
 			"Epoints", 
 			[](pybind11::handle self) {
 				return self.cast<Py_EL_Grid>().get_E_array(self);
-			}
+			},
+			"array of energy points"
 		).def("Lpoints", [](pybind11::handle self, size_t index) {
 				return self.cast<Py_EL_Grid>().get_L_array(
 					self, index, false
@@ -1063,8 +1169,9 @@ void Py_EL_Grid::add_to_python_module(pybind11::module_& m)
 				return self.cast<Py_EL_Grid>().get_L_array(
 					self, index,true
 				);
-			}, py::arg("index")
-				)
+			}, py::arg("index"),
+			"array of l points at enegy with index index"
+		)
 		.def("_get_traj_all",&Py_EL_Grid::_get_traj_all,py::arg("e"), py::arg("l"))
 		.def("_get_traj_all_inter", &Py_EL_Grid::_get_traj_all_inter, py::arg("e"), py::arg("l"));
 }

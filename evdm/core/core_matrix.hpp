@@ -99,15 +99,21 @@ namespace evdm {
         }
 
         template <typename Index>
-        inline auto as_histo(Index const& _I) {
+        auto as_histo(Index const& _I) {
             size_t _shift = grid().LinearIndex(_I);
-            return grob::make_histo_view(grid(), _ValuesView.col(_shift));
+            return grob::make_histo_view(
+                grid(), 
+                grob::vector_view<T>(_ValuesView.col(_shift).data())
+            );
         }
 
         template <typename Index>
-        inline auto as_histo(Index const& _I) const {
+        auto as_histo(Index const& _I) const {
             size_t _shift = grid().LinearIndex(_I);
-            return grob::make_histo_view(grid(), _ValuesView.col(_shift));
+            return grob::make_histo_view(
+                grid(), 
+                grob::vector_view<T>(_ValuesView.col(_shift).data())
+            );
         }
 
         inline auto as_histo_i(size_t i) {
@@ -164,7 +170,9 @@ namespace evdm {
             GridMatrix(
                 original.Grid, 
                 original._Values.template cast<T>(),
-                original.padding){}
+                original.padding
+            )
+        {}
 
         GridMatrix(GridMatrix const& original) :
             GridMatrix(
@@ -305,7 +313,7 @@ namespace evdm {
             const Matrix_t<T>,
             Eigen::Unaligned,
             Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>
-        > data_view(_mdata, N, N, stride_t(_strid_outer, _strid_inner));
+        > data_view(_mdata, N, N, stride_t(_strid_inner, _strid_outer));
         return GridMatrix<T, Body_vt, GridEL_vt, grid_type>
             (Grid, data_view, padding);
     }

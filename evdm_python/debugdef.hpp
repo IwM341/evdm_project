@@ -1,5 +1,4 @@
-#ifndef DEBUGDEF_H
-#define DEBUGDEF_H
+#pragma once
 
 #include <string>
 #include <iostream>
@@ -15,12 +14,7 @@
 #include <mutex>
 #include <random>
 
-#ifdef _MSC_VER
-#define __PRETTY_FUNCTION__ __FUNCSIG__
-#endif
-#ifndef __PRETTY_FUNCTION__
-#define __PRETTY_FUNCTION__ "pretty function is not supported"
-#endif
+
 
 template <typename U,typename V>
 std::ostream & operator << (std::ostream & os, const std::pair<U,V> & P){
@@ -130,101 +124,16 @@ namespace debugdefs{
 #define PVAR(x) print(SVAR(x))
 
 #ifndef _NDEBUG
-#define DEBUG(x) print(SVAR(x))
+#define VERBOSE_VAR(x)
 #else
-#define DEBUG(x)
+#define VERBOSE_VAR(x)
 #endif
 
 
 #ifdef _VERBOSE
 #ifndef _NDEBUG
-#define DEBUG1(x) print(SVAR(x))
+#define VERBOSE_VAR1(x)
 #endif
 #else
-#define DEBUG1(x)
-#endif
-
-
-#define PDEL() (std::cout << "-----------------------------------------------" <<std::endl)
-#define SCOMPARE(x,y) (SVAR(x) + " vs " + SVAR(y))
-#define COMPARE(x,y) std::cout << SCOMPARE(x,y) <<std::endl;
-
-#define _P std::make_pair
-#define _T std::make_tuple
-
-template <typename T>
-inline std::string TypeString(){
-    std::string fname = __PRETTY_FUNCTION__ ;
-    return fname.substr(35,fname.size()-84);
-}
-#define TypeToString(type) TypeString<type>()
-
-template <typename EnumClass>
-struct EnNameStr{
-	template <EnumClass em>
-    inline static std::string _str(){
-		std::string enum_name = __PRETTY_FUNCTION__ ;
-		return  enum_name.substr(69,enum_name.size()-135);
-	}
-};
-#define ValueToString(V) EnNameStr<decltype(V)>::_str<V>()
-
-inline void print(){
-    std::cout <<std::endl;
-}
-template <typename T>
-inline void print(T data){
-    std::cout << data <<std::endl;
-}
-
-template <typename ...Args, typename T>
-inline void print(T data,Args...args){
-    std::cout << data;
-    print(args...);
-}
-
-template <typename Delimtype,typename T>
-inline void printd(Delimtype delim,T data){
-    std::cout << data <<std::endl;
-}
-
-template <typename Delimtype,typename ...Args, typename T>
-inline void printd(Delimtype delim,T data,Args...args){
-    std::cout << data << delim;
-    printd(delim,args...);
-}
-
-
-inline std::string make_path(const std::string & str){
-	return std::string("\"") + std::regex_replace(str, std::regex("\\\\"), "\\\\") + "\"";
-}
-
-
-inline double rnd(){
-    static std::random_device __rd;
-    static std::mt19937 gen(__rd());
-    static std::uniform_real_distribution<> dis;
-    return dis(gen);
-}
-inline float rndf(){
-    static std::random_device __rd;
-    static std::mt19937 gen(__rd());
-    static std::uniform_real_distribution<float> dis;
-    return dis(gen);
-}
-
-
-template <typename T>
-inline T norm1(T const &x, T const & y){
-    return std::abs( (x-y)/(x+y));
-}
-template <typename T>
-inline T norm2(T const &x, T const & y){
-    return std::abs( (x*x-y*y)/(x*x+y*y));
-}
-
-
-
-#define debug_return(expr) PVAR((expr)); return expr;
-
+#define VERBOSE_VAR1(x)
 #endif

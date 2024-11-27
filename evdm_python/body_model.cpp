@@ -1,4 +1,4 @@
-#include "core_python.hpp"
+#include "body_python.hpp"
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <evdm/core/core_body.hpp>
@@ -157,6 +157,13 @@ const char* Py_BodyModel::dtype() const
 	}
 }
 
+Py_BodyModel Py_BodyModel::as_type(const char* type_name) const {
+	auto m_type = type_from_str(type_name, std::type_identity<body_types>{});
+	return std::visit([this]<class T>(std::type_identity<T>) {
+		return as_type_t<T>();
+	},m_type );
+}
+
 std::string Py_BodyModel::repr() const
 {
 	return std::visit([](const auto & B) {
@@ -169,6 +176,14 @@ pybind11::tuple Py_BodyModel::getRho() const
 {
 	return std::visit([](auto const& B) {
 		return make_python_function_1D(B->Rho);
+	},m_body);
+}
+
+double Py_BodyModel::get_vesc() const {
+	return std::visit(
+		[]<class T>(evdm::BodyModel<T> const& B)->double
+	{
+		return B->Vesc;
 	},m_body);
 }
 
@@ -259,14 +274,14 @@ void Py_BodyModel::add_to_python_module(pybind11::module_& m)
 		)
 		.def(py::init(&Py_BodyModel::from_dict), "constructs Body from saved dict\n\n")
 		.def(
-			py::init([](pyobj_ref _o,double Velocity, 
+			py::init([](pyobj_ref _o, double Velocity,
 				pybind11::handle mTemp, std::string_view dtype)
 				{return Create(_o, Velocity, dtype, mTemp); }),
 			"constructs Body from Rho\n\n"
 			"Parameters:\n"
 			"___________\n"
 			"Rho : array of pho(x_i)\n\t"
-				"or pair (F,size), where F - density function [0,1]->real., size - number of points\n"
+			"or pair (F,size), where F - density function [0,1]->real., size - number of points\n"
 			"size : int\n\tif Rho is function then size is the number of points.\n"
 			"velocity : float\n\tvelocity of body relative to halo.\n"
 			"dtype : string\n\tfloat or double.\n"
@@ -276,7 +291,14 @@ void Py_BodyModel::add_to_python_module(pybind11::module_& m)
 			py::arg_v("Temp", pybind11::none()),
 			py::arg_v("dtype", std::string(""))
 		)
-		
+		.def("__getstate__", [](py::handle self)->py::dict {
+				return py::cast<Py_BodyModel&>(self).get_object(self);
+			}
+		)
+		.def("__setstate__", [](py::handle self, py::dict state) {
+		self.attr("__init__")(state);
+			}
+		)	
 		.def("to_object", [](py::handle self)->py::dict {
 			return py::cast<Py_BodyModel&>(self).get_object(self);
 		})

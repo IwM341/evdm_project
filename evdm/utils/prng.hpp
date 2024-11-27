@@ -121,7 +121,7 @@ namespace evdm{
             );
         }
         inline void set_seed(uint_least32_t some_number) {
-            make_seed(some_number);
+            state = make_seed(some_number);
         }
     };
 

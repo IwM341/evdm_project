@@ -1,6 +1,7 @@
 #ifndef DYNAMIC_PYTHON_HPP
 #define DYNAMIC_PYTHON_HPP
 #include "core_python.hpp"
+
 #include <evdm/dynamics/dynamics.hpp>
 #include <evdm/utils/prng.hpp>
 
@@ -30,7 +31,8 @@ struct Py_ScatterEvent : public evdm::ScatterEvent {
 
 
 
-
+struct Py_Capture;
+struct Py_Matrix;
 
 pybind11::tuple Py_CaptureProcess(
 	Py_Capture& CaptAccum,
@@ -76,4 +78,4 @@ inline void add_scatter_funcs_to_python_module(pybind11::module_& m) {
 }
 
 
-#endif//DYNAMIC_PYTHON_HPP
+#endif

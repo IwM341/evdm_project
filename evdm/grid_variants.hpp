@@ -60,7 +60,7 @@ namespace evdm{
 
         static GridEL_t Refine(GridEL_t const& G,size_t Er,size_t Lr) {
             if (Er == 0 || Lr == 0) {
-                throw std::exception("rifine parameter Er or Lr is zero");
+                throw std::exception("refine parameter Er or Lr is zero");
             }
             Range R1 = G.grid();
             InnerEL_t const & grid = G.inner(0);
@@ -71,11 +71,11 @@ namespace evdm{
                 (mgrid_e.size() - 1) * Er + 1
             );
             const size_t Nl_old = grid.inner().size();
-            std::vector<GridL> GridL_s(Nl_old * Lr);
+            std::vector<GridL> GridL_s(Nl_old *Er);
             for (size_t i = 0; i < Nl_old; ++i) {
                 auto const& mgrid_l = grid.inner(i).unhisto();
-                for (size_t j = 0; j < Lr; ++j) {
-                    GridL_s[i*Lr + j] = GridL(
+                for (size_t j = 0; j < Er; ++j) {
+                    GridL_s[i*Er + j] = GridL(
                         mgrid_l.front(),
                         mgrid_l.back(),
                         (mgrid_l.size() - 1) * Lr + 1

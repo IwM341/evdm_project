@@ -55,6 +55,21 @@ auto make_py_array_slice(pybind11::array_t<T>const& mvector) {
 	return grob::make_slice(mvector.data(), 0, mvector.size());
 }
 
+template <typename BlockType>
+pybind11::array make_array_from_eigen(BlockType&& m_block, pybind11::handle self) {
+	using _T1 = std::remove_pointer_t<decltype(m_block.data())>;
+	constexpr size_t _v_s_ = sizeof(_T1);
+	auto shape = pybind11::array::ShapeContainer(
+		{ m_block.rows(), m_block.cols() }
+	);
+	auto strides = pybind11::array::ShapeContainer(
+		{ _v_s_ * m_block.rowStride(),_v_s_ * m_block.colStride() }
+	);
+	return pybind11::array_t<_T1>(
+		pybind11::buffer_info(m_block.data(), shape, strides), self
+		);
+}
+
 template <typename T>
 inline size_t tuple_check_array(
 	pybind11::array const& X,std::type_identity<T>
