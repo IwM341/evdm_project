@@ -124,7 +124,7 @@ struct Py_Matrix {
 	template <typename T>
 	Py_Matrix as_type_t() const {
 		return std::visit([&](auto const& mat) {
-			return Py_Matrix(mat.first.as_type<T>(), mat.second.as_type<T>());
+			return Py_Matrix(mat.first.template as_type<T>(), mat.second.template as_type<T>());
 			}, m_matrix);
 	}
 
