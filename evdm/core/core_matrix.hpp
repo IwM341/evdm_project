@@ -28,31 +28,28 @@ namespace evdm {
         _Mat_t _Values;
         Mat_t _ValuesView;
         const_Mat_t _const_ValuesView;
-        size_t padding;
 
         template <typename Array_t>
         static _Mat_t process_matrix(
-            Array_t &&X, size_t _N,
-            size_t padding) {
-            size_t delta = _N % padding;
-            if (X.cols() >= _N && X.cols() == X.rows() && X.cols() % padding == 0) {
+            Array_t &&X, size_t _N) {
+            
+            if (X.cols() == _N && X.cols() == X.rows()) {
                 if constexpr (
                     std::is_same_v<std::decay_t<Array_t>, _Mat_t>
                 ) {
                    return std::move(X);
                 }
             }
-            size_t _N_true = delta ? _N + padding - delta : _N;
-            _Mat_t _X(_N_true, _N_true);
+            _Mat_t _X(_N, _N);
             _X.setZero();
-            _X.block(0, 0, X.cols(), X.rows()).noalias() = X;
+            _X.block(0, 0, std::min(_N, (size_t)X.cols()),std::min(_N, (size_t)X.rows()) ).noalias() = X;
             return std::move(_X);
         }
 
     public:
 
         size_t get_padding()const {
-            return padding;
+            return 1;
         }
         static constexpr Body_vt get_body_vtype() {
             static_assert("Distribution::get_body_vtype() is not callable");
@@ -145,19 +142,18 @@ namespace evdm {
 
         template <typename MatrixArray_t = _Mat_t>
         GridMatrix(GridEL_t const& Grid,
-            MatrixArray_t &&Values = {}, size_t padding = 128) :
+            MatrixArray_t &&Values = {}, size_t padding = 1) :
             Grid(Grid), _Values(
                 process_matrix(
                     std::forward<MatrixArray_t>(Values), 
-                    Grid.Grid->size(), 
-                    padding
+                    Grid.Grid->size()
                 )
             ),
             _ValuesView(_Values.block(0, 0, grid().size(), grid().size())),
             _const_ValuesView(
                 static_cast<_Mat_t const&>(_Values)
                 .block(0, 0, grid().size(), grid().size())
-            ), padding(padding) {}
+            ) {}
 
 
         template <typename U,typename T1,typename T2,GridEL_type grt1>
@@ -169,16 +165,14 @@ namespace evdm {
         ): 
             GridMatrix(
                 original.Grid, 
-                original._Values.template cast<T>(),
-                original.padding
+                original._Values.template cast<T>()
             )
         {}
 
         GridMatrix(GridMatrix const& original) :
             GridMatrix(
                 original.Grid,
-                original._Values,
-                original.padding) {}
+                original._Values) {}
 
         template <typename U>
         GridMatrix<U, Body_vt, GridEL_vt, grid_type> 
@@ -278,7 +272,7 @@ namespace evdm {
     >
     auto make_Matrix(
         EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid,
-        size_t padding = 128
+        size_t padding = 1
     ) {
         GridMatrix<T, Body_vt, GridEL_vt, grid_type> Dstr(Grid, {},padding);
         return Dstr;

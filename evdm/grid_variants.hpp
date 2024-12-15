@@ -60,7 +60,7 @@ namespace evdm{
 
         static GridEL_t Refine(GridEL_t const& G,size_t Er,size_t Lr) {
             if (Er == 0 || Lr == 0) {
-                throw std::exception("refine parameter Er or Lr is zero");
+                throw std::runtime_error("refine parameter Er or Lr is zero");
             }
             Range R1 = G.grid();
             InnerEL_t const & grid = G.inner(0);
@@ -153,7 +153,7 @@ namespace evdm{
 
         static GridEL_t Refine(GridEL_t const& G, size_t Er, size_t Lr) {
             if (Er == 0 || Lr == 0) {
-                throw std::exception("rifine parameter Er or Lr is zero");
+                throw std::runtime_error("rifine parameter Er or Lr is zero");
             }
             Range R1 = G.grid();
             InnerEL_t const& grid = G.inner(0);

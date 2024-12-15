@@ -4,7 +4,9 @@
 #include <functional>
 #include <atomic>
 #include <mutex>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 namespace evdm {
 
 	struct omp_locker {

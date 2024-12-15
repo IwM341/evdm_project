@@ -39,7 +39,7 @@ struct Py_BodyModel {
 	Py_BodyModel as_type_t() const {
 		return std::visit([](auto const& Bptr) {
 			return Py_BodyModel(
-				std::make_shared<evdm::Body<U>>(Bptr->as_type<U>())
+				std::make_shared<evdm::Body<U>>(Bptr->template as_type<U>())
 			);
 			}, m_body
 		);

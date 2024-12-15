@@ -26,26 +26,24 @@ namespace evdm {
         Eigen::VectorX<T> _Values;
         Vec_t _ValuesView;
         const_Vec_t _const_ValuesView;
-        size_t padding;
 
         static Eigen::VectorX<T> process_vector(
-            Eigen::VectorX<T> X, size_t _size, size_t padding
+            Eigen::VectorX<T> X, size_t _size
         ) {
-            size_t delta = _size % padding;
-            if (X.size() >= _size && X.size() % padding == 0) {
+            if (X.size() == _size) {
                 return std::move(X);
             }
             else {
-                Eigen::VectorX<T> _X(delta ? _size + padding - delta : _size);
+                Eigen::VectorX<T> _X(_size);
                 _X.setZero();
-                _X.segment(0, X.size()).noalias() = X;
+                _X.segment(0, std::min((size_t)X.size(),_size) ).noalias() = X;
                 return std::move(_X);
             }
         }
 
     public:
         size_t get_padding()const {
-            return padding;
+            return 1;
         }
 
         void check_ptype(int ptype) const {
@@ -101,16 +99,15 @@ namespace evdm {
             return grob::make_histo_view(grid(), grob::vector_view<const T>(values().data(), grid().size()));
         }
 
-        Distribution(GridEL_t const& Grid, Eigen::VectorX<T> Values = {}, size_t padding = 128) :
-            Grid(Grid), _Values(process_vector(std::move(Values), grid().size(), padding)),
+        Distribution(GridEL_t const& Grid, Eigen::VectorX<T> Values = {}, size_t padding = 1) :
+            Grid(Grid), _Values(process_vector(std::move(Values), grid().size())),
             _ValuesView(_Values.segment(0, grid().size())),
-            _const_ValuesView(static_cast<const Eigen::VectorX<T>&>(_Values).segment(0, grid().size())),
-            padding(padding)
+            _const_ValuesView(static_cast<const Eigen::VectorX<T>&>(_Values).segment(0, grid().size()))
         {}
 
         template <
             typename U, typename Body_vt1,
-            typename GridEL_vt1, GridEL_type grid_type
+            typename GridEL_vt1, GridEL_type grid_type1
         >
         friend struct Distribution;
 
@@ -119,14 +116,12 @@ namespace evdm {
             Distribution<U, Body_vt, GridEL_vt, grid_type> const& _original
         ): Distribution(
             _original.Grid, 
-            _original._Values.template cast<T>(), 
-            _original.padding
+            _original._Values.template cast<T>()
            ){}
 
         Distribution(Distribution  const& _original ) : Distribution(
             _original.Grid,
-            _original._Values,
-            _original.padding
+            _original._Values
         ) {}
 
         template <typename U>
@@ -253,7 +248,7 @@ namespace evdm {
         const T* _data, size_t data_step, size_t _size, size_t padding
     ) {
         size_t _size_grid = Grid.Grid->size();
-        size_t _new_size = _size_grid + padding - _size_grid % padding;
+        size_t _new_size = _size_grid;
         Eigen::VectorX<T> X(_new_size);
         X.setZero();
         size_t _copy_size = std::min(_size, _new_size);
@@ -291,10 +286,10 @@ namespace evdm {
         size_t _size = _data.size();
 
         size_t _size_grid = Grid.Grid->size();
-        size_t _new_size = _size_grid + padding - _size_grid % padding;
-        Eigen::VectorX<T> X(_new_size);
+        size_t _new_size = _size_grid;
+        Eigen::VectorX<T> X(_size_grid);
         X.setZero();
-        size_t _copy_size = std::min(_size, _new_size);
+        size_t _copy_size = std::min(_size, _size_grid);
         
         for (size_t i = 0; i < _copy_size; ++i) {
             X[i] = _data[i];

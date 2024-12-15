@@ -215,7 +215,7 @@ namespace evdm {
         constexpr static bool value = std::is_same_v<T, U>;
     };
     template <typename T, typename...Ts>
-    constexpr bool consist_of_v = consist_of<T, Ts...>;
+    constexpr bool consist_of_v = consist_of<T, Ts...>::value;
 
     template <typename T,typename Variant_t>
     struct variant_consist_of;

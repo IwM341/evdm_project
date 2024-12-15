@@ -55,7 +55,7 @@ struct Py_Distribution {
 	template <typename T>
 	Py_Distribution as_type_t() const {
 		return std::visit([](auto const& distrib) {
-			return Py_Distribution(distrib.as_type<T>());
+			return Py_Distribution(distrib.template  as_type<T>());
 			}, m_distrib);
 	}
 	Py_Distribution copy() const;

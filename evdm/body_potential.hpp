@@ -108,7 +108,7 @@ namespace evdm{
         template <typename U>
         Body<U> as_type() const {
             auto to_U = [](auto const& vec) {
-                return Body<U>::Values_t(vec.Values.begin(), vec.Values.end());
+                return typename Body<U>::Values_t(vec.Values.begin(), vec.Values.end());
             };
             return Body<U>(
                 to_U(Rho),to_U(Q),to_U(Phi),to_U(Temp),Vesc

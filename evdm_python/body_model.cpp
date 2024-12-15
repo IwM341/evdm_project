@@ -117,10 +117,10 @@ Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
 		size_t size = rho_tuple[1].cast<size_t>();
 		auto Rho_f = rho_tuple[0];
 		auto Fd = [&](auto x) {
-			return Rho_f(x).cast<double>();
+			return Rho_f(x).template cast<double>();
 		};
 		auto Ff = [&](auto x) {
-			return Rho_f(x).cast<float>();
+			return Rho_f(x).template cast<float>();
 		};
 		if (dtype == "double") {
 #ifdef BODY_MODEL_USE_DOUBLE

@@ -178,11 +178,11 @@ Py_Pre_Ann Py_Pre_Ann::from_object(
 		//throw std::runtime_error("not implemented");
 
 		return Py_Pre_Ann(
-			evdm::GridAnnPreMatrix<_DISTRIB_PARS_>{
+			evdm::GridAnnPreMatrix<_DISTRIB_PARS_>(
 				Grid,
-					A0.cast<evdm::Matrix_t<_T1>>(),
-					Av.cast<evdm::Matrix_t<_T1>>()
-			}
+					A0.template cast<evdm::Matrix_t<_T1>>(),
+					Av.template cast<evdm::Matrix_t<_T1>>()
+				)
 		);
 	}, Grid.m_grid, A0_var);
 }

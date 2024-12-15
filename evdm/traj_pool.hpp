@@ -459,7 +459,7 @@ namespace evdm{
             auto L = (Lmax * l);
             auto L2 = L * L;
             auto [rm,rp] = B.find_rmin_rmax(-e,L2,LE);
-            auto m_traj = B.get_internal_traj<Tr_Type>(rm,rp,traj_bins);
+            auto m_traj = B.template get_internal_traj<Tr_Type>(rm,rp,traj_bins);
             auto um = rm * rm;
             auto up = rp * rp;
             auto du = up - um;

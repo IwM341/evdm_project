@@ -17,7 +17,7 @@ endif()
 
 
 option(OPENMP "" OFF)
-option(BUILD_TESTS "BUILD_TESTS" ON)
+option(BUILD_TESTS "BUILD_TESTS" OFF)
 
 message("CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -60,7 +60,7 @@ if( CMAKE_BUILD_TYPE MATCHES Debug OR
         add_compile_options(/bigobj)
         message("/bigobj option set")
     else ()
-        add_compile_options(-Wa,-mbig-obj)
+        #add_compile_options(-Wa,-mbig-obj)
         message("-Wa,-mbig-obj option set")
     endif()
 endif()
@@ -120,10 +120,10 @@ endif()
 target_include_directories(pyevdm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 ## grob lib, will be downloaded with cpm_cmake
-set(GROB_INCLUDE_DIR "D:/Tmp/GridObject_1/include")
-target_include_directories(pyevdm PRIVATE ${GROB_INCLUDE_DIR})
+#set(GROB_INCLUDE_DIR "D:/Tmp/GridObject_1/include")
+#target_include_directories(pyevdm PRIVATE ${GROB_INCLUDE_DIR})
 
-#target_link_libraries(pyevdm Grob::grob)
+target_link_libraries(pyevdm Grob::grob)
 ##
 
 pybind11_extension(pyevdm)
@@ -160,6 +160,7 @@ function (prepare_test TESTNAME TESTPATH)
     set_property(TARGET ${TESTNAME} PROPERTY CXX_STANDARD 20)
     message("test = " ${TESTNAME})
     message("file = " ${TESTPATH})
+    target_link_libraries(${TESTNAME} Grob::grob)
     target_link_libraries(${TESTNAME} Eigen3::Eigen)
     if(OPENMP)
         target_link_libraries(${TESTNAME} OpenMP::OpenMP_CXX)
