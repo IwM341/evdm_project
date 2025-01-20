@@ -8,6 +8,7 @@
 
 
 size_t Py_BodyModel::size()const {
+
 	return std::visit([](auto const& B) {return B->Phi.Grid.size(); }, m_body);
 }
 
@@ -147,6 +148,7 @@ Py_BodyModel::Py_BodyModel(pybind11::handle const& Rho,
 
 const char* Py_BodyModel::dtype() const
 {
+	
 	if(m_body.index() == 0)
 		return "float";
 	else if (m_body.index() == 1) {

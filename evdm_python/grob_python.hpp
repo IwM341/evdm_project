@@ -10,8 +10,8 @@ template <typename GridFunction_t>
 pybind11::tuple make_python_function_1D(GridFunction_t const& F) {
 	namespace py = pybind11;
 	typedef typename GridFunction_t::value_type T;
-	py::array_t<T> Grid(F.Grid.size());
-	py::array_t<T> Values(F.Grid.size());
+	py::array_t<T> Grid({ F.Grid.size() }, {sizeof(T)});
+	py::array_t<T> Values({F.Grid.size() }, {sizeof(T)});
 
 	T* GridData = Grid.mutable_data();
 	T* ValueData = Values.mutable_data();
@@ -31,7 +31,7 @@ template <typename Vect_t>
 auto make_py_array(Vect_t const & arr) {
 	namespace py = pybind11;
 	typedef typename std::decay_t<decltype(arr[0])> T;
-	py::array_t<T> Array(arr.size());
+	py::array_t<T> Array({ arr.size() },{sizeof(T)});
 	T* _data = Array.mutable_data();
 	for (size_t i = 0; i < arr.size(); ++i) {
 		_data[i] = arr[i];

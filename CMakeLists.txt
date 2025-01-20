@@ -92,7 +92,7 @@ endif()
 find_package(pybind11 CONFIG)
 if(NOT pybind11_FOUND)
     message("pybind11 not found, download from git")
-    CPMAddPackage("gh:pybind/pybind11@2.11.1")
+    CPMAddPackage("gh:pybind/pybind11@2.12.0")
 endif()
 
 

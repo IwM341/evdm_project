@@ -15,7 +15,16 @@ namespace evdm {
             GridEL_t const& Grid,
             Matrix_t<T> _A0,
             Matrix_t<T> _Av
-        ):Grid(Grid),A0(std::move(_A0)),Av(std::move(_Av)){}
+        ):Grid(Grid),A0(std::move(_A0)),Av(std::move(_Av)){
+            size_t N = Grid.getLE_inner_grid().size();
+            if (A0.cols() != N || A0.rows() != N) {
+                throw std::out_of_range("GridAnnPreMatrix: A0.cols() != N || A0.rows() != N");
+            } 
+            if (Av.cols() != N || Av.rows() != N) {
+                throw std::out_of_range("GridAnnPreMatrix: Av.cols() != N || Av.rows() != N");
+            }
+        }  
+
 
         template <typename Gen_t>
         GridAnnPreMatrix(GridEL_t const &Grid, size_t Nmk_traj, 

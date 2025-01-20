@@ -6,7 +6,8 @@
 #include <pybind11/functional.h>
 #include "progress_log.hpp"
 #include <pybind11/stl.h>
-#include <format>
+//#include <format>
+
 
 Py_Distribution Py_Distribution::CreatePyDistribFromArray(
 	Py_EL_Grid const& mGridEL, 
@@ -217,8 +218,8 @@ pybind11::tuple Py_Distribution::plot1o(
 	} else {
 		using namespace std::string_literals;
 		throw pybind11::value_error(
-			std::format("unexpected measure type '{}', "
-				"expect '', 'dEdl', 'dEdL' or 'dEdL2'",m_measure)
+			"unexpected measure type '" + std::string(m_measure) + "', "
+				"expect '', 'dEdl', 'dEdL' or 'dEdL2'"
 		);
 	}
 	auto m_mes_variant = evdm::make_variant_alt(

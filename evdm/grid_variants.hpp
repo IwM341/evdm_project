@@ -173,7 +173,7 @@ namespace evdm{
                     std::vector<T> Lg((ml_g.size() - 1) * Lr + 1);
                     Lg.back() = ml_g.back();
                     for (size_t k = 0; k < ml_g.size() - 1;++k) {
-                        T h_l = (ml_g[k + 1] - ml_g[k]) / Er;
+                        T h_l = (ml_g[k + 1] - ml_g[k]) / Lr;
                         for (size_t m = 0; m < Lr; ++m) {
                             Lg[k * Lr + m] = ml_g[k] + h_l * m;
                         }

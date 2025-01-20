@@ -174,16 +174,47 @@ Py_Pre_Ann Py_Pre_Ann::from_object(
 		pybind11::array_t<_T1> const& _Av =
 			Av.cast<pybind11::array_t<_T1>>();
 
+		size_t N = Grid.getLE_inner_grid().size();
+		if (A0.ndim() != 2 || A0.shape()[0] != N || A0.shape()[1] != N) {
+			throw pybind11::index_error("Ann: A0.ndim != or A0.shape != (N,N)");
+		}
+		if (_Av.ndim() != 2 || _Av.shape()[0] != N || _Av.shape()[1] != N) {
+			throw pybind11::index_error("Ann: A0.ndim != or A0.shape != (N,N)");
+		}
+		//
+		typedef Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> stride_t;
 
-		//throw std::runtime_error("not implemented");
+		size_t m_stride_outer_0 = A0.strides()[0] / sizeof(_T1);
+		size_t m_stride_inner_0 = A0.strides()[1] / sizeof(_T1);
+		size_t m_stride_outer_v = _Av.strides()[0] / sizeof(_T1);
+		size_t m_stride_inner_v = _Av.strides()[1] / sizeof(_T1);
+		Eigen::Map<
+			const evdm::Matrix_t<_T1>,
+			Eigen::Unaligned,
+			Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>
+		> A0_map(A0.data(), N, N, stride_t(m_stride_inner_0, m_stride_outer_0));
+
+		Eigen::Map<
+			const evdm::Matrix_t<_T1>,
+			Eigen::Unaligned,
+			Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>
+		> Av_map(_Av.data(), N, N, stride_t(m_stride_inner_v, m_stride_outer_v));
 
 		return Py_Pre_Ann(
 			evdm::GridAnnPreMatrix<_DISTRIB_PARS_>(
 				Grid,
-					A0.template cast<evdm::Matrix_t<_T1>>(),
-					Av.template cast<evdm::Matrix_t<_T1>>()
+				A0_map,
+				A0_map
 				)
 		);
+		/*
+		return Py_Pre_Ann(
+			evdm::GridAnnPreMatrix<_DISTRIB_PARS_>(
+				Grid,
+					A0.template cast<evdm::Matrix_t<_T1>>(),
+					_Av.template cast<evdm::Matrix_t<_T1>>()
+				)
+		);*/
 	}, Grid.m_grid, A0_var);
 }
 Py_Pre_Ann Py_Pre_Ann::from_dict(pybind11::dict const& distr_dict) {

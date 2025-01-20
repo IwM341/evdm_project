@@ -6,7 +6,7 @@
 #include <pybind11/stl.h>
 #include <grob/object_serialization.hpp>
 #include <variant>
-#include <format>
+//#include <format>
 
 
 size_t Py_EL_Grid::size() const
@@ -320,7 +320,7 @@ pybind11::array Py_EL_Grid::get_L_array(
 		}
 		if (index >= size_e || index < 0) {
 			throw pybind11::index_error(
-				std::format("index {} out of range", index)
+				"index" + std::to_string(index)" + "out of range"
 			);
 		}
 
