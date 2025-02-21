@@ -27,7 +27,10 @@ namespace evdm {
 
 
         template <typename Gen_t>
-        GridAnnPreMatrix(GridEL_t const &Grid, size_t Nmk_traj, 
+        GridAnnPreMatrix(
+            GridEL_t const &Grid,
+            GridEL_vt Rmin, GridEL_vt Rmax,
+            size_t Nmk_traj, 
             Gen_t && G,progress_omp_function<> m_progress):
             Grid(Grid){
             const auto& grid = Grid.getLE_inner_grid();
@@ -39,7 +42,7 @@ namespace evdm {
             auto _F2 = Grid.body->_DD_F_C(1);
 
             AnnImpl(A0, Av,
-                grid, *Grid._TrajPools,
+                grid, Rmin, Rmax, *Grid._TrajPools,
                 Grid.LE(), Grid.body->Phi, _F2,
                 G, Nmk_traj, m_progress);
             Av = 0.5 * (Av + Av.transpose());

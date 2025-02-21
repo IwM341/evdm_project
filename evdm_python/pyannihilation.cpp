@@ -12,7 +12,11 @@ void Py_Pre_Ann::add_to_python_module(pybind11::module& m)
 {
 	namespace py = pybind11;
 	py::class_<Py_Pre_Ann>(m, "Ann", "python class for pre annihilation matrix")
-		.def(py::init<Py_EL_Grid const&, size_t, std::string_view, py::handle>(),
+		.def(py::init<
+				Py_EL_Grid const&, size_t, 
+				std::string_view, double , double , 
+				size_t, py::handle
+			>(),
 			"constructor.\n\n"
 			"Parameters:\n\t"
 			"grid : el grid.\n\t"
@@ -20,7 +24,11 @@ void Py_Pre_Ann::add_to_python_module(pybind11::module& m)
 			"dtype : type of values.\n\t"
 			"bar : update progress bar function.\n",
 			py::arg("grid"), py::arg("Nmk"),
-			py::arg_v("dtype", "float"), py::arg_v("bar", py::none())
+			py::arg_v("dtype", "float"), 
+			py::arg_v("rmin", 0),
+			py::arg_v("rmax", 1),
+			py::arg_v("seed", 1),
+			py::arg_v("bar", py::none())
 		).def("__repr__", &Py_Pre_Ann::repr)
 		.def(py::init([](
 			Py_EL_Grid const& G,
@@ -68,10 +76,11 @@ void Py_Pre_Ann::add_to_python_module(pybind11::module& m)
 
 
 Py_Pre_Ann::Py_Pre_Ann(
-	Py_EL_Grid const& mGridEL, size_t Nmk_bin, 
-	std::string_view dtype, pybind11::handle update_function):
+	Py_EL_Grid const& mGridEL, size_t Nmk_bin,
+	std::string_view dtype, double Rmin, double Rmax, size_t seed, 
+	pybind11::handle update_function): 
 	m_preann(
-		std::visit([Nmk_bin, dtype,&update_function]
+		std::visit([Nmk_bin, dtype, Rmin , Rmax, &update_function,_seed=seed]
 			<_GRID_EL_TMPL_,typename T>
 			(const  evdm::EL_Grid<_GRID_EL_PARS_>& m_gr,
 				evdm::self_type<T>)->PreAnn_Variant_t
@@ -80,14 +89,19 @@ Py_Pre_Ann::Py_Pre_Ann(
 		if constexpr (std::is_same_v<T, void>) {
 			throw pybind11::type_error("unrecongnesed dtype");
 		}
+		size_t seed = _seed;
+		if (seed == 0) {
+			seed = std::numeric_limits<size_t>::max();
+		}
 		else {
 			if constexpr (evdm::variant_consist_of_v<
 				evdm::GridAnnPreMatrix<T, _T1, _T2, _m_grid_t>, 
 				PreAnn_Variant_t
 			>) {
+				evdm::xorshift<T> G(seed);
 				pybind11::gil_scoped_release m_lock;
 				return evdm::GridAnnPreMatrix<T, _T1, _T2, _m_grid_t>(
-					m_gr, Nmk_bin, evdm::xorshift<_T2>{},
+					m_gr, Rmin, Rmax, Nmk_bin,G,
 					m_prog
 				);
 			}

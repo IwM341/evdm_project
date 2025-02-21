@@ -29,7 +29,9 @@ pybind11::tuple Py_CaptureProcess(
 	auto [sum, dsum] = std::visit([&]<_DISTRIB_TMPL_>(evdm::Distribution<_DISTRIB_PARS_> &mDistrib) {
 		typedef decltype(mDistrib.get_grid_vtype()) T;
 		pybind11::gil_scoped_release m_gil_release;
-		evdm::xorshift<T> G(seed);
+		evdm::xorshift<T> G(seed%std::numeric_limits<
+			std::conditional_t<std::is_same_v<float,T>,uint_least32_t, uint_least64_t>
+		>::max());
 		return evdm::Capture(mDistrib, ptype_out, sc_event, G,
 			M_DM, deltaM, NucleiM, body_halo_v, dm_v_disp, r_pow, Nmk, weight);
 

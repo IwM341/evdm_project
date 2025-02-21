@@ -13,8 +13,10 @@ struct Py_Pre_Ann {
 
 
 	Py_Pre_Ann(
-		Py_EL_Grid const& mGridEL, 
-		size_t Nmk_bin, std::string_view dtype, pybind11::handle update_function);
+		Py_EL_Grid const& mGridEL,
+		size_t Nmk_bin, std::string_view dtype,
+		double Rmin, double Rmax, size_t seed,
+		pybind11::handle update_function);
 	void add_ann(
 		Py_Matrix & AnnMatrix,
 		size_t ptype0, size_t ptype1, 
