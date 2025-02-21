@@ -62,8 +62,8 @@ $$
 В случае, если $V$ осесимметричный
 
 $$
-    \nabla V = \vec{n}_r \cfrac{\partial V}{\partial r} + \vec{n}_{\theta} \cfrac{1}{r_K}
-    \cfrac{\partial V}{\partial {\theta}_K}
+\nabla V = \vec{n}_r \cfrac{\partial V}{\partial r} + \vec{n}_{\theta} \cfrac{1}{r_K}
+    \cfrac{\partial V}{\partial \theta_K}
 $$
 
 $$
