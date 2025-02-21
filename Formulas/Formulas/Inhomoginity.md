@@ -79,7 +79,7 @@ $$
 а единичный вектор $\vec{n}_{\varphi}$ равен
 
 $$
-    \vec{n}_{\varphi} = \cfrac{(x,y,0)}{\sqrt{x^2+y^2}} = \cfrac{(\sin{\theta} \cos{\varphi},\sin{\varphi},0)}{\sqrt{\sin^2{\theta} \cos^2{\varphi}+\sin^2{\varphi}}}
+    \vec{n}_{\varphi} = \cfrac{(y,-x,0)}{\sqrt{x^2+y^2}} = \cfrac{(\sin{\varphi},-\sin{\theta} \cos{\varphi},0)}{\sqrt{\sin^2{\theta} \cos^2{\varphi}+\sin^2{\varphi}}}
 $$
 
 * Поперечные изменения $\vec{L}$ неважны, так как приводят лишь к вращению вокруг $z$
@@ -88,7 +88,7 @@ $$
 $$
     \delta L^{x}_{T} = \frac{1}{2}\int_{0}^{\pi} {\cfrac{d\psi}{\sqrt{S(u(\psi))}}}
     \cfrac{\partial V}{\partial \theta_K}(r[u(\psi)], \theta)
-    \cfrac{\sin{\theta} \cos{\varphi}}{\sqrt{\sin^2{\theta} \cos^2{\varphi}+\sin^2{\varphi}}}
+    \cfrac{\sin{\theta} \sin{\varphi}}{\sqrt{\sin^2{\theta} \cos^2{\varphi}+\sin^2{\varphi}}}
 $$
 
 В итоге, у нас имеется следующая параметризация:
@@ -110,11 +110,18 @@ $$
     \cfrac{d L_x}{dt} = \langle X(L_z,L_x,\varphi_T)\rangle _{\varphi_T} = X(L_z,L_x)
 $$
 
-**И тут тревога: уравнение первого порядка имеет только один аттрактор – точку, а значит – что-то не так. А не так что-то при $\theta = \pi/2$.**
+Поскольку потенциал должен облаладать $P$ симметрией, то $V(-z) = V(z)$, то тогда 
+$$
+    \cfrac{\partial V(z)}{\partial \theta} 
+    \sim F(z^2,r^2)\cdot z =
+    F(r^2,\cos^2{\varphi}) \cdot \cos{\varphi}
+$$
 
-В любом случае, можно считать, что одна траектория на самом деле рапределена по $L_x$ с
-плотостью обратно пропорциональной скорости
+В итоге $\delta L^{x}_{T}$ будет пропорционален комбинации $\cos{\varphi} \sin{\varphi}$
 
 $$
-    \rho(L_x) \sim  \cfrac{1}{|dL_x/dt|} =  \cfrac{1}{|X(L_z,L_x)|}
+    \delta L^{x}_{T} = F(\cos^2{\varphi}) \sin(2\varphi)
 $$
+После усреднения по углу траектории (оно возникает, из-за того, что траектория апериодична и $\varphi = \varphi_T + \varphi(t)$, где $\varphi_T$ – угол начала траектории, по которому идет усреднение)
+
+Таким образом, в адиабатическом приближении такие неоднородности не влияют на траекторию.
