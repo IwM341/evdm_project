@@ -103,4 +103,3 @@ $$
 $$
     \rho(L_x) \sim  \cfrac{1}{|dL_x/dt|} =  \cfrac{1}{|X(L_z,L_x)|}
 $$
-
