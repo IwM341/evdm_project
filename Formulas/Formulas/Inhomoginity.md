@@ -57,20 +57,26 @@ $$
 $$
     \frac{d}{dt} \vec{L} = [\vec{r},\dot{\vec{v}}] = -[\vec{r},\nabla V]
 $$
+
 В случае, если $V$ осесимметричный
+
 $$
     \nabla V = \vec{n}_r \cfrac{\partial V}{\partial r} +
     \vec{n}_{\theta} \cfrac{1}{r_K} \cfrac{\partial V}{\partial \theta_K}
 $$
+
 $$
     \frac{d}{dt} \vec{L} = -\cfrac{\partial V}{\partial \theta_K} \vec{n}_{\varphi}
 $$
 
 Далее, единичный вектор в напревлении $\vec{L}$ равен
+
 $$
     \vec{n}_{L} = (-\sin{\theta},0,-\cos{\theta})
 $$
+
 а единичный вектор $\vec{n}_{\varphi}$ равен
+
 $$
     \vec{n}_{\varphi} = \cfrac{(x,y,0)}{\sqrt{x^2+y^2}} = \cfrac{(\sin{\theta} \cos{\varphi},\sin{\varphi},0)}{\sqrt{\sin^2{\theta} \cos^2{\varphi}+\sin^2{\varphi}}}
 $$
@@ -85,7 +91,13 @@ $$
 $$
 
 В итоге, у нас имеется следующая параметризация:
-$(L_z,L_x,\varphi_T)$
+$$
+    (L_z,L_x,\varphi_T)
+$$
+
+$$
+    \cfrac{d}{dt}L_x = X(L_z,L_x,\varphi_T)
+$$
 
 ### Далее
 
