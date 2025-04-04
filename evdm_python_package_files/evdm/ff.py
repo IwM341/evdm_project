@@ -27,7 +27,7 @@ class O:
     def __str__(self):
         return self.symbol.__str__()
     def latex(self):
-        return 'O_{'+str(self.n)+'}^'+str(self.tau) +" = "+ O._Expression_Latex_O_Array[self.n-1]
+        return 'O_{'+str(self.n)+'}^'+str(self.t) +" = "+ O._Expression_Latex_O_Array[self.n-1]
     def __add__(self,other):
         if(isinstance(other,O)):
             return self.symbol + other.symbol

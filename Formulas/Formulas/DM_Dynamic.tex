@@ -709,5 +709,208 @@
 	\end{itemize}
  
 	
+	\subsubsection{Уравнение эволюции.}
 	
+	Линейное уравнение имеет вид:
+	
+\begin{equation*}
+	\tderiv{n_i} = c^0_i + s_{ij} n_j, n_i(0) = 0
+\end{equation*}
+
+Мы будем решать уравнение на $c_i = \dot{n}_i$
+
+
+\begin{equation*}
+	\tderiv{c_i} = s_{ij} c_j, c_i(0) = c^0_i
+\end{equation*}
+
+тогда 
+
+\begin{equation*}
+	n_i(t) = \int_0^t{c_i(t')dt'}
+\end{equation*}
+
+Решение представляется в виде матричной экспоненты:
+\begin{equation*}
+	c = e^{s t} c^0
+\end{equation*}
+
+Для того приближения этого решение используется разбиение на шаги и приближение экспоненты на каждом шаге устойчивой схемой 2 порядка:
+
+\begin{equation*}
+	e^{s \tau} = \cfrac{2}{\left(1-\frac{s \tau}{2}\right)^2}-\cfrac{1}{(1-s \tau)}
+\end{equation*}
+
+(Схема устойчива, так как собственные значения $s$ имеют отрицательную вещественную часть)
+
+
+
+Нелинейная эволюция (с учетом аннигиляции) имеет вид:
+
+\begin{equation*}
+	\tderiv{n_i} = c^0_i + s_{ij} n_j - \sum_j{a_{ij} n_j n_i}
+\end{equation*}
+
+Таким образом 
+
+\begin{equation*}
+	\tderiv{c_i} = s_{ij} c_j  - \sum_j {a_{ij} c_j n_i} - \sum_j{a_{ij} n_j c_i}
+\end{equation*}
+
+Тут 2 вклада: удобный и неудобный. Первый вклад выглядит как диагональная матица, и его эволюция очевидна:
+
+\begin{eqnarray*}
+	D_i = 2 a_{ij} n_j \\
+	e^{-D \tau} = diag ( e^{-D_i \tau} )
+\end{eqnarray*}
+
+Второй вклад имеет более сложный вид:
+\begin{eqnarray*}
+	B_{ij} = -a_{ij} n_i & ( i \ne j)\\
+	B_{ij} = 0 & (i = j)  \\
+	e^{B \tau}_{ij} \ne e^{B_{ij} \tau}
+\end{eqnarray*}
+
+Собственные значения матрицы $B_{ij}$ имеют всегда положительную вещественную часть, что приводит к неустойчивой эволюции. Однако это означает, что любая явная схема по вычислению этой экспоненты будет более устойчивой чем само решение (так как $1+x+x^2/2+... < \exp(x)$). Поэтому можно вычислять так:
+\begin{eqnarray*}
+	e^{B \tau} \approx 1 + B \tau + \cfrac{(B \tau)^2}{2}
+\end{eqnarray*}
+
+Тут важно, что пока мы не достигли равенства захавта и аннигиляции, $B \tau \lesssim 1$, поэтому приближения можно считать верными. Поэтому эволюцию нужно проводит до этого момента.
+
+
+\subsubsection{Неоднородности.}
+
+Изменение угла при вращении траектории равно
+
+\begin{equation*}
+	\varphi_{T} = \int {\frac{l}{r^2} dt} =  \frac{1}{2}\int_{0}^{\pi} {
+		\cfrac{1}{u(\psi)} \cfrac{d\psi}{\sqrt{S(u(\psi))}}}
+\end{equation*}
+В нашей системе координат: 
+\begin{eqnarray*}
+	x = r \sin{\theta} \cos{\varphi}
+	\\
+	y = r \sin{\varphi}
+	\\
+	z = r \cos{\theta} \cos{\varphi}
+\end{eqnarray*}
+
+Тогда изменение угла на траектории равно:
+\begin{equation*}
+\delta \varphi  =  \frac{1}{2}\int_{0}^{\pi} {
+	\cfrac{d\psi}{u(\psi)} \left(\cfrac{1}{\sqrt{S(u(\psi))}} -\cfrac{1}{\sqrt{\rho_0}}   \right)}
+\end{equation*}
+
+считаем, что $\rho_0 \cdot u_{max}\cdot u_{min} = l^2$
+
+Если $S(u(\psi)) = const$, то $\varphi_{T} = \pi/2$, а если $\phi(r) ~ 1/r$ то  $\varphi_{T} = \pi$. В остальных случаях траектория будет апериодической, поэтому  влиянием неоднородностей на $\delta \varphi$ можно пренебречь
+
+Пусть $V$ – малая поправка к $\phi(r)$. Тогда изменение углового момента:
+
+\begin{equation*}
+\frac{d}{dt} \vec{L} = [\vec{r},\dot{\vec{v}}] = -[\vec{r},\nabla V]
+\end{equation*}
+
+В случае, если $V$ осесимметричный
+
+\begin{equation*}
+\nabla V = \vec{n}_r \cfrac{\partial V}{\partial r} + \vec{n}_{\theta} \cfrac{1}{r_K}
+\cfrac{\partial V}{\partial \theta_K}
+\end{equation*}
+и тогда
+\begin{equation*}
+\frac{d}{dt} \vec{L} = -\cfrac{\partial V}{\partial \theta_K} \vec{n}_{\varphi}
+\end{equation*}
+
+Единичный вектор в напревлении $\vec{L}$ равен
+
+\begin{equation*}
+\vec{n}_{L} = (-\sin{\theta},0,-\cos{\theta})
+\end{equation*}
+
+а единичный вектор $\vec{n}_{\varphi}$ равен
+
+\begin{equation*}
+\vec{n}_{\varphi} = \cfrac{(y,-x,0)}{\sqrt{x^2+y^2}} = \cfrac{(\sin{\varphi},-\sin{\theta} \cos{\varphi},0)}{\sqrt{\sin^2{\theta} \cos^2{\varphi}+\sin^2{\varphi}}}
+\end{equation*}
+
+Поперечные изменения $\vec{L}$ неважны, так как приводят лишь к вращению вокруг $z$
+плоскости траектории (что несущественно). Поэтому важно лишь изменение вдоль $x$
+
+Итак, 
+\begin{equation*}
+\delta L^{x}_{T} = \frac{1}{2}\int_{0}^{\pi} {\cfrac{d\psi}{\sqrt{S(u(\psi))}}}
+\cfrac{\partial V}{\partial \theta_K}(r[u(\psi)], \theta)
+\cfrac{\sin{\theta} \sin{\varphi}}{\sqrt{\sin^2{\theta} \cos^2{\varphi}+\sin^2{\varphi}}}
+\end{equation*}
+
+В итоге, изменение $L_x$ зависит от следующих параметров: 
+\begin{equation*}
+\cfrac{d}{dt}L_x = X(L_z,L_x,\varphi_T)
+\end{equation*}
+
+$\varphi_T$ будет менятся достаточно быстро, поэтому мы можем
+усреднить по этому параметру производную $\dot{L}_x$. Как итог получим некое движение (медленное) с уравнением:
+
+\begin{equation*}
+\cfrac{d L_x}{dt} = \langle X(L_z,L_x,\varphi_T)\rangle _{\varphi_T} = X(L_z,L_x)
+\end{equation*}
+
+Поскольку потенциал должен облаладать $P$ симметрией, то $V(-z) = V(z)$, то тогда 
+\begin{equation*}
+\cfrac{\partial V(z)}{\partial \theta} 
+\sim F(z^2,r^2)\cdot z =
+F(r^2,\cos^2{\varphi}) \cdot \cos{\varphi}
+\end{equation*}
+
+В итоге $\delta L^{x}_{T}$ будет пропорционален комбинации $\cos{\varphi} \sin{\varphi}$
+
+\begin{equation*}
+\delta L^{x}_{T} = F(\cos^2{\varphi}) \sin(2\varphi)
+\end{equation*}
+После усреднения по углу траектории (оно возникает, из-за того, что траектория апериодична и $\varphi = \varphi_T + \varphi(t)$, где $\varphi_T$ – угол начала траектории, по которому идет усреднение)
+
+Таким образом, в адиабатическом приближении такие неоднородности не влияют на траекторию.
+
+\subsubsection{Случайные Изотропные Неоднородности.}
+
+Положим мы имеем неоднородности изотропного характера, котороые имеют нулевое среднее значение.
+
+\begin{eqnarray}
+	\langle V \rangle_{\Omega} = 0
+\end{eqnarray}
+Тогда среднее изменение углового момента под действием недонородностей тоже равно нулю
+\begin{eqnarray}
+	\langle \delta L \rangle_{\Omega} = \langle \int_0^T{[\vec{r},\nabla V] dt} \rangle_{\Omega} = 0
+\end{eqnarray}
+
+Однако ненулевым является среднеквадратичное отклонение:
+\begin{eqnarray}
+	\langle \delta l \rangle_{\Omega} = \langle \left(\int_0^T{[\vec{r},\nabla V] dt} \right)^2\rangle_{\Omega} = \sigma^2(l) \cfrac{T}{T_0}
+\end{eqnarray}
+Таким образом мы имеем на функцию распределения $n(r)$ уравнение диффузии:
+
+\begin{equation*}
+	\deriv{\rho}{t} =  \cfrac{1}{T_0} \Delta \rho(x)
+\end{equation*} 
+
+где 
+\begin{equation*}
+	x = \int{\cfrac{dl}{\sigma(l)}}
+\end{equation*}
+
+Этот процесс возможно учесть с помощью матрицы рассеяния с помощью вычислительной схемы, определяемой тридиагональной матрицей рассеяния.
+
+\begin{equation*}
+	\deriv{n_i}{t} \approx  \cfrac{\sigma^i}{T_0} 
+	\left[\cfrac{\sigma^i_R}{h_{i+\frac{1}{2}}} 
+		\left(\cfrac{n_{i+1}}{h_{i+1}}-\cfrac{n_{i}}{h_{i}}\right) +
+		\cfrac{\sigma^i_L}{h_{i-\frac{1}{2}}}
+		\left(\cfrac{n_{i-1}}{h_{i-1}}-\cfrac{n_{i}}{h_{i}}\right) 
+	\right]
+\end{equation*}
+
+ 
+
 \end{document}

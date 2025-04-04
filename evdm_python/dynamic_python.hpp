@@ -33,7 +33,7 @@ struct Py_ScatterEvent : public evdm::ScatterEvent {
 
 struct Py_Capture;
 struct Py_Matrix;
-
+/*
 pybind11::tuple Py_CaptureProcess(
 	Py_Capture& CaptAccum,
 	int ptype_in,
@@ -59,7 +59,7 @@ void Py_ScatterProcess(
 	pybind11::handle Nmk_v,
 	pybind11::kwargs ExtraArgs
 );
-
+*/
 std::string make_compare_sc_event(
 	const Py_ScatterEvent& sc_event,
 	int ptype_in, int ptype_out,

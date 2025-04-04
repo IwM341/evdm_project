@@ -30,6 +30,15 @@ namespace evdm {
 	}
 
 	template <typename T>
+	inline constexpr T smax(T  x, grob::type_identity_t<T> y) {
+		return std::max(x, y);
+	}
+	template <typename T>
+	inline constexpr T smin(T  x, grob::type_identity_t<T> y) {
+		return std::min(x, y);
+	}
+
+	template <typename T>
 	constexpr T pi = (T)std::numbers::pi;
 
 	template <typename T>

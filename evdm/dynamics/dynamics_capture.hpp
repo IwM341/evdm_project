@@ -37,14 +37,14 @@ namespace evdm {
 	/*MK generator of input velocity*/
 	inline MCResult<vec3< Gen_vt<Gen_t>>, Gen_vt<Gen_t>> 
 		HaloVelocityConstrained(
-		Gen_t&& G, Gen_vt<Gen_t> VescTmp, Gen_vt<Gen_t> Vmin,
-		Gen_vt<Gen_t> Vmax,Gen_vt<Gen_t>  Vdisp, Gen_vt<Gen_t>  mU0)
+		Gen_t&& G, Gen_vt<Gen_t> VescTmp,Gen_vt<Gen_t> Umin,
+		Gen_vt<Gen_t> Umax,Gen_vt<Gen_t>  Vdisp, Gen_vt<Gen_t>  mU0)
 	{
 		typedef Gen_vt<Gen_t> number_t;
-		number_t umin = (Vmin > VescTmp ? sqrt(Vmin * Vmin - VescTmp * VescTmp) / Vdisp : 0.0);
-		number_t umax = ((Vmax > Vmin && Vmax > VescTmp) ? sqrt(Vmax * Vmax - VescTmp * VescTmp) / Vdisp : umin);
+		number_t umin = Umin * (1 / Vdisp);
+		number_t umax = Umax *(1/ Vdisp);
 
-		number_t u0 = mU0 / Vdisp;
+		number_t u0 = mU0 * (1 / Vdisp);
 
 		number_t ksi_max = umax + u0;
 		number_t ksi_min = (mU0 - umax > 0 ? u0 - umax : (umin - u0 > 0 ? umin - u0 : 0));
@@ -53,8 +53,8 @@ namespace evdm {
 
 		number_t ksi = sqrt(-2 * log(exp(-ksi_max * ksi_max / 2) + G() * ksi_rd));
 
-		number_t cosThMin = std::min(1.0, std::max(-1.0, (umin * umin - ksi * ksi - u0 * u0) / (2 * ksi * u0)));
-		number_t cosThMax = std::max(-1.0, std::min(1.0, (umax * umax - ksi * ksi - u0 * u0) / (2 * ksi * u0)));
+		number_t cosThMin = std::min((number_t)1.0, std::max(-(number_t)1.0, (umin * umin - ksi * ksi - u0 * u0) / (2 * ksi * u0)));
+		number_t cosThMax = std::max(-(number_t)1.0, std::min((number_t)1.0, (umax * umax - ksi * ksi - u0 * u0) / (2 * ksi * u0)));
 
 		number_t max_theta = acos(cosThMin);
 		number_t min_theta = acos(cosThMax);
@@ -173,7 +173,11 @@ namespace evdm {
 		Gen_vt<Gen_t> VescMin,
 		N_FuncType const& nR, 
 		TempRFuncType const& TempR,
-		Gen_vt<Gen_t> Vdisp, Gen_vt<Gen_t> mU0, 
+		Gen_vt<Gen_t> Vdisp, //Dispersion halo velocity
+		Gen_vt<Gen_t> mU0, //Solar velocity
+		Gen_vt<Gen_t> U_halo_max, // Max velocity in halo
+		Gen_vt<Gen_t> V2_s, // =  ( sqrt(2*delta/mu) - VmaxT)^2
+		bool ConstrainV,
 		Gen_vt<Gen_t> pow_r = 1) 
 	{
 		using T = Gen_vt<Gen_t>;
@@ -196,7 +200,12 @@ namespace evdm {
 		auto Vesc = VescR(r_nd)*VescMin;
 
 		//random input velocity
-		auto VelocityMk = HaloVelocity(G, Vesc, Vdisp, mU0);
+		auto VelocityMk = ConstrainV ? 
+			HaloVelocityConstrained(
+				G, Vesc,ssqrt(V2_s- Vesc* Vesc), U_halo_max, Vdisp, mU0
+			) : 
+			HaloVelocity(G, Vesc, Vdisp, mU0);
+
 		auto V_wimp = VelocityMk.Result;
 		//vec3::PolarCos(sqrt(VelocityMk.Result*VelocityMk.Result+Vesc*Vesc),
 		//RandomCos(G),RandomPhi(G));
@@ -298,6 +307,8 @@ namespace evdm {
 		Rm_type_t _3p_r,
 		Gen_vt<Gen_t> mU0,
 		Gen_vt<Gen_t> Vdisp,
+		bool ConstrainV,
+		Gen_vt<Gen_t> Vhalomax,
 		VescFunc_t const &VescR,
 		Gen_vt<Gen_t> VescMin,
 		size_t Nmk,
@@ -311,11 +322,13 @@ namespace evdm {
 		auto mi_frac = (mi) / (mk + mi);
 		auto mk_frac = (mk) / (mk + mi);
 		auto deltaE_div_m_cm = 2 * dm / m_cm;
+
+		T V_min_ = smax( deltaE_div_m_cm - ssqrt(8 * TempR(0) / mi), 0);
 		auto action = [&](auto&& dF) {
 			for (size_t i = 0; i < Nmk; ++i) {
 				auto mk_res = Vout1(
 					G,mi, mk, mi_frac, mk_frac,m_cm, dm, deltaE_div_m_cm,
-					dF, VescR, VescMin, se.n_e, TempR, Vdisp, mU0, _3p_r);
+					dF, VescR, VescMin, se.n_e, TempR, Vdisp, mU0, Vhalomax, V_min_* V_min_, ConstrainV, _3p_r);
 				vec3<T> v_nd = std::get<0>(mk_res.Result) / VescMin;
 				
 

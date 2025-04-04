@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  1 DEC 2024 12:28
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  19 MAR 2025 10:46
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -1113,7 +1113,7 @@ Missing character: There is no Å in font cmr10!
 Missing character: There is no ñ in font cmr10!
 Missing character: There is no ë in font cmr10!
 Missing character: There is no è in font cmr10!
-<imags/graphT.jpg, id=75, 383.18156pt x 378.66469pt>
+<imags/graphT.jpg, id=87, 383.18156pt x 378.66469pt>
 File: imags/graphT.jpg Graphic file (type jpg)
 <use imags/graphT.jpg>
 Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
@@ -1122,7 +1122,7 @@ Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 [2] [3 <./imags/graphT.jpg>] [4]
-<imags/diagramm1.png, id=106, 462.528pt x 346.896pt>
+<imags/diagramm1.png, id=118, 462.528pt x 346.896pt>
 File: imags/diagramm1.png Graphic file (type png)
 <use imags/diagramm1.png>
 Package pdftex.def Info: imags/diagramm1.png  used on input line 256.
@@ -1148,15 +1148,15 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `math shift' on input line 398.
 
-[7] [8] [9] [10] [11] [12] (DM_Dynamic.aux)
+[7] [8] [9] [10] [11] [12] [13] [14] [15] (DM_Dynamic.aux)
 Package rerunfilecheck Info: File `DM_Dynamic.out' has not changed.
-(rerunfilecheck)             Checksum: 354CFF66A0C6580EB15CEEC1AC572FC4;1883.
+(rerunfilecheck)             Checksum: 15A097A753DC264AFC50C03250A8C0DB;2599.
  ) 
 Here is how much of TeX's memory you used:
- 26179 strings out of 475385
- 502603 string characters out of 2790968
+ 26195 strings out of 475385
+ 502841 string characters out of 2790968
  843328 words of memory out of 3000000
- 47046 multiletter control sequences out of 15000+600000
+ 47053 multiletter control sequences out of 15000+600000
  474518 words of font info for 41 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  81i,13n,83p,776b,613s stack positions out of 10000i,1000n,20000p,200000b,80000s
@@ -1172,9 +1172,9 @@ Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr5.pfb><D:/Soft/MikTex/fonts/type1
 y10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy5.pfb><D:/Soft/MikTe
 x/fonts/type1/public/amsfonts/cm/cmsy7.pfb><D:/Soft/MikTex/fonts/type1/public/a
 msfonts/symbols/msam10.pfb>
-Output written on DM_Dynamic.pdf (12 pages, 284584 bytes).
+Output written on DM_Dynamic.pdf (15 pages, 307923 bytes).
 PDF statistics:
- 380 PDF objects out of 1000 (max. 8388607)
- 81 named destinations out of 1000 (max. 500000)
- 103 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 418 PDF objects out of 1000 (max. 8388607)
+ 90 named destinations out of 1000 (max. 500000)
+ 127 words of extra memory for PDF output out of 10000 (max. 10000000)
 

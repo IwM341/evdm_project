@@ -29,7 +29,8 @@ namespace evdm {
     std::pair<double, double> Capture(Distribution<DistrT, Body_vt, GridEL_vt, grid_type> & mDistrib,
         size_t ptype, ScatterEvent const & se, Gen_t && G,
         Gen_vt< Gen_t> mk, Gen_vt< Gen_t> dm, Gen_vt< Gen_t> mi,
-        Gen_vt< Gen_t> mU0, Gen_vt< Gen_t> Vdisp,float pow3_r,
+        Gen_vt< Gen_t> mU0, Gen_vt< Gen_t> Vdisp, bool ConstrainV,
+        Gen_vt<Gen_t> Vhalomax, float pow3_r,
         size_t  Nmk, Gen_vt< Gen_t> weight = 1 ) 
     {
         
@@ -37,7 +38,7 @@ namespace evdm {
         auto mHisto_full = mDistrib.as_histo();
         auto mHisto = mHisto_full.inner_slice(ptype);
         auto LEf = mDistrib.Grid.LE();
-        return CaptureImpl(G, se, Temp, mHisto, LEf, mk, dm, mi, pow3_r, mU0, Vdisp,
+        return CaptureImpl(G, se, Temp, mHisto, LEf, mk, dm, mi, pow3_r, mU0, Vdisp, ConstrainV, Vhalomax,
             mDistrib.body().VescFunc,mDistrib.body().Vesc, Nmk, weight);
     }
 

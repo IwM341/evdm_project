@@ -1,13 +1,13 @@
 import numpy
-from typing import Any, Callable, List, overload
+from typing import Any, Callable, overload
 
 class Ann:
     @overload
-    def __init__(self, grid: GridEL, Nmk: int, dtype: str = ..., bar: handle = ...) -> None:
+    def __init__(self, grid: GridEL, Nmk: int, dtype: str = ..., rmin: float = ..., rmax: float = ..., seed: int = ..., bar: object = ...) -> None:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Ann, grid: pyevdm.GridEL, Nmk: int, dtype: str = 'float', bar: handle = None) -> None
+        1. __init__(self: pyevdm.Ann, grid: pyevdm.GridEL, Nmk: int, dtype: str = 'float', rmin: float = 0, rmax: float = 1, seed: int = 1, bar: object = None) -> None
 
         constructor.
 
@@ -18,16 +18,40 @@ class Ann:
         \tbar : update progress bar function.
 
 
-        2. __init__(self: pyevdm.Ann, arg0: pyevdm.GridEL, arg1: dict) -> None
+        2. __init__(self: pyevdm.Ann, Grid: pyevdm.GridEL, A0: numpy.ndarray, Av: numpy.ndarray) -> None
 
-        3. __init__(self: pyevdm.Ann, arg0: dict) -> None
+        3. __init__(self: pyevdm.Ann, arg0: pyevdm.GridEL, arg1: dict) -> None
+
+        4. __init__(self: pyevdm.Ann, arg0: dict) -> None
+        """
+    @overload
+    def __init__(self, Grid: GridEL, A0: numpy.ndarray, Av: numpy.ndarray) -> None:
+        """__init__(*args, **kwargs)
+        Overloaded function.
+
+        1. __init__(self: pyevdm.Ann, grid: pyevdm.GridEL, Nmk: int, dtype: str = 'float', rmin: float = 0, rmax: float = 1, seed: int = 1, bar: object = None) -> None
+
+        constructor.
+
+        Parameters:
+        \tgrid : el grid.
+        \tNmk : number of MK integratons per bin.
+        \tdtype : type of values.
+        \tbar : update progress bar function.
+
+
+        2. __init__(self: pyevdm.Ann, Grid: pyevdm.GridEL, A0: numpy.ndarray, Av: numpy.ndarray) -> None
+
+        3. __init__(self: pyevdm.Ann, arg0: pyevdm.GridEL, arg1: dict) -> None
+
+        4. __init__(self: pyevdm.Ann, arg0: dict) -> None
         """
     @overload
     def __init__(self, arg0: GridEL, arg1: dict) -> None:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Ann, grid: pyevdm.GridEL, Nmk: int, dtype: str = 'float', bar: handle = None) -> None
+        1. __init__(self: pyevdm.Ann, grid: pyevdm.GridEL, Nmk: int, dtype: str = 'float', rmin: float = 0, rmax: float = 1, seed: int = 1, bar: object = None) -> None
 
         constructor.
 
@@ -38,16 +62,18 @@ class Ann:
         \tbar : update progress bar function.
 
 
-        2. __init__(self: pyevdm.Ann, arg0: pyevdm.GridEL, arg1: dict) -> None
+        2. __init__(self: pyevdm.Ann, Grid: pyevdm.GridEL, A0: numpy.ndarray, Av: numpy.ndarray) -> None
 
-        3. __init__(self: pyevdm.Ann, arg0: dict) -> None
+        3. __init__(self: pyevdm.Ann, arg0: pyevdm.GridEL, arg1: dict) -> None
+
+        4. __init__(self: pyevdm.Ann, arg0: dict) -> None
         """
     @overload
     def __init__(self, arg0: dict) -> None:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Ann, grid: pyevdm.GridEL, Nmk: int, dtype: str = 'float', bar: handle = None) -> None
+        1. __init__(self: pyevdm.Ann, grid: pyevdm.GridEL, Nmk: int, dtype: str = 'float', rmin: float = 0, rmax: float = 1, seed: int = 1, bar: object = None) -> None
 
         constructor.
 
@@ -58,9 +84,11 @@ class Ann:
         \tbar : update progress bar function.
 
 
-        2. __init__(self: pyevdm.Ann, arg0: pyevdm.GridEL, arg1: dict) -> None
+        2. __init__(self: pyevdm.Ann, Grid: pyevdm.GridEL, A0: numpy.ndarray, Av: numpy.ndarray) -> None
 
-        3. __init__(self: pyevdm.Ann, arg0: dict) -> None
+        3. __init__(self: pyevdm.Ann, arg0: pyevdm.GridEL, arg1: dict) -> None
+
+        4. __init__(self: pyevdm.Ann, arg0: dict) -> None
         """
     def add_to_matrix(self, matrix: Matrix, ptype0: int, ptype1: int, a0: float, av: float) -> None:
         """add_to_matrix(self: pyevdm.Ann, matrix: pyevdm.Matrix, ptype0: int, ptype1: int, a0: float, av: float) -> None
@@ -80,10 +108,14 @@ class Ann:
     def copy(self) -> Ann:
         """copy(self: pyevdm.Ann) -> pyevdm.Ann"""
     def to_object(self) -> dict:
-        """to_object(self: handle) -> dict
+        """to_object(self: object) -> dict
 
         serialization into object dict
         """
+    @property
+    def A0(self) -> numpy.ndarray: ...
+    @property
+    def Av(self) -> numpy.ndarray: ...
     @property
     def grid(self) -> GridEL: ...
 
@@ -99,7 +131,7 @@ class Body:
 
 
 
-        2. __init__(self: pyevdm.Body, Rho: object, velocity: float, Temp: handle = None, dtype: str = '') -> None
+        2. __init__(self: pyevdm.Body, Rho: object, velocity: float, Temp: object = None, dtype: str = '') -> None
 
         constructs Body from Rho
 
@@ -118,7 +150,7 @@ class Body:
 
         """
     @overload
-    def __init__(self, Rho: object, velocity: float, Temp: handle = ..., dtype: str = ...) -> None:
+    def __init__(self, Rho: object, velocity: float, Temp: object = ..., dtype: str = ...) -> None:
         """__init__(*args, **kwargs)
         Overloaded function.
 
@@ -128,7 +160,7 @@ class Body:
 
 
 
-        2. __init__(self: pyevdm.Body, Rho: object, velocity: float, Temp: handle = None, dtype: str = '') -> None
+        2. __init__(self: pyevdm.Body, Rho: object, velocity: float, Temp: object = None, dtype: str = '') -> None
 
         constructs Body from Rho
 
@@ -146,10 +178,10 @@ class Body:
         \t optional temperature array of body.
 
         """
-    def setTemp(self, Temp: handle = ...) -> None:
-        """setTemp(self: pyevdm.Body, Temp: handle = None) -> None"""
+    def setTemp(self, Temp: object = ...) -> None:
+        """setTemp(self: pyevdm.Body, Temp: object = None) -> None"""
     def to_object(self) -> dict:
-        """to_object(self: handle) -> dict"""
+        """to_object(self: object) -> dict"""
     @property
     def M(self) -> tuple: ...
     @property
@@ -165,11 +197,11 @@ class Body:
 
 class Capture(Distrib):
     @overload
-    def __init__(self, ELGrid: GridEL, dtype: str = ..., init: handle = ...) -> None:
+    def __init__(self, ELGrid: GridEL, dtype: str = ..., init: object = ...) -> None:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
+        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
 
         constructor of Capture(Distrib) class
 
@@ -203,7 +235,7 @@ class Capture(Distrib):
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
+        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
 
         constructor of Capture(Distrib) class
 
@@ -237,7 +269,7 @@ class Capture(Distrib):
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
+        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
 
         constructor of Capture(Distrib) class
 
@@ -271,7 +303,7 @@ class Capture(Distrib):
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
+        1. __init__(self: pyevdm.Capture, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
 
         constructor of Capture(Distrib) class
 
@@ -313,19 +345,19 @@ class Capture(Distrib):
     def copy(self) -> Capture:
         """copy(self: pyevdm.Capture) -> pyevdm.Capture"""
     def to_object(self) -> dict:
-        """to_object(self: handle) -> dict"""
+        """to_object(self: object) -> dict"""
     def __add__(self, arg0: Capture) -> Capture:
         """__add__(self: pyevdm.Capture, arg0: pyevdm.Capture) -> pyevdm.Capture"""
     @property
-    def events(self) -> List[scatter_event_info]: ...
+    def events(self) -> list[scatter_event_info]: ...
 
 class Distrib:
     @overload
-    def __init__(self, ELGrid: GridEL, dtype: str = ..., init: handle = ...) -> None:
+    def __init__(self, ELGrid: GridEL, dtype: str = ..., init: object = ...) -> None:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
+        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
 
         constructor of Distrib class
 
@@ -357,7 +389,7 @@ class Distrib:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
+        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
 
         constructor of Distrib class
 
@@ -389,7 +421,7 @@ class Distrib:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
+        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
 
         constructor of Distrib class
 
@@ -421,7 +453,7 @@ class Distrib:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: handle = None) -> None
+        1. __init__(self: pyevdm.Distrib, ELGrid: pyevdm.GridEL, dtype: str = 'float', init: object = None) -> None
 
         constructor of Distrib class
 
@@ -458,8 +490,8 @@ class Distrib:
 
         creating Distrib with another dtype
         """
-    def avarage(self, F: handle, ptype: int = ...) -> float:
-        """avarage(self: pyevdm.Distrib, F: handle, ptype: int = -1) -> float
+    def avarage(self, F: object, ptype: int = ...) -> float:
+        """avarage(self: pyevdm.Distrib, F: object, ptype: int = -1) -> float
 
         calc avarage over distribution of F(e,l), where l \\in [0,1]
         """
@@ -511,8 +543,8 @@ class Distrib:
         \tsimplices=trs,
         \ttitle="title")
         '''
-    def rdens(self, ptypes: handle = ..., rmin: float = ..., rmax: float = ..., Nr: int = ..., Nb: handle = ..., rden: handle = ..., bar: handle = ...) -> tuple:
-        """rdens(self: pyevdm.Distrib, ptypes: handle = -1, rmin: float = 0, rmax: float = 1, Nr: int = 100, Nb: handle = 10000, rden: handle = None, bar: handle = None) -> tuple
+    def rdens(self, ptypes: object = ..., rmin: float = ..., rmax: float = ..., Nr: int = ..., Nb: object = ..., rden: object = ..., bar: object = ...) -> tuple:
+        """rdens(self: pyevdm.Distrib, ptypes: object = -1, rmin: float = 0, rmax: float = 1, Nr: int = 100, Nb: object = 10000, rden: object = None, bar: object = None) -> tuple
 
         git density function, i.e. d^N/d^3r
 
@@ -534,7 +566,7 @@ class Distrib:
         \toptional progress bar update function.
         """
     def to_numpy(self, ptype: int = ..., is_raw: bool = ...) -> numpy.ndarray:
-        """to_numpy(self: handle, ptype: int = -1, is_raw: bool = False) -> numpy.ndarray
+        """to_numpy(self: object, ptype: int = -1, is_raw: bool = False) -> numpy.ndarray
 
         gives numpy array view to distribution
 
@@ -547,7 +579,7 @@ class Distrib:
         """
     @overload
     def to_object(self) -> dict:
-        """to_object(self: handle) -> dict
+        """to_object(self: object) -> dict
 
         return numpy array, so Distrib/Capture could be restoredfrom grid and this object:
         \tm_array = m_distrib.to_object()
@@ -556,7 +588,7 @@ class Distrib:
         """
     @overload
     def to_object(self) -> Any:
-        """to_object(self: handle) -> dict
+        """to_object(self: object) -> dict
 
         return numpy array, so Distrib/Capture could be restoredfrom grid and this object:
         \tm_array = m_distrib.to_object()
@@ -568,11 +600,11 @@ class Distrib:
 
 class GridEL:
     @overload
-    def __init__(self, body: Body, ptypes: int, Ne: int, Nl_func: handle, RhoE: handle = ..., RhoL: handle = ..., dtype: str = ..., **kwargs) -> None:
+    def __init__(self, body: Body, ptypes: int, Ne: int, Nl_func: object, RhoE: object = ..., RhoL: object = ..., dtype: str = ..., **kwargs) -> None:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.GridEL, body: pyevdm.Body, ptypes: int, Ne: int, Nl_func: handle, RhoE: handle = None, RhoL: handle = None, dtype: str = 'float', **kwargs) -> None
+        1. __init__(self: pyevdm.GridEL, body: pyevdm.Body, ptypes: int, Ne: int, Nl_func: object, RhoE: object = None, RhoL: object = None, dtype: str = 'float', **kwargs) -> None
 
         constructs E-L Grid
 
@@ -602,7 +634,7 @@ class GridEL:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.GridEL, body: pyevdm.Body, ptypes: int, Ne: int, Nl_func: handle, RhoE: handle = None, RhoL: handle = None, dtype: str = 'float', **kwargs) -> None
+        1. __init__(self: pyevdm.GridEL, body: pyevdm.Body, ptypes: int, Ne: int, Nl_func: object, RhoE: object = None, RhoL: object = None, dtype: str = 'float', **kwargs) -> None
 
         constructs E-L Grid
 
@@ -632,7 +664,7 @@ class GridEL:
         """__init__(*args, **kwargs)
         Overloaded function.
 
-        1. __init__(self: pyevdm.GridEL, body: pyevdm.Body, ptypes: int, Ne: int, Nl_func: handle, RhoE: handle = None, RhoL: handle = None, dtype: str = 'float', **kwargs) -> None
+        1. __init__(self: pyevdm.GridEL, body: pyevdm.Body, ptypes: int, Ne: int, Nl_func: object, RhoE: object = None, RhoL: object = None, dtype: str = 'float', **kwargs) -> None
 
         constructs E-L Grid
 
@@ -657,22 +689,13 @@ class GridEL:
 
         3. __init__(self: pyevdm.GridEL, arg0: dict) -> None
         """
-    def Epoints(self) -> numpy.ndarray:
-        """Epoints(self: handle) -> numpy.ndarray"""
-    def LE(self) -> tuple:
-        """LE(self: pyevdm.GridEL) -> tuple
-
-        return tuple (E array,L(E) array)
-        """
     def Lpoints(self, index: int) -> numpy.ndarray:
-        """Lpoints(self: handle, index: int) -> numpy.ndarray"""
-    def le_functor(self) -> Callable[[float], float]:
-        """le_functor(self: pyevdm.GridEL) -> Callable[[float], float]
-
-        returns functor of lmax(e) function
-        """
+        """Lpoints(self: object, index: int) -> numpy.ndarray"""
     def lpoints(self, index: int) -> numpy.ndarray:
-        """lpoints(self: handle, index: int) -> numpy.ndarray"""
+        """lpoints(self: object, index: int) -> numpy.ndarray
+
+        array of l points at enegy with index index
+        """
     def plot(self, is_internal: bool = ...) -> numpy.ndarray:
         """plot(self: pyevdm.GridEL, is_internal: bool = False) -> numpy.ndarray
 
@@ -689,8 +712,8 @@ class GridEL:
         is_internal : bool
         \tif true, plot in internal representation.
         """
-    def plot_trajp(self, pname: handle = ..., ld: bool = ...) -> list:
-        """plot_trajp(self: pyevdm.GridEL, pname: handle = 'T', ld: bool = True) -> list
+    def plot_trajp(self, pname: object = ..., ld: bool = ...) -> list:
+        """plot_trajp(self: pyevdm.GridEL, pname: object = 'T', ld: bool = True) -> list
 
         returns list L of dicts able to be plot in plotly of someparametrs of trajectory (Tin,Tout,Tfull,rmin,rmax,theta)
         pname name of plotted parameter: 'Tin', 'Tout' or 'T'
@@ -710,13 +733,24 @@ class GridEL:
         returns (rmin,rmax)(e,l_undim)
         """
     def to_object(self) -> dict:
-        """to_object(self: handle) -> dict"""
-    def traj_functor(self, pname: handle = ...) -> Callable[[float, float], float]:
-        """traj_functor(self: pyevdm.GridEL, pname: handle = 'T') -> Callable[[float, float], float]
+        """to_object(self: object) -> dict
+
+        serialize to dict
+        """
+    def traj_functor(self, pname: object = ...) -> Callable[[float, float], float]:
+        """traj_functor(self: pyevdm.GridEL, pname: object = 'T') -> Callable[[float, float], float]
 
         return functor of required param:
         T0,T1,Tin0,Tin1,Tout,rmin,rmax,theta,Tinth
         """
+    def __getitem__(self, arg0: int | tuple[int, int]) -> tuple:
+        """__getitem__(self: pyevdm.GridEL, arg0: Union[int, tuple[int, int]]) -> tuple"""
+    @property
+    def Epoints(self) -> numpy.ndarray: ...
+    @property
+    def LE(self) -> tuple: ...
+    @property
+    def bins(self) -> numpy.ndarray: ...
     @property
     def body(self) -> Body: ...
     @property
@@ -724,9 +758,15 @@ class GridEL:
     @property
     def full_size(self) -> int: ...
     @property
+    def indexes(self) -> numpy.ndarray[numpy.uint64]: ...
+    @property
+    def le_functor(self) -> Callable[[float], float]: ...
+    @property
     def ptypes(self) -> int: ...
     @property
     def size(self) -> int: ...
+    @property
+    def size_e(self) -> int: ...
 
 class Matrix:
     @overload
@@ -887,7 +927,7 @@ class Matrix:
         \twimp type, default -1, meaning all.
         """
     def to_numpy(self, ptype_in: int = ..., ptype_out: int = ..., is_raw: bool = ...) -> numpy.ndarray:
-        """to_numpy(self: handle, ptype_in: int = -1, ptype_out: int = -1, is_raw: bool = False) -> numpy.ndarray
+        """to_numpy(self: object, ptype_in: int = -1, ptype_out: int = -1, is_raw: bool = False) -> numpy.ndarray
 
         gives numpy array view to scatter matrix.
 
@@ -897,11 +937,10 @@ class Matrix:
         \tin wimp type, default -1, meaning all.
         ptype_out : int
         \tout wimp type, default -1, meaning all.
-        is_raw : bool
-        \tgives raw array with padding.
+
         """
     def to_numpy_diag(self, ptype: int = ..., is_raw: bool = ...) -> numpy.ndarray:
-        """to_numpy_diag(self: handle, ptype: int = -1, is_raw: bool = False) -> numpy.ndarray
+        """to_numpy_diag(self: object, ptype: int = -1, is_raw: bool = False) -> numpy.ndarray
 
         gives numpy array view to diag scatter matrix.
 
@@ -913,7 +952,7 @@ class Matrix:
         \tgives raw array with padding.
         """
     def to_object(self) -> dict:
-        """to_object(self: handle) -> dict
+        """to_object(self: object) -> dict
 
         serialization into object dict
         """
@@ -922,7 +961,7 @@ class Matrix:
     @property
     def evap_histo(self) -> Distrib: ...
     @property
-    def events(self) -> List[scatter_event_info]: ...
+    def events(self) -> list[scatter_event_info]: ...
     @property
     def grid(self) -> GridEL: ...
 
@@ -951,8 +990,8 @@ class Metric:
         """
 
 class ScatterEvent:
-    def __init__(self, n_e: handle, sf: ScatterFactor, name: str = ..., unique: bool = ...) -> None:
-        """__init__(self: pyevdm.ScatterEvent, n_e: handle, sf: pyevdm.ScatterFactor, name: str = '__unnamed__', unique: bool = False) -> None
+    def __init__(self, n_e: object, sf: ScatterFactor, name: str = ..., unique: bool = ...) -> None:
+        """__init__(self: pyevdm.ScatterEvent, n_e: object, sf: pyevdm.ScatterFactor, name: str = '__unnamed__', unique: bool = False) -> None
 
         creating ScatterEvent.
 
@@ -981,8 +1020,8 @@ class scatter_event_info:
     def __init__(self, *args, **kwargs) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
 
-def CalcCaptureImpl(capt_vector: Capture, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: ScatterEvent, Vbody: float, Vdisp: float, Nmk: int, r_pow: float = ..., weight: float = ..., seed: int = ...) -> tuple:
-    """CalcCaptureImpl(capt_vector: pyevdm.Capture, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: pyevdm.ScatterEvent, Vbody: float, Vdisp: float, Nmk: int, r_pow: float = 2.0, weight: float = 1.0, seed: int = 2305843009213693945) -> tuple
+def CalcCaptureImpl(capt_vector: Capture, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: ScatterEvent, Vbody: float, Vdisp: float, Vmax: float, Nmk: int, r_pow: float = ..., weight: float = ..., seed: int = ..., constrain: bool = ...) -> tuple:
+    """CalcCaptureImpl(capt_vector: pyevdm.Capture, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: pyevdm.ScatterEvent, Vbody: float, Vdisp: float, Vmax: float, Nmk: int, r_pow: float = 2.0, weight: float = 1.0, seed: int = 2305843009213693945, constrain: bool = True) -> tuple
 
     Calculates capture, add event to capture vector,returns tuple (capture, sigma)
 
@@ -1005,6 +1044,8 @@ def CalcCaptureImpl(capt_vector: Capture, ptype_in: int, ptype_out: int, m_wimp:
     \tspeed of body relative to halo.
     Vdisp : float
     \tdispersion of DM speed in halo.
+    Vmax : float
+    \t max DM speed in halo.
     Nmk : int
     \tnumber of monte-carle steps.
     r_pow :float
@@ -1012,10 +1053,12 @@ def CalcCaptureImpl(capt_vector: Capture, ptype_in: int, ptype_out: int, m_wimp:
     weight :float
     \t[optional] scale factor, default - 1.
     \tseed : int
-    \t[optional] for random generator
+    \t[optional] for random generator 
+    \tconstrain : bool 
+    \t if false, DM speed will not truncated
     """
-def CalcScatterImpl(matrix: Matrix, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: ScatterEvent, Nmk: handle, **kwargs) -> None:
-    """CalcScatterImpl(matrix: pyevdm.Matrix, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: pyevdm.ScatterEvent, Nmk: handle, **kwargs) -> None
+def CalcScatterImpl(matrix: Matrix, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: ScatterEvent, Nmk: object, **kwargs) -> None:
+    """CalcScatterImpl(matrix: pyevdm.Matrix, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: pyevdm.ScatterEvent, Nmk: object, **kwargs) -> None
 
     Calculates scatter matrix part, add event to matrix class
 

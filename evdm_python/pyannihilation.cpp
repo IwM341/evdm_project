@@ -93,22 +93,22 @@ Py_Pre_Ann::Py_Pre_Ann(
 		if (seed == 0) {
 			seed = std::numeric_limits<size_t>::max();
 		}
-		else {
-			if constexpr (evdm::variant_consist_of_v<
-				evdm::GridAnnPreMatrix<T, _T1, _T2, _m_grid_t>, 
-				PreAnn_Variant_t
-			>) {
-				evdm::xorshift<T> G(seed);
-				pybind11::gil_scoped_release m_lock;
-				return evdm::GridAnnPreMatrix<T, _T1, _T2, _m_grid_t>(
-					m_gr, Rmin, Rmax, Nmk_bin,G,
-					m_prog
-				);
-			}
-			else {
-				throw pybind11::type_error("unsupported dtype of annihilation");
-			}
+		
+		if constexpr (evdm::variant_consist_of_v<
+			evdm::GridAnnPreMatrix<T, _T1, _T2, _m_grid_t>, 
+			PreAnn_Variant_t
+		>) {
+			evdm::xorshift<T> G(seed);
+			pybind11::gil_scoped_release m_lock;
+			return evdm::GridAnnPreMatrix<T, _T1, _T2, _m_grid_t>(
+				m_gr, Rmin, Rmax, Nmk_bin,G,
+				m_prog
+			);
 		}
+		else {
+			throw pybind11::type_error("unsupported dtype of annihilation");
+		}
+		
 	}, mGridEL.m_grid, 
 		evdm::make_variant_alt(dtype == "float" ? 0 : (dtype == "double" ? 1 : 2), 
 			evdm::self_type<float>{},
