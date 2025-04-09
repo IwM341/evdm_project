@@ -4,8 +4,77 @@ from ._cpp_lib.pyevdm import *
 from .dm_model import *
 
 K_to_GeV = 8.61732814974056e-14
+def MakeGrid(mBody,Evalues,Lvalues,ptypes = 1,value_type = 'float'):
+    """
+        Makes Grid from Evalues and Lvalues
+        
+        Parameters:
+        -----------
+        mBody: evdm.Body
+            Body model
+        Evalues : list
+            Energy array from Emin to Emax
+        Evalues : list | list[list]
+            l array from 0 to 1 or arrays for each E bin
+        ptypes : int
+        value_type : str
+            'float' or 'double'
+    """
 
- 
+    if(value_type == 'float'):
+        dtype = np.float32
+    elif(value_type == 'double'):
+        dtype = np.float64
+    else:
+        raise TypeError(f'Unknown dtype "{value_type}"')
+
+    Lvalues = np.array(Lvalues,dtype=dtype)
+    Evalues = np.array(Evalues,dtype=dtype)
+    ndims = Lvalues.ndim
+    def chek_array(X,name):
+        if(not np.all(np.diff(X)> 0)):
+            raise ValueError(f'{name} array is not monotonic')
+    def check_l(Lv):
+        chek_array(Lv,'Lvalues')
+        if( Lv[0] > 1e-6 or Lv[0] < 0):
+            raise ValueError('Lvalues[0] should be 0')
+        if( Lv[-1] < 1-1e-5 or Lv[-1] > 1):
+            raise ValueError('Lvalues[-1] should be 1')
+    
+    chek_array(Evalues,'Evalues')
+    if(ndims == 1):
+        check_l(Lvalues)
+        Lvalues = [Lvalues for i in range(len(Evalues)-1)]
+    else:
+        for i in range(Lvalues.shape[0]):
+            check_l(Lvalues[i])
+        
+        Lvalues = [Lvalues[i] for i in range(len(Evalues)-1)]
+    
+
+
+    
+    
+    
+    mgrid_dict = {
+        'type' : 'evdm.GridEL',
+        'body_t' : 'float',
+        'body':mBody,
+        'grid_t' : value_type,
+        'gtype' : 'CVV',
+        'grid': {
+            'Grid':{'size':ptypes},
+            'InnerGrids' : {
+                'size': ptypes,
+                'value' : {
+                    'Grid' : Evalues,
+                    'InnerGrids' : Lvalues
+                }
+            }
+        }
+    }
+    return evdm.GridEL(mBody,mgrid_dict)
+
 def CaptureCalc(capt_vector,scat_mod : ff.ScatterModel,
                 n_dense,Vbody,Vdisp,Vmax,Nmk,r_pow = 1,weight = 1,
                 seed = 0,constrain = False):
@@ -123,3 +192,4 @@ class Group:
              for gr in m_grids]
         ret['type'] = 'evdm.Group'
         return ret
+

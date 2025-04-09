@@ -871,7 +871,6 @@ pybind11::dict Py_EL_Grid::get_object(pybind11::handle self) {
 		NpDictSerializator  S;
 		auto m_dict = pybind11::dict(
 			"type"_a = "evdm.GridEL",
-			"body_t"_a = type_name<B_vt>(),
 			"grid_t"_a = type_name<Gr_vt>()
 		);
 		// Saving grid values
@@ -896,10 +895,7 @@ Py_EL_Grid Py_EL_Grid::from_dict(Py_BodyModel BM, pybind11::dict const& grid_dic
 			"bad attempt to restore evdm.GridEL from not evdm.GridEL value"
 		);
 	}
-	auto Body_var_t = type_from_str(
-		grid_dict["body_t"].cast<std::string_view>(),
-		std::type_identity<std::tuple<BODY_TYPE_LIST>>{}
-	);
+
 	auto Grid_var_t = type_from_str(
 		grid_dict["grid_t"].cast<std::string_view>(),
 		std::type_identity<std::tuple<GRID_EL_TYPE_LIST>>{}
