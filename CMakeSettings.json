@@ -32,7 +32,7 @@
         },
         {
           "name": "BUILD_TESTS",
-          "value": "False",
+          "value": "True",
           "type": "BOOL"
         }
       ]
@@ -65,7 +65,7 @@
         },
         {
           "name": "BUILD_TESTS",
-          "value": "False",
+          "value": "True",
           "type": "BOOL"
         },
         {

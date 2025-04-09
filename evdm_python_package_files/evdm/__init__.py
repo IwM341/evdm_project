@@ -7,8 +7,8 @@ K_to_GeV = 8.61732814974056e-14
 
  
 def CaptureCalc(capt_vector,scat_mod : ff.ScatterModel,
-                n_dense,Vbody,Vdisp,Nmk,r_pow = 1,weight = 1,
-                seed = 0):
+                n_dense,Vbody,Vdisp,Vmax,Nmk,r_pow = 1,weight = 1,
+                seed = 0,constrain = False):
     """
     Calculates capture, add event to capture vector,
 	returns tuple (capture,mk sigma)
@@ -40,7 +40,7 @@ def CaptureCalc(capt_vector,scat_mod : ff.ScatterModel,
         sc_event = ScatterEvent(n_dense,scat_mod.factor(),scat_mod.str_char())
         return CalcCaptureImpl(capt_vector,
             wimp.In,wimp.Out,wimp.mass,wimp.delta,nuc.mass,
-            sc_event,Vbody,Vdisp,Nmk,r_pow,weight,seed)
+            sc_event,Vbody,Vdisp,Vmax,Nmk,r_pow,weight,seed,constrain)
     else:
         return (0,0)
 def ScatterCalc(sc_matrix,scatter_model : ff.ScatterModel,n_dense,

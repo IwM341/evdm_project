@@ -82,10 +82,26 @@ namespace evdm {
 
 		//thermal generation
 		
-		MCResult< vec3<T>, T> Input_Vel_gen = 
-			ThermGen_t::gen(G, deltaE_div_m_cm, V_wimp_norm, TempR, mi);
-		factor *= Input_Vel_gen.RemainDensity;
-		vec3<T> V1 = Input_Vel_gen.Result;
+		MCResult< T, T> Input_Vel_gen_abs = 
+			ThermGen_t::gen_abs(G, deltaE_div_m_cm, V_wimp_norm, TempR, mi);
+		factor *= Input_Vel_gen_abs.RemainDensity;
+		T V1_abs = Input_Vel_gen_abs.Result;
+
+		T max_cos = upbound(
+			downbound(
+				(V_wimp_norm * V_wimp_norm + 
+					V1_abs * V1_abs - 
+					deltaE_div_m_cm
+				) / (2 * V_wimp_norm * V1_abs),
+			-1), 1);
+
+		
+		factor *= (max_cos + 1) / 2;
+		if (factor == (T)0) {
+			return { vec3<T>(0, 0, 0), 0};
+		}
+		vec3<T> V1 = GenVecCos(G, V_wimp, -1, max_cos) * V1_abs;
+
 		//Vcm - is a vrlocity of momentum center
 		vec3<T> Vcm = (V_wimp * mk_frac + V1 * mi_frac);
 		//Nu is input velocity of WIMP in cm coordinatesd

@@ -200,7 +200,7 @@ namespace evdm {
     >
     auto make_Distribution(
         EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid, Init_t&& init,
-        size_t padding = 128)
+        size_t padding = 1)
     {
         Distribution<T, Body_vt, GridEL_vt, grid_type> Dstr(Grid, {}, padding);
         auto LE = Dstr.Grid.LE();

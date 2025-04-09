@@ -3,11 +3,12 @@
 #include "dynamics.hpp"
 #include "../utils/progress_bar.hpp"
 #include "../measure.hpp"
+#include "../utils/put_optimization.hpp"
 namespace evdm {
 
 	template <class Gen_t>
 	/*MK generator of input velocity*/
-	inline MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> HaloVelocity(
+	inline MCResult<Gen_vt<Gen_t>, Gen_vt<Gen_t>> HaloVelocity(
 		Gen_t&& G,Gen_vt<Gen_t> VescTmp,
 		Gen_vt<Gen_t> Vdisp, Gen_vt<Gen_t> mU0) 
 	{
@@ -28,26 +29,27 @@ namespace evdm {
 		auto sinTheta = (u != 0.0 ? ksi * sinPhi / u : 0);
 		auto v = sqrt(u * u + ve * ve);
 		
-		auto n = RandomNvec(G);
+		//auto n = RandomNvec(G);
 		
-		return MCResult<vec3<T>,T>(n * (v * Vdisp), 
+		return MCResult<T,T>((v * Vdisp), 
 			sinTheta * v * sqrt((T)std::numbers::pi / 2));
 	}
 	template <class Gen_t>
 	/*MK generator of input velocity*/
-	inline MCResult<vec3< Gen_vt<Gen_t>>, Gen_vt<Gen_t>> 
+	inline MCResult< Gen_vt<Gen_t>, Gen_vt<Gen_t>>
 		HaloVelocityConstrained(
 		Gen_t&& G, Gen_vt<Gen_t> VescTmp,Gen_vt<Gen_t> Umin,
-		Gen_vt<Gen_t> Umax,Gen_vt<Gen_t>  Vdisp, Gen_vt<Gen_t>  mU0)
+		Gen_vt<Gen_t> VHaloMax,Gen_vt<Gen_t>  Vdisp, Gen_vt<Gen_t>  mU0)
 	{
 		typedef Gen_vt<Gen_t> number_t;
 		number_t umin = Umin * (1 / Vdisp);
-		number_t umax = Umax *(1/ Vdisp);
+		
 
 		number_t u0 = mU0 * (1 / Vdisp);
+		number_t umax = VHaloMax * (1 / Vdisp) + u0;
 
-		number_t ksi_max = umax + u0;
-		number_t ksi_min = (mU0 - umax > 0 ? u0 - umax : (umin - u0 > 0 ? umin - u0 : 0));
+		number_t ksi_max = umax-u0;
+		number_t ksi_min = (umin - u0 > 0 ? umin - u0 : 0);
 
 		number_t ksi_rd = exp(-ksi_min * ksi_min / 2) - exp(-ksi_max * ksi_max / 2);
 
@@ -70,9 +72,9 @@ namespace evdm {
 		number_t sinTheta = (u != 0.0 ? ksi * sin(theta) / u : 0);
 
 		auto v = sqrt(u * u + ve * ve);
-		auto n = RandomNvec(G);
+		//auto n = RandomNvec(G);
 
-		return { n * (v * Vdisp), 
+		return {  (v * Vdisp), 
 			ksi_rd * rd_th * sinTheta * v * sqrt((number_t)std::numbers::pi/ 2) 
 		};
 	}
@@ -176,7 +178,7 @@ namespace evdm {
 		Gen_vt<Gen_t> Vdisp, //Dispersion halo velocity
 		Gen_vt<Gen_t> mU0, //Solar velocity
 		Gen_vt<Gen_t> U_halo_max, // Max velocity in halo
-		Gen_vt<Gen_t> V2_s, // =  ( sqrt(2*delta/mu) - VmaxT)^2
+		Gen_vt<Gen_t> V1_s, // =   sqrt(2*delta/mu)
 		bool ConstrainV,
 		Gen_vt<Gen_t> pow_r = 1) 
 	{
@@ -199,30 +201,44 @@ namespace evdm {
 		//}
 		auto Vesc = VescR(r_nd)*VescMin;
 
+		//thermal generation
+		auto Input_Vel_gen = (V1_s > Vesc) ?
+			ThermGaussGenerator_Soft8::gen_abs(
+				G, 0, 0, TempR(r_nd), mi
+			):
+			ThermGaussGenerator_Naive::gen_abs(
+				G, 0, 0, TempR(r_nd), mi
+		);
+		T V1_abs = Input_Vel_gen.Result;
+
+		auto VminWmin = smax(V1_s - V1_abs, 0);
 		//random input velocity
 		auto VelocityMk = ConstrainV ? 
 			HaloVelocityConstrained(
-				G, Vesc,ssqrt(V2_s- Vesc* Vesc), U_halo_max, Vdisp, mU0
+				G, Vesc,ssqrt(VminWmin * VminWmin - Vesc* Vesc), U_halo_max, Vdisp, mU0
 			) : 
 			HaloVelocity(G, Vesc, Vdisp, mU0);
 
-		auto V_wimp = VelocityMk.Result;
+		T V_wimp_m = VelocityMk.Result;
+		vec3<T>  V_wimp = V_wimp_m * RandomNvec(G);
 		//vec3::PolarCos(sqrt(VelocityMk.Result*VelocityMk.Result+Vesc*Vesc),
 		//RandomCos(G),RandomPhi(G));
 		factor *= VelocityMk.RemainDensity;
 
+		T max_cos = upbound(downbound(
+			(V_wimp_m * V_wimp_m + V1_abs * V1_abs - deltaE_div_m_cm) / (2 * V_wimp_m * V1_abs),
+			-1), 1);
+
+		vec3<T> V1 = GenVecCos(G, V_wimp ,-1, max_cos) * V1_abs;
+		factor *= (max_cos + 1) / 2;
 
 		auto n_nd = nR(r_nd);//TODO n_nd as a function of radius
 		factor *= n_nd;
 		
-		//thermal generation
-		auto Input_Vel_gen =
-			ThermGaussGenerator_Naive::gen(
-				G, 0, 0, TempR(r_nd), mi
-			);
+		
 		
 		factor *= Input_Vel_gen.RemainDensity;
-		vec3<T> V1 = Input_Vel_gen.Result;
+		
 
 		//Vcm - is a vrlocity of momentum center
 		vec3<T> Vcm = (V_wimp * mk_frac + V1 * mi_frac);
@@ -323,12 +339,20 @@ namespace evdm {
 		auto mk_frac = (mk) / (mk + mi);
 		auto deltaE_div_m_cm = 2 * dm / m_cm;
 
-		T V_min_ = smax( deltaE_div_m_cm - ssqrt(8 * TempR(0) / mi), 0);
+		T V_min_ = ssqrt(deltaE_div_m_cm);
+#ifdef HISTO_OPTIM
+		//this optimization don't work.
+		std::vector<std::array<T, 4>> tValues(128);
+		auto ValuesEnd = tValues.end();
+		auto ValuesTmp = tValues.begin();
+		auto Nmk1 = Nmk - 1;
+#endif // 
+
 		auto action = [&](auto&& dF) {
 			for (size_t i = 0; i < Nmk; ++i) {
 				auto mk_res = Vout1(
 					G,mi, mk, mi_frac, mk_frac,m_cm, dm, deltaE_div_m_cm,
-					dF, VescR, VescMin, se.n_e, TempR, Vdisp, mU0, Vhalomax, V_min_* V_min_, ConstrainV, _3p_r);
+					dF, VescR, VescMin, se.n_e, TempR, Vdisp, mU0, Vhalomax, V_min_, ConstrainV, _3p_r);
 				vec3<T> v_nd = std::get<0>(mk_res.Result) / VescMin;
 				
 
@@ -340,10 +364,25 @@ namespace evdm {
 				if (E_nd < 0) {
 					T L_nd = r_nd * sqrt(v_nd.x() * v_nd.x() + v_nd.y() * v_nd.y());
 					T l = L_nd / LEf(-E_nd);
-					T dens = mk_res.RemainDensity * const_fact_rd;;
+					T dens = mk_res.RemainDensity * const_fact_rd;
+#ifdef HISTO_OPTIM
+					* ValuesTmp = { E_nd ,l,dens,dens* mk_res.RemainDensity };
+					++ValuesTmp;
+					if (ValuesTmp == ValuesEnd || i == Nmk1 ) {
+						auto [s,s2] = put_values2(tValues.begin(), ValuesTmp, H_le_sp_type);
+						if (!(s2 >=0)) {
+							std::cout << s2 <<", E: " <<E_nd << ", L: " << L_nd << ", D: " << dens << std::endl;
+							throw std::runtime_error("s2<0");
+						}
+						sum += s;
+						sum2 += s2;
+						ValuesTmp = tValues.begin();
+					}
+#else				
 					H_le_sp_type.put_force(dens, E_nd, l);
 					sum += dens;
 					sum2 += dens * mk_res.RemainDensity;
+#endif // 
 				}/*
 				else{
 					auto l = L_nd/H.LE_func(E_nd);

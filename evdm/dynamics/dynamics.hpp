@@ -62,6 +62,25 @@ namespace evdm {
 	}
 
 	
+	template <class Gen_t>
+	inline MCResult < Gen_vt<Gen_t>, Gen_vt<Gen_t> > Gauss3_Soft8_abs(
+		Gen_t& G, Gen_vt<Gen_t> Vdisp
+	) {
+		constexpr Gen_vt<Gen_t> a = 0.16;
+		auto xi = E0I1_G(G);
+		auto y = std::cbrt(xi);
+		auto x = (a * y) / (1 + (a - 1) * y);
+
+		auto Zx = a + (1 - a) * x;
+		auto deriv_xi_inv = Zx * Zx / (3 * a * y * y);
+
+		auto x8 = 8 * x;
+
+		constexpr Gen_vt < Gen_t> _bf_exp =
+			8 * std::numbers::inv_sqrtpi * std::numbers::sqrt2;
+		auto target = _bf_exp * (x8 * x8) * std::exp(-x8 * x8 / 2);
+		return { (x8 * Vdisp), target * deriv_xi_inv };
+	}
 
 	template <class Gen_t>
 	inline MCResult < vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t> > Gauss3_Soft8(
@@ -81,6 +100,31 @@ namespace evdm {
 			8 * std::numbers::inv_sqrtpi* std::numbers::sqrt2;
 		auto target = _bf_exp * (x8 * x8) * std::exp(-x8 * x8 / 2);
 		return { RandomNvec(G) * (x8* Vdisp), target * deriv_xi_inv };
+	}
+
+	template <class Gen_t>
+	inline MCResult<Gen_vt<Gen_t>, Gen_vt<Gen_t>> Gauss3_Soft8_abs(
+		Gen_t& G, Gen_vt<Gen_t> Vdisp, Gen_vt<Gen_t> Vmin) {
+		constexpr Gen_vt<Gen_t> a = 0.16;
+
+		auto xi_min = _cube_f(Vmin / (a * Vdisp + (1 - a) * Vmin));
+
+		auto factor = (1 - xi_min);
+
+		auto xi = xi_min + factor * G();
+		auto y = std::cbrt(xi);
+		auto x = (a * y) / (1 + (a - 1) * y);
+
+		auto Zx = a + (1 - a) * x;
+		auto deriv_xi_inv = Zx * Zx / (3 * a * y * y);
+
+		auto x8 = 8 * x;
+
+		constexpr Gen_vt < Gen_t> _bf_exp =
+			8 * std::numbers::inv_sqrtpi * std::numbers::sqrt2;
+
+		auto target = _bf_exp * (x8 * x8) * std::exp(-x8 * x8 / 2);
+		return { (x8 * Vdisp), target * factor * deriv_xi_inv };
 	}
 
 	template <class Gen_t>
@@ -151,17 +195,18 @@ namespace evdm {
 		}
 	}
 	
-	template <typename cpr_Func_t>
-	struct _named_instance_t {
-		inline static const char* name = (cpr_Func_t{})();
+
+	struct ThermGaussGenerator_NoTherm {
 		inline static bool detect(std::string_view pot_name) {
-			return pot_name == name;
+			return pot_name == "notherm";
 		}
-	};
-#define NAMED_T(m_name) _named_instance_t<decltype([](){return m_name;})>
 
-
-	struct ThermGaussGenerator_NoTherm : NAMED_T("notherm") {
+		template <class Gen_t>
+		inline static MCResult<Gen_vt<Gen_t>, Gen_vt<Gen_t>> gen_abs(
+			Gen_t & G, Gen_vt<Gen_t> Delta_x_2_div_mu, Gen_vt<Gen_t> Vmk, Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			return { 0, 1 };
+		}
 
 		template <class Gen_t>
 		inline static MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> gen(
@@ -172,11 +217,31 @@ namespace evdm {
 		
 	};
 
-	struct ThermGaussGenerator_Naive : NAMED_T("naive"){
+	struct ThermGaussGenerator_Naive{
+		inline static bool detect(std::string_view pot_name) {
+			return pot_name == "naive";
+		}
+		
+		template <class Gen_t>
+		inline static MCResult<Gen_vt<Gen_t>, Gen_vt<Gen_t>> gen_abs(
+			Gen_t& G, Gen_vt<Gen_t> Delta_x_2_div_mu, Gen_vt<Gen_t> Vmk,
+			Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			typedef Gen_vt<Gen_t> T;
+			auto Vdisp = std::sqrt(Therm / Mtarget);
 
+			auto V12 = Gauss2Norm2(G, Vdisp);
+			auto V22 = Gauss2Norm2(G, Vdisp);
+			auto phi2 = RandomPhi(G);
+			auto cos2 = std::cos(phi2);
+			return {
+				std::sqrt(V12+ V22*cos2 * cos2),
+				(T)1
+			};
+		}
 		template <class Gen_t>
 		inline static MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> gen(
-			Gen_t& G, Gen_vt<Gen_t> Delta_x_2_div_mu, Gen_vt<Gen_t> Vmk, 
+			Gen_t& G, Gen_vt<Gen_t> Delta_x_2_div_mu, Gen_vt<Gen_t> Vmk,
 			Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
 		{
 			typedef Gen_vt<Gen_t> T;
@@ -193,7 +258,20 @@ namespace evdm {
 		}
 	};
 
-	struct ThermGaussGenerator_Soft8 : NAMED_T("soft"){
+	struct ThermGaussGenerator_Soft8 {
+		inline static bool detect(std::string_view pot_name) {
+			return pot_name == "soft";
+		}
+
+		template <class Gen_t>
+		inline static MCResult<Gen_vt<Gen_t>, Gen_vt<Gen_t>> gen_abs(
+			Gen_t & G, Gen_vt<Gen_t> Delta_x_2_div_mu,
+			Gen_vt<Gen_t> Vmk, Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			typedef Gen_vt<Gen_t> T;
+			auto Vdisp = std::sqrt(Therm / Mtarget);
+			return Gauss3_Soft8_abs(G, Vdisp);
+		}
 
 		template <class Gen_t>
 		inline static MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> gen(
@@ -205,7 +283,25 @@ namespace evdm {
 			return Gauss3_Soft8(G, Vdisp);
 		}
 	};
-	struct ThermGaussGenerator_Soft8_Treshold : NAMED_T("soft_tresh"){
+	struct ThermGaussGenerator_Soft8_Treshold {
+
+		inline static bool detect(std::string_view pot_name) {
+			return pot_name == "soft_tresh";
+		}
+
+		template <class Gen_t>
+		inline static MCResult<Gen_vt<Gen_t>, Gen_vt<Gen_t>> gen_abs(
+			Gen_t & G, Gen_vt<Gen_t> Delta_x_2_div_mu,
+			Gen_vt<Gen_t> Vmk, Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			typedef Gen_vt<Gen_t> T;
+			auto Vdisp = std::sqrt(Therm / Mtarget);
+			auto Vtresh = std::clamp(
+				std::sqrt(Delta_x_2_div_mu) - Vmk,
+				(T)0, (T)(8 * Vdisp)
+			);
+			return Gauss3_Soft8_abs(G, Vdisp, Vtresh);
+		}
 
 		template <class Gen_t>
 		inline static MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> gen(
@@ -248,7 +344,7 @@ namespace evdm {
 		if (ax >= ay && ax >= az) {
 			T n1 = std::sqrt(ay * ay + az * az);
 			if (n1 == 0) {
-				return { vec3(0, 1, 0), vec3<T>(0, 0, 1) };
+				return { vec3<T>(0, 1, 0), vec3<T>(0, 0, 1) };
 			}
 			v1[1] = V[2] / n1;
 			v1[2] = -V[1] / n1;
@@ -283,5 +379,68 @@ namespace evdm {
 			return { v1, v2 };
 		}
 	}
-
+	template <typename T>
+	std::tuple<vec3<T>, vec3<T>, vec3<T>> Basis3(const vec3<T>& ZVec) {
+		T x2 = ZVec[0] * ZVec[0];
+		T y2 = ZVec[1] * ZVec[1];
+		T z2 = ZVec[2] * ZVec[2];
+		T norm = std::sqrt(x2 + y2 + z2);
+		if (norm == 0) {
+			return { {1,0,0},{0,1,0},{0,0,1} };
+		}
+		T norm_inv = 1 / norm;
+		vec3<T> Nv = ZVec * norm_inv;
+		if (x2 >= y2 && x2 >= z2) {
+			T cosTheta = Nv[0];
+			T sinTheta = std::sqrt(Nv[1] * Nv[1] + Nv[2] * Nv[2]);
+			if (sinTheta == 0) {
+				return { {0,1,0},{0,0,1},{cosTheta,0,0} };
+			}
+			T norm12_inv = 1 / sinTheta;
+			T sphi = Nv[2] * norm12_inv;
+			T cphi = Nv[1] * norm12_inv;
+			return { {-sinTheta,cosTheta * cphi,cosTheta * sphi},
+					{0,-sphi,cphi},
+					Nv
+			};
+		}
+		else if (y2 >= z2 && y2 >= x2) {
+			T cosTheta = Nv[1];
+			T sinTheta = std::sqrt(Nv[0] * Nv[0] + Nv[2] * Nv[2]);
+			if (sinTheta == 0) {
+				return { {1,0,0},{0,0,1},{0,cosTheta,0} };
+			}
+			T norm12_inv = 1 / sinTheta;
+			T sphi = Nv[2] * norm12_inv;
+			T cphi = Nv[0] * norm12_inv;
+			return { {cosTheta * cphi,-sinTheta,cosTheta * sphi},
+					{-sphi,0,cphi},
+					Nv
+			};
+		}
+		else {
+			T cosTheta = Nv[2];
+			T sinTheta = std::sqrt(Nv[0] * Nv[0] + Nv[1] * Nv[1]);
+			if (sinTheta == 0) {
+				return { {1,0,0},{0,1,0},{0,0,cosTheta} };
+			}
+			T norm12_inv = 1 / sinTheta;
+			T sphi = Nv[1] * norm12_inv;
+			T cphi = Nv[0] * norm12_inv;
+			return { {cosTheta * cphi,cosTheta * sphi,-sinTheta},
+					{-sphi,cphi,0},
+					Nv
+			};
+		}
+	}
+	template <typename T,typename GenType>
+	vec3<T> GenVecCos(GenType& G, const vec3<T>& Vref, same_t<T> cosThetaMin = -1, same_t<T> cosThetaMax = 1) {
+		auto [e1, e2, ez] = Basis3(Vref);
+		T cosTheta = cosThetaMin + (cosThetaMax - cosThetaMin) * G();
+		T sinTheta = std::sqrt(1 - cosTheta * cosTheta);
+		T phi = RandomPhi(G);
+		return e1 * (std::cos(phi) * sinTheta) +
+			e2 * (std::sin(phi) * sinTheta) +
+			ez * cosTheta;
+	}
 };

@@ -79,6 +79,16 @@ namespace evdm{
             static_assert(true, "incorrect generator bounds");
     }
     template <class Gen_t>
+    inline Gen_vt<Gen_t> Gauss2Norm2(Gen_t&& G, Gen_vt<Gen_t> Vdisp) {
+        if constexpr (G.bounds == genpol::E0I1)
+            return Vdisp* Vdisp * ( - 2 * std::log(G()));
+        else if (G.bounds == genpol::I0E1)
+            return Vdisp * Vdisp * (-2 * std::log(1 - G()));
+        else
+            static_assert(true, "incorrect generator bounds");
+    }
+
+    template <class Gen_t>
     inline Gen_vt<Gen_t> Gauss(Gen_t&& G, Gen_vt<Gen_t> Vdisp) {
         Gen_vt<Gen_t> V = Gauss2Norm(G, Vdisp);
         return V * cos(RandomPhi(G));
