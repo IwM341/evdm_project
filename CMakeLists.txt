@@ -19,6 +19,7 @@ endif()
 option(OPENMP "" OFF)
 option(BUILD_TESTS "BUILD_TESTS" OFF)
 
+
 message("CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     message("Debug flags = " ${CMAKE_CXX_FLAGS})
@@ -53,7 +54,7 @@ else()
     message(ERROR)
 endif()
 
-if( CMAKE_BUILD_TYPE MATCHES Debug OR
+if( 1 OR CMAKE_BUILD_TYPE MATCHES Debug OR
        CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
     
     if (MSVC)

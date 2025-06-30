@@ -67,19 +67,22 @@ namespace evdm {
 		Gen_t& G, Gen_vt<Gen_t> Vdisp
 	) {
 		constexpr Gen_vt<Gen_t> a = 0.16;
-		auto xi = E0I1_G(G);
+		Gen_vt<Gen_t> xi = E0I1_G(G);
 		auto y = std::cbrt(xi);
-		auto x = (a * y) / (1 + (a - 1) * y);
+
+		auto Zy = 1 / (1 + (a - 1) * y);
+		auto x = (a * y) * Zy;
 
 		auto Zx = a + (1 - a) * x;
-		auto deriv_xi_inv = Zx * Zx / (3 * a * y * y);
 
+		//auto deriv_xi_inv = Zx * Zx / (3 * a * y * y);
+		auto deriv_xi_inv_mult_x2 = Zx * Zx * a *Zy * Zy*(Gen_vt<Gen_t>)(1.0 / 3) ;
 		auto x8 = 8 * x;
 
 		constexpr Gen_vt < Gen_t> _bf_exp =
-			8 * std::numbers::inv_sqrtpi * std::numbers::sqrt2;
-		auto target = _bf_exp * (x8 * x8) * std::exp(-x8 * x8 / 2);
-		return { (x8 * Vdisp), target * deriv_xi_inv };
+			8 * std::numbers::inv_sqrtpi * std::numbers::sqrt2 * 64;
+		auto target = _bf_exp * std::exp(-x8 * x8 / 2);
+		return {(x8 * Vdisp), target * deriv_xi_inv_mult_x2};
 	}
 
 	template <class Gen_t>
@@ -87,19 +90,22 @@ namespace evdm {
 		Gen_t& G, Gen_vt<Gen_t> Vdisp
 	) {
 		constexpr Gen_vt<Gen_t> a = 0.16;
-		auto xi = E0I1_G(G);
+		Gen_vt < Gen_t>  xi = E0I1_G(G);
 		auto y = std::cbrt(xi);
-		auto x = (a * y) / (1 + (a - 1) * y);
+
+		auto Zy = 1/(1 + (a - 1) * y);
+		auto x = (a * y) * Zy;
 
 		auto Zx = a + (1 - a) * x;
-		auto deriv_xi_inv = Zx * Zx / (3 * a * y * y);
-
+		
+		//auto deriv_xi_ inv = Zx * Zx / (3 * a * y * y);
+		auto deriv_xi_inv_mult_x2 = Zx * Zx*a * Zy* Zy *(Gen_vt<Gen_t>)(1.0 / 3);
 		auto x8 = 8 * x;
 
 		constexpr Gen_vt < Gen_t> _bf_exp = 
-			8 * std::numbers::inv_sqrtpi* std::numbers::sqrt2;
-		auto target = _bf_exp * (x8 * x8) * std::exp(-x8 * x8 / 2);
-		return { RandomNvec(G) * (x8* Vdisp), target * deriv_xi_inv };
+			8 * std::numbers::inv_sqrtpi* std::numbers::sqrt2*64;
+		auto target = _bf_exp* std::exp(-x8 * x8 / 2);
+		return { RandomNvec(G) * (x8* Vdisp), target * deriv_xi_inv_mult_x2};
 	}
 
 	template <class Gen_t>
@@ -107,24 +113,28 @@ namespace evdm {
 		Gen_t& G, Gen_vt<Gen_t> Vdisp, Gen_vt<Gen_t> Vmin) {
 		constexpr Gen_vt<Gen_t> a = 0.16;
 
-		auto xi_min = _cube_f(Vmin / (a * Vdisp + (1 - a) * Vmin));
+		auto xmin = Vmin / (8 * Vdisp);
+		auto xi_min = _cube_f(xmin / (a + (1 - a) * xmin));
 
 		auto factor = (1 - xi_min);
 
-		auto xi = xi_min + factor * G();
+		Gen_vt < Gen_t>  xi = xi_min + factor * (Gen_vt < Gen_t> ) G();
+
 		auto y = std::cbrt(xi);
-		auto x = (a * y) / (1 + (a - 1) * y);
+
+		auto Zy = 1 / (1 + (a - 1) * y);
+		auto x = (a * y) * Zy;
 
 		auto Zx = a + (1 - a) * x;
-		auto deriv_xi_inv = Zx * Zx / (3 * a * y * y);
 
+		//auto deriv_xi_ inv = Zx * Zx / (3 * a * y * y);
+		auto deriv_xi_inv_mult_x2 = Zx * Zx * a * Zy * Zy * (Gen_vt<Gen_t>)(1.0 / 3);
 		auto x8 = 8 * x;
 
 		constexpr Gen_vt < Gen_t> _bf_exp =
-			8 * std::numbers::inv_sqrtpi * std::numbers::sqrt2;
-
-		auto target = _bf_exp * (x8 * x8) * std::exp(-x8 * x8 / 2);
-		return { (x8 * Vdisp), target * factor * deriv_xi_inv };
+			8 * std::numbers::inv_sqrtpi * std::numbers::sqrt2 * 64;
+		auto target = _bf_exp * std::exp(-x8 * x8 / 2);
+		return {  (x8 * Vdisp), target * deriv_xi_inv_mult_x2 * factor };
 	}
 
 	template <class Gen_t>
@@ -132,24 +142,28 @@ namespace evdm {
 		Gen_t& G, Gen_vt<Gen_t> Vdisp, Gen_vt<Gen_t> Vmin) {
 		constexpr Gen_vt<Gen_t> a = 0.16;
 
-		auto xi_min = _cube_f(Vmin / (a* Vdisp + (1 - a) * Vmin));
+		auto xmin = Vmin / (8 * Vdisp);
+		auto xi_min = _cube_f(xmin / (a + (1 - a) * xmin));
 
 		auto factor = (1 - xi_min);
 
-		auto xi = xi_min + factor*G();
+		auto xi = xi_min + factor*(Gen_vt < Gen_t> )G();
+		
 		auto y = std::cbrt(xi);
-		auto x = (a * y) / (1 + (a - 1) * y);
+
+		auto Zy = 1 / (1 + (a - 1) * y);
+		auto x = (a * y) * Zy;
 
 		auto Zx = a + (1 - a) * x;
-		auto deriv_xi_inv = Zx * Zx / (3 * a * y * y);
 
+		//auto deriv_xi_ inv = Zx * Zx / (3 * a * y * y);
+		auto deriv_xi_inv_mult_x2 = Zx * Zx * a * Zy * Zy* (Gen_vt<Gen_t>)(1.0 / 3);
 		auto x8 = 8 * x;
 
 		constexpr Gen_vt < Gen_t> _bf_exp =
-			8 * std::numbers::inv_sqrtpi * std::numbers::sqrt2;
-
-		auto target = _bf_exp * (x8 * x8) * std::exp(-x8 * x8 / 2);
-		return { RandomNvec(G) * (x8* Vdisp), target * factor*deriv_xi_inv };
+			8 * std::numbers::inv_sqrtpi * std::numbers::sqrt2 * 64;
+		auto target = _bf_exp * std::exp(-x8 * x8 / 2);
+		return { RandomNvec(G) * (x8 * Vdisp), target * deriv_xi_inv_mult_x2 * factor };
 	}
 
 

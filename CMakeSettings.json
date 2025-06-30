@@ -77,6 +77,11 @@
           "name": "SCATTER_METHOD_USE_SOFT_TRESH",
           "value": "False",
           "type": "BOOL"
+        },
+        {
+          "name": "USE_SPARSE",
+          "value": "True",
+          "type": "BOOL"
         }
       ]
     },

@@ -5,6 +5,7 @@ from .dm_model import *
 
 K_to_GeV = 8.61732814974056e-14
 def MakeGrid(mBody,Evalues,Lvalues,ptypes = 1,value_type = 'float'):
+    import numpy as np
     """
         Makes Grid from Evalues and Lvalues
         
@@ -73,7 +74,7 @@ def MakeGrid(mBody,Evalues,Lvalues,ptypes = 1,value_type = 'float'):
             }
         }
     }
-    return evdm.GridEL(mBody,mgrid_dict)
+    return GridEL(mBody,mgrid_dict)
 
 def CaptureCalc(capt_vector,scat_mod : ff.ScatterModel,
                 n_dense,Vbody,Vdisp,Vmax,Nmk,r_pow = 1,weight = 1,

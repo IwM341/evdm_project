@@ -1,0 +1,122 @@
+Предположим, что масса тёмной материи сильно превышает массу мишени $M >> m$. Начинается диффузное приближение.
+
+Изначально было так:
+
+\begin{equation*}
+	\tderiv{\phi_a(x)} = \sum_b\int{f_{ab}(x,y) \phi_b(y) dy} - \sum_b \int{f_{ba}(y,x)  dy} \phi_a(x)
+\end{equation*}
+
+В диффузном приближении интегральный оператор $f_{ab}(x,y)$ имеет в общем случае вид:
+
+\begin{equation*}
+	f_{ab}(x,y) = Q_{ab} \delta(x-y) -  v^i_{ab}(y)\deriv{}{y_i} \delta(x-y) + \deriv{}{y_i} D^{ij}_{ab}(y) \deriv{}{y_j} \delta(x-y)
+\end{equation*}
+Причем можно считать, что $D^{ij}_{ab}$ --- симметричная матрица
+Получим отсюда уравнения движения.
+Первый интеграл дает
+
+
+\begin{equation*}
+	\sum_b{Q_{ab} \phi_b(x) + \deriv{}{x_i} v^i_{ab}(x) \phi_b(x)  + \deriv{}{x_j} D^{ij}_{ab}(x) \deriv{}{x_i} \phi_b(x)}
+\end{equation*}
+
+Воторой же интеграл даёт 
+
+\begin{equation*}
+	\phi_a(x) \sum_b{Q_{ba}}
+\end{equation*}
+
+Далее будем считать, что по $b$ иднт суммирование.
+
+\begin{equation*}
+	\tderiv{\phi_a(x)} = \deriv{}{x_i}\left[ v^i_{ab} \phi_b(x)  + D^{ij}_{ab}(x) \deriv{}{x_j} \phi_b(x) \right] + Q_{ab}  \phi_b(x) -Q_{ba} \phi_a(x) 
+\end{equation*}
+
+Первый член отвечет за перенос а второй --- за осцилляции.
+
+\begin{equation*}
+	\tderiv{\phi_a(x)} = \deriv{}{x_i}J^i_{ab}(x) + S_{ab}(x)\phi_b(x)
+\end{equation*}
+
+\begin{equation*}
+	J^i_{ab}(x) = v^i_{ab} \phi_b(x)  + D^{ij}_{ab}(x) \deriv{}{x_j} \phi_b(x)
+\end{equation*}
+
+Численно мы можем методом МК лишь найти только такой интеграл с пробной функцией:
+
+\begin{equation*}
+	I_{ab}[\varphi](y) = \int{f_{ab}(x,y)\varphi(x) dx} = Q_{ab}\varphi(y) - v^i_{ab}\deriv{}{y_i}  \varphi(y) + \deriv{}{y_i} D^{ij}_{ab}(y) \deriv{}{y_j} \varphi(y)
+\end{equation*}
+
+Итак, мы имеем рецепт получения коэффициентов:
+
+\begin{eqnarray*}
+	I_{ab}[x \to 1](y)  = Q_{ab} \\
+	I_{ab}[x \to x^k-y^k](y) = -v^k_{ba}(y) +  \deriv{}{y_i} D^{ik}_{ab}(y) \\
+	I_{ab}[x \to \frac{1}{2}(x^k-y^k)(x^m-y^m)](y) = D^{km}_{ab}(y)
+\end{eqnarray*}
+
+Далее уравнение можно переписать, проинтегрировав по объему. Мы будем считать, что $\phi_a(x_s)\cdot V_s = N_s$ --- количество частиц в бине с объемом $V_s$
+
+Тогда
+
+\begin{equation*}
+	\tderiv{N_{s}^a} = \int{J^i_{ab} dS_i} + S_{ab}^s N_b^s(x)
+\end{equation*}
+
+Для взятия интеграла от тока в схеме нужно просуммировать по стенкам $dS^k$ ток в направлении $dS^k$ в центре стенки. Значание и производная $\phi_a$ в центре стенки получается интерполяцией из центров.
+
+\subsubsection{Новый алгоритм.}
+
+Пусть, как было выше, $f(x,y)$ --- вероятность перехода из $y$ в $x$.
+
+Монте-Карло интегрирование фактически даёт величину 
+\begin{equation*}
+	S[V_{out},V_{in}] = \frac{1}{V_{in}}\int_{V_{out}}{dx\int_{V_{in}}{dy f(x,y)}}
+\end{equation*}
+
+Оптимизация алгоритма следующая: 
+\begin{itemize}
+	\item В бине $V_{in}$ как-то определяем начальную точку $y_0$.
+	\item Далее смотрим на конечную точку $z$ рассеяния из точки $y_0$.
+	\item Затем мы предполагаем, что $f(x,y) = f(x + y_0 - y,y_0)$.
+	\item Интегрирование по бину $V_{out}$ идет по принципу попал/не попал.
+	\item А вот усреднение по бину $V_{in}$ мы делаем так: передвигаем бин на смещение $z-y_0$ и находим объем перечечения $V_I(z) = V_{in}(z) \cap V_{out}$. добавляем к ответу дополнительный вес равный $V_I(z)/V_{in}$
+\end{itemize}
+
+С помощью такого метода мы найдем следующий интеграл:
+
+\begin{equation*}
+	S[V_{out},V_{in}, y_0] = \frac{1}{V_{in}}\int_{V_{out}}{dx\int_{V_{in}}{dy f(x + y_0 - y,y_0)}}
+\end{equation*}
+
+
+Теперь перейдём к диффузному приближению.
+
+\begin{equation*}
+	f(x,y) = Q(y)\delta(x-y) -  v^i(y) \deriv{}{y_i} \delta(x-y) + \deriv{}{y_i} D^{ij}(y) \deriv{}{y_j} \delta(x-y)
+\end{equation*}
+
+Заметим, что интегрирование по бину равносильно интегрированию по всему пространству индикаторной функции бина.
+
+\begin{equation*}
+	S[V_{out},V_{in}] = \frac{1}{V_{in}}\int_{V_{out}}{dx I_{out}(x)\int_{V_{in}}{dy I_{in}(y)f(x,y)}}
+\end{equation*}
+
+Причем интегрирование с пробной функцией $dx s^{i}(x)\deriv{}{x_i} I_{out}(x)$ равносильно интегрированию по границе бина с нормалью \textbf{внутрь} $s^{i}(x) dS^i$
+
+Тогда получим:
+
+\begin{equation*}
+	S[V_{out},V_{in}] = \frac{1}{V_{in}}\int_{V_{out}}{dx I_{out}(x)\int_{V_{in}}{dy I_{in}(y)
+		\left[ Q(y)\delta(x-y) -  v^i(y) \deriv{}{y_i} \delta(x-y) + \deriv{}{y_i} D^{ij}(y) \deriv{}{y_j} \delta(x-y) \right] 
+	}}
+\end{equation*}
+
+
+Если бины совпадают, то остается только член 
+\begin{equation*}
+	S[V_{out} = V_{in}] = \frac{1}{V_{in}}\int_{V_{out}}{dx I_{out}(x)\int_{V_{in}}{dy I_{in}(y)
+			\left[ Q(y)\delta(x-y) - \deriv{}{y_i} v^i(y) \delta(x-y) + \deriv{}{y_i} D^{ij}(y) \deriv{}{y_j} \delta(x-y) \right] 
+	}}
+\end{equation*}

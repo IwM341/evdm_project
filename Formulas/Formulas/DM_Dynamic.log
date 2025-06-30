@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  4 APR 2025 16:19
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  30 JUN 2025 07:18
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -1113,7 +1113,7 @@ Missing character: There is no Å in font cmr10!
 Missing character: There is no ñ in font cmr10!
 Missing character: There is no ë in font cmr10!
 Missing character: There is no è in font cmr10!
-<imags/graphT.jpg, id=87, 383.18156pt x 378.66469pt>
+<imags/graphT.jpg, id=99, 383.18156pt x 378.66469pt>
 File: imags/graphT.jpg Graphic file (type jpg)
 <use imags/graphT.jpg>
 Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
@@ -1122,7 +1122,7 @@ Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 [2] [3 <./imags/graphT.jpg>] [4]
-<imags/diagramm1.png, id=118, 462.528pt x 346.896pt>
+<imags/diagramm1.png, id=130, 462.528pt x 346.896pt>
 File: imags/diagramm1.png Graphic file (type png)
 <use imags/diagramm1.png>
 Package pdftex.def Info: imags/diagramm1.png  used on input line 256.
@@ -1148,33 +1148,35 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `math shift' on input line 398.
 
-[7] [8] [9] [10] [11] [12] [13] [14] [15] (DM_Dynamic.aux)
+[7] [8] [9] [10] [11] [12] [13] [14] (src/OptBin.tex [15] [16]) [17]
+(DM_Dynamic.aux)
 Package rerunfilecheck Info: File `DM_Dynamic.out' has not changed.
-(rerunfilecheck)             Checksum: 15A097A753DC264AFC50C03250A8C0DB;2599.
+(rerunfilecheck)             Checksum: 1D0593544B6F70AA98B55ECAE9A79E29;3183.
  ) 
 Here is how much of TeX's memory you used:
- 26195 strings out of 475385
- 502841 string characters out of 2790968
- 843328 words of memory out of 3000000
- 47053 multiletter control sequences out of 15000+600000
- 474518 words of font info for 41 fonts, out of 8000000 for 9000
+ 26217 strings out of 475385
+ 503235 string characters out of 2790968
+ 843330 words of memory out of 3000000
+ 47063 multiletter control sequences out of 15000+600000
+ 476139 words of font info for 43 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  81i,13n,83p,776b,613s stack positions out of 10000i,1000n,20000p,200000b,80000s
- <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\t
-crm1000.pk> <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/lh/lh-t2a/d
-pi600\labx1000.pk> <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/lh/l
-h-t2a/dpi600\larm1000.pk><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmex10.
-pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmmi10.pfb><D:/Soft/MikTex/f
-onts/type1/public/amsfonts/cm/cmmi5.pfb><D:/Soft/MikTex/fonts/type1/public/amsf
-onts/cm/cmmi7.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr10.pfb><D:/
-Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr5.pfb><D:/Soft/MikTex/fonts/type1
-/public/amsfonts/cm/cmr7.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cms
-y10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy5.pfb><D:/Soft/MikTe
-x/fonts/type1/public/amsfonts/cm/cmsy7.pfb><D:/Soft/MikTex/fonts/type1/public/a
-msfonts/symbols/msam10.pfb>
-Output written on DM_Dynamic.pdf (15 pages, 307950 bytes).
+ <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/lh/lh-t2a/dpi600\lab
+x1200.pk> <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/d
+pi600\tcrm1000.pk> <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfour/lh/l
+h-t2a/dpi600\labx1000.pk> <C:\Users\MainUser\AppData\Local\MiKTeX\fonts/pk/ljfo
+ur/lh/lh-t2a/dpi600\larm1000.pk><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/
+cmex10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmmi10.pfb><D:/Soft/M
+ikTex/fonts/type1/public/amsfonts/cm/cmmi5.pfb><D:/Soft/MikTex/fonts/type1/publ
+ic/amsfonts/cm/cmmi7.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr10.p
+fb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr5.pfb><D:/Soft/MikTex/font
+s/type1/public/amsfonts/cm/cmr7.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts
+/cm/cmsy10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy5.pfb><D:/Sof
+t/MikTex/fonts/type1/public/amsfonts/cm/cmsy7.pfb><D:/Soft/MikTex/fonts/type1/p
+ublic/amsfonts/symbols/msam10.pfb>
+Output written on DM_Dynamic.pdf (17 pages, 330698 bytes).
 PDF statistics:
- 418 PDF objects out of 1000 (max. 8388607)
- 90 named destinations out of 1000 (max. 500000)
- 127 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 467 PDF objects out of 1000 (max. 8388607)
+ 95 named destinations out of 1000 (max. 500000)
+ 151 words of extra memory for PDF output out of 10000 (max. 10000000)
 

@@ -101,6 +101,7 @@ namespace evdm {
 			return { vec3<T>(0, 0, 0), 0};
 		}
 		vec3<T> V1 = GenVecCos(G, V_wimp, -1, max_cos) * V1_abs;
+		auto norm = V1.norm();
 
 		//Vcm - is a vrlocity of momentum center
 		vec3<T> Vcm = (V_wimp * mk_frac + V1 * mi_frac);
