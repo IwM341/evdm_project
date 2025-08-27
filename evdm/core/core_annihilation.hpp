@@ -50,11 +50,19 @@ namespace evdm {
         }
 
         template <typename U>
-        void add_to(GridMatrix<U, Body_vt, GridEL_vt, grid_type>& M, size_t ptype0, size_t ptype1,T a_0, T a_v) const {
-            auto pre_result = (a_0 * A0 + a_v * Av).template cast<U>();
-            M.block(ptype0, ptype1).noalias() += pre_result;
-            if(ptype0== ptype1)
-                M.block(ptype0, ptype1).diagonal() += pre_result.diagonal();
+        void add_to(
+            GridMatrix<U, Body_vt, GridEL_vt, grid_type>& M, 
+            size_t ptype0, size_t ptype1,T a_0, T a_v) 
+        const {
+            auto pre_result = (a_0 * A0 + a_v * Av).eval();
+            M.add_to_block(pre_result, ptype0, ptype1);
+            if (ptype0 == ptype1) {
+                SpMatrix_t<T> Spmat(
+                    Eigen::DiagonalMatrix<T, Eigen::Dynamic>(pre_result.diagonal())
+                );
+                M.add_to_block(Spmat, ptype0, ptype1);
+            }
+                
         }
         //A0 - annihilation when sigma v ~ 1
         //Av - annihilation when sigma v ~ v^2

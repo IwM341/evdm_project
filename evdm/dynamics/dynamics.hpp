@@ -332,12 +332,87 @@ namespace evdm {
 		}
 	};
 
+	struct ThermGaussGenerator_Full {
+		inline static bool detect(std::string_view pot_name) {
+			return pot_name == "full";
+		}
+
+		template <typename T>
+		inline static T  FuncPDF(T x) {
+			constexpr T sqrt2inv = 1 / std::numbers::sqrt2;
+			constexpr T spi = std::numbers::sqrt2*std::numbers::inv_sqrtpi;
+			T x2 = x * x;
+
+			return std::erfc(x * sqrt2inv) + spi * x * std::exp(-x2 / 2);
+		}
+
+		template <typename T>
+		inline static T FirstStepIPDF(T xi) {
+			if (xi > (T)0.00616) {
+				//ordinary part
+				constexpr T Const1 = 2.4179879310247044610;
+				constexpr T Const1A = 0.98835;
+				constexpr T Const2A = 0.01165;
+				constexpr T ConstB = 0.011;
+
+				T r_m1c = std::cbrt(1 - xi);
+				T mlog = std::log((1 + r_m1c * (1 + r_m1c)) / (xi * (1 + r_m1c)));
+				return std::sqrt(Const1 * (Const1A + Const2A * xi) * mlog / (1 + ConstB * mlog));
+
+			}
+			else {
+				//tail part
+				constexpr auto IterStep = [](T y0, T r) {
+					T y12 = std::sqrt(y0);
+					return std::log(((T)0.28209479177387814348) * (y0 * (4 * y0 + 2) - 1) / (r * y0 * y12));
+				};
+				return std::sqrt(2 * IterStep(IterStep((T)7.2, xi), xi));
+			}
+		}
+
+		template <class Gen_t>
+		inline static MCResult<Gen_vt<Gen_t>, Gen_vt<Gen_t>> gen_abs(
+			Gen_t& G, Gen_vt<Gen_t> Delta_x_2_div_mu, Gen_vt<Gen_t> Vmk,
+			Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			typedef Gen_vt<Gen_t> T;
+			auto Vdisp = std::sqrt(Therm / Mtarget);
+			auto Vtresh = downbound(ssqrt(Delta_x_2_div_mu) - Vmk,(T)0);
+			if (Vdisp == 0) {
+				return { 0,1 };
+			}
+			if (Vtresh > 0) {
+				T xi_tr = FuncPDF(Vtresh / Vdisp);
+				return { Vdisp * (FirstStepIPDF(E0I1_G(G) * xi_tr)),xi_tr };
+			}
+			else {
+				return ThermGaussGenerator_Naive::gen_abs(G, Delta_x_2_div_mu,Vmk,Therm, Mtarget);
+			}
+		}
+		template <class Gen_t>
+		inline static MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> gen(
+			Gen_t& G, Gen_vt<Gen_t> Delta_x_2_div_mu, Gen_vt<Gen_t> Vmk,
+			Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			typedef Gen_vt<Gen_t> T;
+			auto Vdisp = std::sqrt(Therm / Mtarget);
+			auto Vtresh = downbound(ssqrt(Delta_x_2_div_mu) - Vmk, (T)0);
+			if (Vtresh > 0) {
+				return { RandomNvec(G) * gen_abs(G,Delta_x_2_div_mu,Vmk,Therm,Mtarget),1 };
+			}
+			else {
+				return ThermGaussGenerator_Naive::gen(G, Delta_x_2_div_mu, Vmk, Therm, Mtarget);
+			}
+		}
+	};
+
 
 	typedef std::variant<
 		ThermGaussGenerator_NoTherm,
 		ThermGaussGenerator_Naive,
 		ThermGaussGenerator_Soft8,
-		ThermGaussGenerator_Soft8_Treshold
+		ThermGaussGenerator_Soft8_Treshold,
+		ThermGaussGenerator_Full
 	> ThermGaussGenerator_Vasriant_t;
 
 

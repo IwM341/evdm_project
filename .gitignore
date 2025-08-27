@@ -3,6 +3,7 @@ build/
 performance_tests/
 work_test/
 out/
+out1/
 Formulas/*.html
 evdm/GPUCache
 .vs/

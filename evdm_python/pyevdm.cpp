@@ -6,8 +6,11 @@
 #include "debugdef.hpp"
 #include "dynamic_python.hpp"
 #include "annihilation.hpp"
+#include "pygridproj.hpp"
+//#include "pymarkov.hpp"
 namespace py = pybind11;
 
+void PyMarkov_add_to_python_module(pybind11::module& m);
 
 PYBIND11_MODULE(pyevdm, m)
 {
@@ -27,6 +30,8 @@ PYBIND11_MODULE(pyevdm, m)
     Py_Capture::add_to_python_module(m);
     Py_Matrix::add_to_python_module(m);
     Py_Pre_Ann::add_to_python_module(m);
+    PyMarkov_add_to_python_module(m);
 
     add_scatter_funcs_to_python_module(m);
+    add_to_python_module_GridProjectionMatrix(m);
 }

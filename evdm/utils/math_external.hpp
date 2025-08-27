@@ -47,6 +47,21 @@ namespace evdm {
 		size_t m_lim = std::numeric_limits<T>::digits;
 		return ((size_t)1 << (m_lim - ctl_x));
 	}
+	
+	template <typename T>
+	inline T powint(T x, size_t deg) {
+		T accum = 1;
+		T tmp = x;
+		while(deg) {
+			size_t rm = deg % 2;
+			deg = deg / 2;
+			if (rm) {
+				accum *= tmp;
+			}
+			tmp *= tmp;
+		}
+		return accum;
+	}
 };
 
 #endif

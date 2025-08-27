@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.11)
 set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ version selection")
 
 
-project(evdm_python_mudule LANGUAGES CXX VERSION 1.2.3)
+project(evdm_python_mudule LANGUAGES CXX VERSION 2.0.0)
 
 option(GEN_R_NO_POW "in capture r generator, use r = g() instead g()^p" OFF)
 if(${GEN_R_NO_POW})
@@ -81,6 +81,8 @@ set(SOURCES
     ${P_SOURCES_DIR}/pydynamics.cpp
     ${P_SOURCES_DIR}/pyannihilation.cpp
     ${P_SOURCES_DIR}/scatter_event_info.cpp
+    ${P_SOURCES_DIR}/pygridproj.cpp
+    ${P_SOURCES_DIR}/pymarkov.cpp
 )
 
 include(cmake/CPM.cmake)
@@ -93,7 +95,7 @@ endif()
 find_package(pybind11 CONFIG)
 if(NOT pybind11_FOUND)
     message("pybind11 not found, download from git")
-    CPMAddPackage("gh:pybind/pybind11@2.12.0")
+    CPMAddPackage("gh:pybind/pybind11@2.13.6")
 endif()
 
 

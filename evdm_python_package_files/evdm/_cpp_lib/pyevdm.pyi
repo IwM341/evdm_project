@@ -786,16 +786,16 @@ class Matrix:
         \tfloat or double.
 
 
-        2. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: numpy.ndarray, arg2: numpy.ndarray) -> None
+        2. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: object, arg2: numpy.ndarray) -> None
 
-        3. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: numpy.ndarray) -> None
+        3. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: object) -> None
 
         4. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: dict) -> None
 
         5. __init__(self: pyevdm.Matrix, arg0: dict) -> None
         """
     @overload
-    def __init__(self, arg0: GridEL, arg1: numpy.ndarray, arg2: numpy.ndarray) -> None:
+    def __init__(self, arg0: GridEL, arg1: object, arg2: numpy.ndarray) -> None:
         """__init__(*args, **kwargs)
         Overloaded function.
 
@@ -811,16 +811,16 @@ class Matrix:
         \tfloat or double.
 
 
-        2. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: numpy.ndarray, arg2: numpy.ndarray) -> None
+        2. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: object, arg2: numpy.ndarray) -> None
 
-        3. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: numpy.ndarray) -> None
+        3. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: object) -> None
 
         4. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: dict) -> None
 
         5. __init__(self: pyevdm.Matrix, arg0: dict) -> None
         """
     @overload
-    def __init__(self, arg0: GridEL, arg1: numpy.ndarray) -> None:
+    def __init__(self, arg0: GridEL, arg1: object) -> None:
         """__init__(*args, **kwargs)
         Overloaded function.
 
@@ -836,9 +836,9 @@ class Matrix:
         \tfloat or double.
 
 
-        2. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: numpy.ndarray, arg2: numpy.ndarray) -> None
+        2. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: object, arg2: numpy.ndarray) -> None
 
-        3. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: numpy.ndarray) -> None
+        3. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: object) -> None
 
         4. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: dict) -> None
 
@@ -861,9 +861,9 @@ class Matrix:
         \tfloat or double.
 
 
-        2. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: numpy.ndarray, arg2: numpy.ndarray) -> None
+        2. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: object, arg2: numpy.ndarray) -> None
 
-        3. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: numpy.ndarray) -> None
+        3. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: object) -> None
 
         4. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: dict) -> None
 
@@ -886,9 +886,9 @@ class Matrix:
         \tfloat or double.
 
 
-        2. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: numpy.ndarray, arg2: numpy.ndarray) -> None
+        2. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: object, arg2: numpy.ndarray) -> None
 
-        3. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: numpy.ndarray) -> None
+        3. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: object) -> None
 
         4. __init__(self: pyevdm.Matrix, arg0: pyevdm.GridEL, arg1: dict) -> None
 
@@ -912,7 +912,7 @@ class Matrix:
     def calc_diag(self) -> None:
         """calc_diag(self: pyevdm.Matrix) -> None
 
-        make diag values -summ of scatter probabilities
+        make diag values -sum of scatter probabilities
         """
     def copy(self) -> Matrix:
         """copy(self: pyevdm.Matrix) -> pyevdm.Matrix"""
@@ -926,8 +926,8 @@ class Matrix:
         ptype : int
         \twimp type, default -1, meaning all.
         """
-    def to_numpy(self, ptype_in: int = ..., ptype_out: int = ..., is_raw: bool = ...) -> numpy.ndarray:
-        """to_numpy(self: object, ptype_in: int = -1, ptype_out: int = -1, is_raw: bool = False) -> numpy.ndarray
+    def to_numpy(self, ptype_in: int = ..., ptype_out: int = ..., is_raw: bool = ...) -> object:
+        """to_numpy(self: object, ptype_in: int = -1, ptype_out: int = -1, is_raw: bool = False) -> object
 
         gives numpy array view to scatter matrix.
 
@@ -1081,9 +1081,8 @@ def CalcScatterImpl(matrix: Matrix, ptype_in: int, ptype_out: int, m_wimp: float
     \tnumber of monte-carle steps.
     \tMay depends on (e,l) or on (e0,e1,l0,l1)
     measure: how E,L distributed in bin.
-    \tif measure == 'dEdL' then uniformly distributed by dEdL measure
-    \tif measure == 'dEdL2' then uniformly distributed by dEdL^2 measure
-    method : str
+    \tshould be a tuple (p,q). E and l would be uniformly distributed by dE^pdl^q. default (1,2)
+    \tmethod : str
     \t method of generating therm velocity of nuclei.can be: 
     \t 'notherm', 'naive','soft' (more probability of high velocities), 'soft_tresh' (same as soft, but considering inelastic treshold)
     Nmk_traj: int
@@ -1092,6 +1091,11 @@ def CalcScatterImpl(matrix: Matrix, ptype_in: int, ptype_out: int, m_wimp: float
     \t[optional] scale factor, default - 1.
     bar : object
     \t[optional] progress bar update function.
+    """
+def GridProjectionMatrix(Grid_out: GridEL, Grid_in: GridEL, p: float = ..., q: float = ...) -> object:
+    """GridProjectionMatrix(Grid_out: pyevdm.GridEL, Grid_in: pyevdm.GridEL, p: float = measure of bin proportional dE^p, q: float = measure of bin proportional dl^q) -> object
+
+    Make projection matrix from Grid_in to Grid_out distribution
     """
 def func_factor(func: object) -> ScatterFactor:
     """func_factor(func: object) -> pyevdm.ScatterFactor

@@ -4,13 +4,73 @@
 #include <Eigen/Eigen>
 #include <Eigen/Dense>
 #include <memory>
-
+#include <ranges>
 namespace evdm {
 
     
     template <typename T>
     using Matrix_t =
         Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
+
+
+    template <typename T>
+    using SpMatrix_t =
+        Eigen::SparseMatrix<T,Eigen::ColMajor>;
+
+    template <typename T>
+    using SpTriplet_t = Eigen::Triplet<T>;
+
+    template<typename T>
+    std::vector<T> flatten(const std::vector<std::vector<T>>& nested) {
+        auto joined = nested | std::views::join;
+        return { joined.begin(), joined.end() };
+    }
+
+
+    template <typename T>
+    std::vector<SpTriplet_t<T>> getTriplets(const SpMatrix_t<T> &M) {
+        std::vector<SpTriplet_t<T>> outTriplets;
+        outTriplets.reserve(M.nonZeros());
+        for (int k = 0; k < M.outerSize(); ++k) {
+            for (typename SpMatrix_t<T>::InnerIterator it(M, k); it; ++it) {
+                outTriplets.push_back(
+                    SpTriplet_t<T>( it.row(), it.col(),it.value() )
+                );
+            }
+        }
+        return outTriplets;
+    }
+    template <typename T, typename U>
+    std::vector<SpTriplet_t<U>> getTriplets(
+        const SpMatrix_t<T>& M,std::type_identity<U> 
+    ) {
+        std::vector<SpTriplet_t<U>> outTriplets;
+        outTriplets.reserve(M.nonZeros());
+        for (int k = 0; k < M.outerSize(); ++k) {
+            for (typename SpMatrix_t<T>::InnerIterator it(M, k); it; ++it) {
+                outTriplets.push_back(
+                    SpTriplet_t<U>(it.row(), it.col(), it.value())
+                );
+            }
+        }
+        return outTriplets;
+    }
+
+    template <typename T>
+    bool isDiagonalFullyStored(const SpMatrix_t<T>& mat) {
+        int n = std::min(mat.rows(), mat.cols());
+        for (int i = 0; i < n; ++i) {
+            bool found = false;
+            for (typename SpMatrix_t<T>::InnerIterator it(mat, i); it; ++it) {
+                if (it.row() == i) { // Found Diagonal Element
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return false;
+        }
+        return true;
+    }
 
     template <typename T, typename Body_vt,
         typename GridEL_vt, GridEL_type grid_type>
@@ -20,37 +80,13 @@ namespace evdm {
 
         GridEL_t Grid;
 
-        typedef Matrix_t<T> _Mat_t;
-        typedef Eigen::Block<Matrix_t<T>> Mat_t;
-        //using const_Vec_t = Eigen::VectorX<T>::ConstSegmentReturnType;
-        typedef Eigen::Block<const Matrix_t<T>> const_Mat_t;
+        typedef SpMatrix_t<T> Mat_t;
+        
     private:
-        _Mat_t _Values;
-        Mat_t _ValuesView;
-        const_Mat_t _const_ValuesView;
-
-        template <typename Array_t>
-        static _Mat_t process_matrix(
-            Array_t &&X, size_t _N) {
-            
-            if (X.cols() == _N && X.cols() == X.rows()) {
-                if constexpr (
-                    std::is_same_v<std::decay_t<Array_t>, _Mat_t>
-                ) {
-                   return std::move(X);
-                }
-            }
-            _Mat_t _X(_N, _N);
-            _X.setZero();
-            _X.block(0, 0, std::min(_N, (size_t)X.cols()),std::min(_N, (size_t)X.rows()) ).noalias() = X;
-            return std::move(_X);
-        }
+        Mat_t Values;
 
     public:
 
-        size_t get_padding()const {
-            return 1;
-        }
         static constexpr Body_vt get_body_vtype() {
             static_assert("Distribution::get_body_vtype() is not callable");
         };
@@ -82,78 +118,77 @@ namespace evdm {
         inline auto const& grid()const {
             return *(Grid.Grid);
         }
-        inline Mat_t values() {
-            return _ValuesView;
+        inline Mat_t & values() {
+            return Values;
         }
-        inline const_Mat_t values() const {
-            return _const_ValuesView;
+        inline Mat_t const & values() const {
+            return Values;
         }
-        inline _Mat_t& raw_matrix() {
-            return _Values;
-        }
-        inline _Mat_t const& raw_matrix() const {
-            return _Values;
-        }
+
 
         template <typename Index>
-        auto as_histo(Index const& _I) {
+        auto as_histo(Index const& _I) const{
             size_t _shift = grid().LinearIndex(_I);
-            return grob::make_histo_view(
-                grid(), 
-                grob::vector_view<T>(_ValuesView.col(_shift).data())
+            auto m_grid = grid();
+            return grob::make_histo(
+                m_grid,
+                Eigen::VectorXd(Values.col(_shift))
             );
         }
 
-        template <typename Index>
-        auto as_histo(Index const& _I) const {
-            size_t _shift = grid().LinearIndex(_I);
-            return grob::make_histo_view(
-                grid(), 
-                grob::vector_view<T>(_ValuesView.col(_shift).data())
+        inline auto as_histo_i(size_t i)  const {
+            auto m_grid = grid();
+            return grob::make_histo(
+                m_grid,
+                Eigen::VectorXd(Values.col(i))
             );
         }
 
-        inline auto as_histo_i(size_t i) {
-            return grob::make_histo_view(grid(), _ValuesView.col(i));
-        }
-        inline auto as_histo_i(size_t i) const {
-            return grob::make_histo_view(grid(), _ValuesView.col(i));
-        }
-
-        inline auto as_histo_bank(size_t ptype_in, size_t ptype_out) {
-            check_ptype(ptype_in);
-            check_ptype(ptype_out);
-            auto const& _grid = grid().inner(0); //geom grid without ptypes
-            size_t inner_size = _grid.size(); //size of geom grid
-            size_t ptypes = grid().grid().size(); //number of ptypes
-            return grob::make_grid_object_ref(
-                _grid,
-                grob::as_container(
-                    [&_grid, m_block = block(ptype_in, ptype_out)]
-            (size_t i)mutable {
-                        auto m_col = m_block.col(i);
-            return grob::make_histo_view(_grid,
-                grob::vector_view(m_col.data(), m_col.size())
-            );
-                    }, _grid.size()
-                        )
-            );
-        }
-
-        template <typename MatrixArray_t = _Mat_t>
+        template <typename MatrixArray_t = Mat_t>
         GridMatrix(GridEL_t const& Grid,
-            MatrixArray_t &&Values = {}, size_t padding = 1) :
-            Grid(Grid), _Values(
-                process_matrix(
-                    std::forward<MatrixArray_t>(Values), 
-                    Grid.Grid->size()
-                )
-            ),
-            _ValuesView(_Values.block(0, 0, grid().size(), grid().size())),
-            _const_ValuesView(
-                static_cast<_Mat_t const&>(_Values)
-                .block(0, 0, grid().size(), grid().size())
-            ) {}
+            Mat_t _Values = {}) :
+            Grid(Grid), Values(std::move(_Values)) 
+        {
+            size_t N = Grid.Grid->size();
+            if (Values.rows() == 0 || Values.cols() == 0) {
+                Values.resize(N, N);
+            }
+            if (Values.rows() != N || Values.cols() != N) {
+                std::ostringstream ErrorText;
+                ErrorText << "evdm::GridMatrix constructor "
+                    "error: matrix size(" << 
+                    Values.rows() << "*" << Values.cols() <<
+                    ") doesn't match grid size (" << N << "*" << N << ")";
+                throw std::runtime_error(
+                    ErrorText.str()
+                );
+            }
+            std::vector<SpTriplet_t<T>> mOtherTriplets;
+            int n = Values.rows();
+            for (int i = 0; i < n; ++i) {
+                bool found = false;
+                for (typename SpMatrix_t<T>::InnerIterator it(Values, i); it; ++it) {
+                    if (it.row() == i) { // Found Diagonal Element
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    mOtherTriplets.push_back({ i,i,0 });
+                }
+            }
+            if (mOtherTriplets.size()) {
+                auto mTriplets = getTriplets(Values);
+                mOtherTriplets.insert(
+                    mOtherTriplets.end(), 
+                    mTriplets.begin(),
+                    mTriplets.end()
+                );
+                Values.setFromTriplets(
+                    mOtherTriplets.begin(), mOtherTriplets.end()
+                );
+            }
+        }
 
 
         template <typename U,typename T1,typename T2,GridEL_type grt1>
@@ -165,14 +200,14 @@ namespace evdm {
         ): 
             GridMatrix(
                 original.Grid, 
-                original._Values.template cast<T>()
+                original.Values.template cast<T>()
             )
         {}
 
         GridMatrix(GridMatrix const& original) :
             GridMatrix(
                 original.Grid,
-                original._Values) {}
+                original.Values) {}
 
         template <typename U>
         GridMatrix<U, Body_vt, GridEL_vt, grid_type> 
@@ -182,86 +217,111 @@ namespace evdm {
             >(*this);
         }
 
-        void CopyBroadcast(
-            size_t ptype_in_src, size_t ptype_out_src,
-            size_t ptype_in_dst, size_t ptype_out_dst, 
-            T weight = 1
-        ) {
-            block(ptype_in_dst, ptype_out_dst) = 
-                block(ptype_in_src, ptype_out_src) * weight;
-        }
-        void SummBroadcast(
-            size_t ptype_in_src, size_t ptype_out_src,
-            size_t ptype_in_dst, size_t ptype_out_dst, 
-            T weight = 1
-        ) {
-            block(ptype_in_dst, ptype_out_dst) += 
-                block(ptype_in_src, ptype_out_src) * weight;
-        }
-
-        inline Eigen::Block<Matrix_t<T>> block(
+        auto _block(
             int ptype_in, int ptype_out
-        ) {
+        ) const {
             size_t N_size = grid().inner(0).size();
             size_t N_size_full = grid().size();
             if (ptype_in < 0 || ptype_out < 0) {
-                return _ValuesView;
-            }
-            else {
-                check_ptype(ptype_in);
-                check_ptype(ptype_out);
-                return raw_matrix().block(
-                    ptype_out * N_size, ptype_in * N_size,
-                    N_size, N_size
+                return Values.block(
+                    0, 0,
+                    N_size_full, N_size_full
                 );
             }
-        }
-        inline auto diag(int ptype_in, int ptype_out) {
-            return block(ptype_in, ptype_out).diagonal();
-        }
-        inline auto diag(int ptype_in, int ptype_out) const{
-            return block(ptype_in, ptype_out).diagonal();
-        }
-        inline auto raw_diag() {
-            return raw_matrix().diagonal();
-        }
-        inline auto raw_diag() const{
-            return raw_matrix().diagonal();
-        }
-
-        inline Eigen::Block<const Matrix_t<T>> block(
-            int ptype_in, int ptype_out
-        )const {
-            size_t N_size = grid().inner(0).size();
-            size_t N_size_full = grid().size();
-            if (ptype_in < 0 || ptype_out < 0) {
-                return _const_ValuesView;
-            }
             else {
                 check_ptype(ptype_in);
                 check_ptype(ptype_out);
-                return raw_matrix().block(
+                return Values.block(
                     ptype_out * N_size, ptype_in * N_size,
                     N_size, N_size
                 );
             }
         }
 
+        template <typename U>
+        void add_to_block(SpMatrix_t<U> const& OtherMat,
+            int ptype_in, int ptype_out) {
+            auto mTriplets = getTriplets(OtherMat, std::type_identity<T>{});
+            ptype_in = std::max(ptype_in, int(0));
+            ptype_out = std::max(ptype_in, int(0));
+            check_ptype(ptype_in);
+            check_ptype(ptype_out);
+            size_t N_size = grid().inner(0).size();
+            
+            int InShift = ptype_in * N_size;
+            int OutShift = ptype_out * N_size;
+
+            for (auto & tr : mTriplets) {
+                tr = SpTriplet_t<T>(
+                    tr.row() + OutShift, InShift + tr.col(), tr.value()
+                );
+            }
+            SpMatrix_t<T> Other(Values.rows(), Values.cols());
+            Other.setFromTriplets(mTriplets.begin(), mTriplets.end());
+            Values += Other;
+        }
+        template <typename U>
+        void add_to_block(Matrix_t<U> const& OtherMat,
+            int ptype_in, int ptype_out) {
+            return add_to_block(SpMatrix_t<U>(OtherMat.sparseView()), ptype_in, ptype_out);
+        }
+        Mat_t block(
+            int ptype_in, int ptype_out
+        ) const{
+            size_t N_size = grid().inner(0).size();
+            size_t N_size_full = grid().size();
+            if (ptype_in < 0 || ptype_out < 0) {
+                return Values;
+            }
+            else {
+                check_ptype(ptype_in);
+                check_ptype(ptype_out);
+                return Values.block(
+                    ptype_out * N_size, ptype_in * N_size,
+                    N_size, N_size
+                );
+            }
+        }
+        inline Eigen::VectorX<T> diag(int ptype_in, int ptype_out) const{
+            size_t N_size = grid().inner(0).size();
+            size_t N_size_full = grid().size();
+            if (ptype_in < 0 or ptype_out < 0) {
+                return Values.diagonal().eval();
+            }
+            check_ptype(ptype_in);
+            check_ptype(ptype_out);
+            Eigen::VectorX<T> mDiag(N_size);
+            mDiag.setZero();
+
+            for (int i = N_size* ptype_in; i < N_size * (ptype_in +1); ++i) {
+                for (typename SpMatrix_t<T>::InnerIterator it(Values, i); it; ++it) {
+                    if (it.row() == i + N_size*(ptype_out- ptype_in)) {
+                        // Found Diagonal Element
+                        mDiag[i] = it.value();
+                    }
+                }
+            }
+            return mDiag;
+        }
+
+        inline auto raw_diag() const {
+            return diag(-1,-1);
+        }
         /// @brief makes diagonal elements to scatter
         template <typename  mVector_t>
         void to_scatter(mVector_t const & _EvapValues) {
-            for (size_t i = 0; i < _ValuesView.rows(); ++i) {
-                _ValuesView(i, i) = 0;
-                auto _sum = _ValuesView.col(i).sum();
-                _ValuesView(i, i) = -_sum - _EvapValues[i];
+            for (size_t i = 0; i < Values.rows(); ++i) {
+                Values.coeffRef(i, i) = 0;
+                auto _sum = Values.col(i).sum();
+                Values.coeffRef(i, i) = -_sum - _EvapValues[i];
             }
         }
         /// @brief makes diagonal elements to scatter
         void to_scatter() {
-            for (size_t i = 0; i < _ValuesView.rows(); ++i) {
-                _ValuesView(i, i) = 0;
-                auto _sum = _ValuesView.col(i).sum();
-                _ValuesView(i, i) = -_sum;
+            for (size_t i = 0; i < Values.rows(); ++i) {
+                Values.coeffRef(i, i) = 0;
+                auto _sum = Values.col(i).sum();
+                Values.coeffRef(i, i) = -_sum;
             }
         }
     };
@@ -271,13 +331,25 @@ namespace evdm {
         typename GridEL_vt, GridEL_type grid_type
     >
     auto make_Matrix(
-        EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid,
-        size_t padding = 1
+        EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid
     ) {
-        GridMatrix<T, Body_vt, GridEL_vt, grid_type> Dstr(Grid, {},padding);
+        GridMatrix<T, Body_vt, GridEL_vt, grid_type> Dstr(Grid, {});
         return Dstr;
     }
 
+    template <
+        typename T, typename Body_vt,
+        typename GridEL_vt, GridEL_type grid_type
+    >
+    auto make_Matrix(
+        EL_Grid<Body_vt, GridEL_vt, grid_type> const& Grid,
+        SpMatrix_t<T> mSpMat
+    ) {
+        GridMatrix<T, Body_vt, GridEL_vt, grid_type> Dstr(Grid, std::move(mSpMat));
+        return Dstr;
+    }
+
+    /*
     template <
         typename T, typename Body_vt, 
         typename GridEL_vt, GridEL_type grid_type
@@ -310,6 +382,6 @@ namespace evdm {
         > data_view(_mdata, N, N, stride_t(_strid_inner, _strid_outer));
         return GridMatrix<T, Body_vt, GridEL_vt, grid_type>
             (Grid, data_view, padding);
-    }
+    }*/
 
 }; //namespace evdm

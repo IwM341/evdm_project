@@ -129,11 +129,18 @@ def ScatterCalc(sc_matrix,scatter_model : ff.ScatterModel,n_dense,
     Nmk : int
         number of monte-carle steps.
     method : string
-        'notherm', 'naive','soft','soft_tresh'
+        'notherm', 'naive','soft','soft_tresh','full'
+    measure: tuple
+        how E,L distributed in bin.
+        should be a tuple (p,q). 
+        E and l would be uniformly distributed by dE^pdl^q.
+        default is (1,2)
     Nmk_traj : int
         number of monte-carle steps on each trajectory.
+        default is 1
     weight : float
-        additional scale factor, default - 1.
+        additional scale factor.
+        default is 1.
     seed : int
         for generator
     bar : any

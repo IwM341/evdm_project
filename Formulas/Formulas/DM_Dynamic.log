@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  30 JUN 2025 07:18
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  26 AUG 2025 17:35
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -1113,7 +1113,7 @@ Missing character: There is no Å in font cmr10!
 Missing character: There is no ñ in font cmr10!
 Missing character: There is no ë in font cmr10!
 Missing character: There is no è in font cmr10!
-<imags/graphT.jpg, id=99, 383.18156pt x 378.66469pt>
+<imags/graphT.jpg, id=107, 383.18156pt x 378.66469pt>
 File: imags/graphT.jpg Graphic file (type jpg)
 <use imags/graphT.jpg>
 Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
@@ -1122,7 +1122,7 @@ Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 [2] [3 <./imags/graphT.jpg>] [4]
-<imags/diagramm1.png, id=130, 462.528pt x 346.896pt>
+<imags/diagramm1.png, id=138, 462.528pt x 346.896pt>
 File: imags/diagramm1.png Graphic file (type png)
 <use imags/diagramm1.png>
 Package pdftex.def Info: imags/diagramm1.png  used on input line 256.
@@ -1148,16 +1148,48 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `math shift' on input line 398.
 
-[7] [8] [9] [10] [11] [12] [13] [14] (src/OptBin.tex [15] [16]) [17]
-(DM_Dynamic.aux)
+[7] [8] [9] [10] [11] [12] [13] [14] (src/OptBin.tex [15] [16]
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 126.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `\Delta' on input line 126.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `subscript' on input line 126.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 126.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 126.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `\Delta' on input line 126.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `subscript' on input line 126.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 126.
+
+) [17] (DM_Dynamic.aux)
 Package rerunfilecheck Info: File `DM_Dynamic.out' has not changed.
-(rerunfilecheck)             Checksum: 1D0593544B6F70AA98B55ECAE9A79E29;3183.
+(rerunfilecheck)             Checksum: FB843A6F6395CF61416E27FABE7E50EC;3622.
  ) 
 Here is how much of TeX's memory you used:
- 26217 strings out of 475385
- 503235 string characters out of 2790968
- 843330 words of memory out of 3000000
- 47063 multiletter control sequences out of 15000+600000
+ 26221 strings out of 475385
+ 503305 string characters out of 2790968
+ 843331 words of memory out of 3000000
+ 47065 multiletter control sequences out of 15000+600000
  476139 words of font info for 43 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  81i,13n,83p,776b,613s stack positions out of 10000i,1000n,20000p,200000b,80000s
@@ -1174,9 +1206,9 @@ s/type1/public/amsfonts/cm/cmr7.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts
 /cm/cmsy10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy5.pfb><D:/Sof
 t/MikTex/fonts/type1/public/amsfonts/cm/cmsy7.pfb><D:/Soft/MikTex/fonts/type1/p
 ublic/amsfonts/symbols/msam10.pfb>
-Output written on DM_Dynamic.pdf (17 pages, 330698 bytes).
+Output written on DM_Dynamic.pdf (17 pages, 335058 bytes).
 PDF statistics:
- 467 PDF objects out of 1000 (max. 8388607)
- 95 named destinations out of 1000 (max. 500000)
- 151 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 482 PDF objects out of 1000 (max. 8388607)
+ 97 named destinations out of 1000 (max. 500000)
+ 167 words of extra memory for PDF output out of 10000 (max. 10000000)
 

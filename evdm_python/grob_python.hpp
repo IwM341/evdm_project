@@ -227,8 +227,7 @@ std::variant<
 	Validator_t Validator,
 	std::string_view S,
 	std::type_identity<std::variant<Ts...>>
-) {
-	size_t i = tuple_get_type(Validator,S, std::type_identity<Ts>{}...);
+) {	size_t i = tuple_get_type(Validator,S, std::type_identity<Ts>{}...);
 
 	if (i >= sizeof...(Ts)) {
 		throw std::runtime_error(
@@ -238,6 +237,54 @@ std::variant<
 	return evdm::make_variant_alt(i, std::type_identity<Ts>{}...);
 }
 
+
+template <typename Checker_t, typename T1>
+inline size_t checkType(
+	Checker_t && validator,
+	std::type_identity<T1> self_T1
+) {
+	return !validator(self_T1);
+}
+template <typename Checker_t, typename T1,typename...Ts>
+inline size_t checkType(
+	Checker_t&& validator,
+	std::type_identity<T1> self_T1,
+	std::type_identity<Ts>...selfs_Ts
+) {
+	if (!checkType(validator, self_T1)) {
+		return 0;
+	}
+	else {
+		return 1 + checkType(validator, selfs_Ts...);
+	}
+}
+
+template <typename Checker_t, typename default_type,typename...Ts>
+std::variant<
+	std::type_identity<Ts>...
+> getType(Checker_t&& type_checker, 
+	std::type_identity<std::variant<Ts...>>,
+	std::type_identity<default_type>
+) {
+	typedef std::variant<std::type_identity<Ts>...> Ret_t;
+	size_t i = checkType(type_checker, std::type_identity<Ts>{}...);
+	if (i >= sizeof...(Ts)) {
+		if constexpr (
+			std::disjunction_v<std::is_same<default_type, Ts>...>
+		) {
+			return Ret_t(std::type_identity<default_type>{});
+		}
+		else {
+			throw std::runtime_error(
+				"fail in attempt to determine type in evdm::getType"
+			);
+		}
+		
+	}
+	else {
+		return evdm::make_variant_alt(i, std::type_identity<Ts>{}...);
+	}
+}
 /// @brief get value of type T from dict
 template <typename T>
 inline T pyget(

@@ -12,7 +12,7 @@
       "variables": [
         {
           "name": "pybind11_DIR",
-          "value": "D:/Soft/cpp_packages/pybind11/build_msvc/share/cmake/pybind11",
+          "value": "",
           "type": "PATH"
         },
         {

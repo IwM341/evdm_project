@@ -1,7 +1,11 @@
 #pragma once
 #include "dynamics.hpp"
 #include "../utils/progress_bar.hpp"
+#include <ranges>
 namespace evdm {
+
+	
+
 	/*MK generator of output vu', considering evaporation */
 	template <class Gen_t, typename VectorT>
 	inline MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> VuOut_evap(
@@ -61,7 +65,7 @@ namespace evdm {
 	>
 	inline MCResult<
 		vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>
-	> Vout1_Scatter(
+	> DeltaVout1_Scatter(
 		vec3<Gen_vt<Gen_t>> V_wimp,
 		Gen_vt<Gen_t> V_wimp_norm,
 		Gen_t& G,
@@ -124,13 +128,14 @@ namespace evdm {
 		factor *= Vumk.RemainDensity;
 
 		// q - exchange momentum
-		vec3<T> vec_Q = m_cm * (Vu - Vu1);
-		auto q_2 = vec_Q.squaredNorm();
+		vec3<T> dVu = Vu1 - Vu;
+		auto vec_minusQ = m_cm * dVu;
+		auto q_2 = vec_minusQ.squaredNorm();
 
 		//
 		vec3<T> vec_V_T_inel = (Vu + Vu1) / 2;
 		if (delta_mk != 0 && q_2 != 0)
-			vec_V_T_inel -= delta_mk * vec_Q / q_2;
+			vec_V_T_inel += delta_mk * vec_minusQ / q_2;
 		T v_2 = vec_V_T_inel.squaredNorm();
 		//////////
 		// v_2 = \vec_{v}_{inel T}^{\perp 2}
@@ -141,22 +146,21 @@ namespace evdm {
 		factor *= dF.ScatterFactor(q_2, v_2, inel_enloss);
 
 		/**/
-		return { vec3<T>(Vu1 * mi_frac + Vcm), factor };
+		return { vec3<T>(dVu * mi_frac), factor };
 	}
 
 
 	template <
 		typename Grid_vt,
+		typename Mat_vt,
 		typename Gen_t,
 		typename ScatterFactor_t,
 		typename NDensityEvent_t,
 		typename ThermGenerator_t,
-		typename HistoBank_t,
 		typename HistoEvap_t,
 		typename LEFunc_t,
 		typename BinTrajPool_t,
 
-		typename BinMes_t,
 
 		typename PhiFunc_t,
 		typename SFunc_t,
@@ -164,21 +168,24 @@ namespace evdm {
 		typename VescFunc_t,
 		typename Nmk_Vec_t
 	>
-	void ScatterImpl(
-		std::type_identity< Grid_vt>,
+	SpMatrix_t<Mat_vt> ScatterImpl(
+		std::type_identity<Grid_vt>,
+		std::type_identity<Mat_vt>,
+		size_t MatSize,
 		Gen_t&& _G,
 		ThermGenerator_t ThermGen,
 		Gen_vt<Gen_t> mk, Gen_vt<Gen_t> dm,
 		Gen_vt<Gen_t> mi,
 		ScatterFactor_t const & dF,
 		NDensityEvent_t const & Nir,
-		HistoBank_t& ScatMat_bank,
+		size_t MatrixIndexShift_In,
+		size_t MatrixIndexShift_Out,
 		HistoEvap_t&& EvapDistrib,
 		bool count_evap,
 		LEFunc_t const& LEf,
 		Gen_vt<Gen_t> _F2_value,
 		const BinTrajPool_t& TrajPoolVec,
-		BinMes_t m_mes,
+		measure_dEpdlq<Gen_vt< Gen_t>> m_mes,
 		PhiFunc_t const& Phi,
 		SFunc_t const& S_func,
 
@@ -193,7 +200,8 @@ namespace evdm {
 		typedef Grid_vt Traj_t;
 
 		
-		const size_t N_in = ScatMat_bank.Grid.size();
+		const size_t N_in = EvapDistrib.Grid.size();
+		auto&& grid = EvapDistrib.Grid;
 		progress_omp_bar<> m_bar(
 			m_progress_func, N_in, std::max((int)(N_in / 1000), 1)
 		);
@@ -204,16 +212,18 @@ namespace evdm {
 		auto mi_frac = mi / (mk + mi);
 		auto mk_frac = mk / (mk + mi);
 		const auto _seed = _G.state;
-		#pragma	omp parallel for 
+		std::vector<Mat_vt> OutIBuffer(N_in);
+		std::vector<std::vector<SpTriplet_t<Mat_vt>>> triplets(N_in);
+		#pragma	omp parallel for  firstprivate(OutIBuffer)
 		for (int i = 0; i < N_in; ++i) {
+			std::fill(OutIBuffer.begin(), OutIBuffer.end(), 0);
 			auto G = _G;
 			G.set_seed(_seed ^ i + 1);
-			auto IJ = ScatMat_bank.Grid.FromLinear(i);
+			auto IJ = grid.FromLinear(i);
 
-			auto el_bin = ScatMat_bank.Grid[IJ];
+			auto el_bin = grid[IJ];
 
-			auto OutHisto = ScatMat_bank.Values[i];
-
+			auto OutHisto = grob::make_histo_view(grid,OutIBuffer);
 			const bin_traj_pool_t<Traj_t>& el_trajpool = TrajPoolVec[i];
 
 			auto TinFunc = make_bin_traj_pool_Tin_func(
@@ -221,7 +231,7 @@ namespace evdm {
 			auto ToutFunc = make_bin_traj_pool_Tout_func(
 				el_trajpool, LEf);
 
-			auto m_bin_el_gen = gen_EL(m_mes, el_bin, G, LEf);
+			auto m_bin_el_gen = m_mes.get_gen(el_bin);
 
 			size_t Nmk = 0;
 			if constexpr (std::is_same_v<Nmk_Vec_t, size_t>) {
@@ -230,7 +240,8 @@ namespace evdm {
 				Nmk = Nmk_v[i];
 			}
 			for (size_t nm = 0; nm < Nmk; ++nm) {
-				auto [e, l,Lmax] = m_bin_el_gen();
+				auto [e, l] = m_bin_el_gen(G);
+				auto Lmax = LEf(-e);
 				auto Ltmp = l * Lmax;
 
 				auto [u0, u1, theta_max] =
@@ -279,29 +290,43 @@ namespace evdm {
 					Traj_t vt = upbound(Ltmp / r, v);
 					Traj_t vr = ssqrt(v2 - vt * vt);
 
-					vec3<Traj_t > V_in(vt * VescMin, 0, vr * VescMin);
+					vec3<Traj_t > V_in_nd(vt , 0, vr );
+					vec3<Traj_t > V_in = V_in_nd * VescMin;
 					Traj_t v_esc_nd = VescR(r);
-					auto [Vout, factor] =
-						Vout1_Scatter(
+					auto [dVout, factor] =
+						DeltaVout1_Scatter(
 							V_in,v, G, ThermGen, 
 							mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm, 
 							dF,
 							v_esc_nd * VescMin, VescMin,
 							Nir(r), TempR(r)
 						);
+					vec3<Traj_t > dVout_nd = dVout * (1 / VescMin);
+					auto VplusV1 = 2 * V_in_nd + dVout_nd;
+					auto dVtau2 = dVout_nd[0] * VplusV1[0] +
+						dVout_nd[1] * VplusV1[1];
 
-					vec3<Traj_t > v_nd = Vout / VescMin;//OK
-					Traj_t e_out = (v_nd.squaredNorm() - v_esc_nd * v_esc_nd);
-
+					Traj_t deltaE = dVtau2 + dVout_nd[2] * VplusV1[2];
+					//vec3<Traj_t > v_nd = Vout / VescMin;//OK
+					Traj_t e_out = e + deltaE;
+					//Traj_t e_out1 = ((V_in_nd+ dVout_nd).squaredNorm() - v_esc_nd * v_esc_nd);
 
 					auto final_factor = factor * mk_factor * renorm_factor;
 					if (e_out < 0) {
-						Traj_t L_nd = r * std::sqrt(
-							v_nd.x() * v_nd.x() + 
-							v_nd.y() * v_nd.y()
-						);
+						Traj_t deltaL2 = (r * r) * dVtau2;
+						Traj_t L_nd2 = Ltmp * Ltmp + deltaL2;
+						Traj_t L_nd = ssqrt(L_nd2);
+						
+						auto Lcutter = [](Traj_t Lmax) ->Traj_t {
+							return Lmax > 0 ? 1 / Lmax : 0;
+						};
+
+						Traj_t Lm_inv = Lcutter(Lmax);
 						Traj_t Lmax_out = LEf(-e_out);
-						Traj_t l_out = (Lmax_out > 0 ? L_nd / Lmax_out : 0);
+						Traj_t Lm_inv1 = Lcutter( Lmax_out);
+
+						Traj_t l_out = upbound(L_nd* Lm_inv1,1);
+						//Traj_t l_out1= (Lmax_out > 0 ? L_nd / Lmax_out : 0);
 						OutHisto.put_force(final_factor, e_out, l_out);
 					}
 					else {
@@ -309,9 +334,270 @@ namespace evdm {
 					}
 				}
 			}
+
+			size_t NonZeros = std::count_if(
+				OutIBuffer.begin(), OutIBuffer.end(),
+				[](auto x) {return x > 0; }
+			);
+			triplets[i].reserve(NonZeros);
+			for (size_t k = 0; k < OutIBuffer.size(); ++k) {
+				if (OutIBuffer[k] > 0) {
+					triplets[i].push_back(SpTriplet_t<Mat_vt>(
+						k + MatrixIndexShift_Out ,
+						i + MatrixIndexShift_In,
+						OutIBuffer[k] 
+					));
+				}
+			}
 			m_bar.next();
 		}
+		std::vector<SpTriplet_t<Mat_vt>>
+			AllTriplets(flatten(triplets));
+
+		SpMatrix_t<Mat_vt> Ret(MatSize, MatSize);
+		Ret.setFromTriplets(AllTriplets.begin(),AllTriplets.end());
+
+		return Ret;
 	}
 
 
+	
+	template <
+		typename Grid_vt,
+		typename Mat_vt,
+		typename Gen_t,
+		typename ScatterFactor_t,
+		typename NDensityEvent_t,
+		typename ThermGenerator_t,
+		typename HistoEvap_t,
+		typename LEFunc_t,
+		typename BinTrajPool_t,
+
+		typename BinMes_t,
+
+		typename PhiFunc_t,
+		typename SFunc_t,
+		typename TempFunc_t,
+		typename VescFunc_t,
+		typename Nmk_Vec_t
+	>
+	SpMatrix_t<Mat_vt> ScatterImplDiffuse (
+		std::type_identity<Grid_vt>,
+		std::type_identity<Mat_vt>,
+		size_t MatSize,
+		Gen_t&& _G,
+		ThermGenerator_t ThermGen,
+		Gen_vt<Gen_t> mk, Gen_vt<Gen_t> dm,
+		Gen_vt<Gen_t> mi,
+		ScatterFactor_t const& dF,
+		NDensityEvent_t const& Nir,
+		size_t MatrixIndexShift_In,
+		size_t MatrixIndexShift_Out,
+		HistoEvap_t&& EvapDistrib,
+		bool count_evap,
+		LEFunc_t const& LEf,
+		Gen_vt<Gen_t> _F2_value,
+		const BinTrajPool_t& TrajPoolVec,
+		measure_dEpdlq<Grid_vt> m_mes,
+		PhiFunc_t const& Phi,
+		SFunc_t const& S_func,
+
+		TempFunc_t const& TempR,
+		VescFunc_t const& VescR,
+		Gen_vt<Gen_t> VescMin,
+		Nmk_Vec_t const& Nmk_v,
+		size_t Nmk_per_traj,
+		Gen_vt<Gen_t> weight,
+		progress_omp_function<>& m_progress_func
+	) {
+		typedef Grid_vt Traj_t;
+
+
+		const size_t N_in = EvapDistrib.Grid.size();
+		auto&& grid = EvapDistrib.Grid;
+		progress_omp_bar<> m_bar(
+			m_progress_func, N_in, std::max((int)(N_in / 1000), 1)
+		);
+		auto m_cm = mk * mi / (mk + mi);
+
+		auto deltaE_div_m_cm = 2 * dm / m_cm;
+
+		auto mi_frac = mi / (mk + mi);
+		auto mk_frac = mk / (mk + mi);
+		const auto _seed = _G.state;
+		std::vector<std::vector<SpTriplet_t<Mat_vt>>> triplets(N_in);
+#pragma	omp parallel for  firstprivate(OutIBuffer)
+		for (int i = 0; i < N_in; ++i) {
+			triplets[i].reserve(9);
+			auto G = _G;
+			G.set_seed(_seed ^ i + 1);
+			auto IJ = grid.FromLinear(i);
+
+			auto el_bin = grid[IJ];
+			auto [X0X1, Y0Y1] = m_mes.toXY(el_bin);
+
+			//auto OutHisto = grob::make_histo_view(grid, OutIBuffer);
+			const bin_traj_pool_t<Traj_t>& el_trajpool = TrajPoolVec[i];
+
+			auto TinFunc = make_bin_traj_pool_Tin_func(
+				el_trajpool, LEf, _F2_value);
+			auto ToutFunc = make_bin_traj_pool_Tout_func(
+				el_trajpool, LEf);
+
+			//auto m_bin_el_gen = gen_EL(m_mes, el_bin, G, LEf);
+
+			size_t Nmk = 0;
+			if constexpr (std::is_same_v<Nmk_Vec_t, size_t>) {
+				Nmk = Nmk_v;
+			}
+			else {
+				Nmk = Nmk_v[i];
+			}
+
+			for (size_t nm = 0; nm < Nmk; ++nm) {
+				auto X0 = X0X1.left + X0X1.volume() * G();
+				auto Y0 = Y0Y1.left + Y0Y1.volume() * G();
+				
+				auto [e, l] = m_mes.fromXY(X0, Y0);
+				Traj_t Lmax = LEf(-e);
+				auto Ltmp = l * Lmax;
+
+				auto [u0, u1, theta_max] =
+					TinFunc.u0_u1_theta1(e, l, Lmax);
+				u0 = std::clamp(u0, (decltype(u0))0, (decltype(u0))1);
+				u1 = std::clamp(u1, (decltype(u1))0, (decltype(u1))1);
+				auto r0 = std::sqrt(u0);
+				auto r1 = std::sqrt(u1);
+				auto [tp_i, tp_j] = el_trajpool.Grid.pos(e, l);
+
+				auto const& th00 = el_trajpool[{tp_i, tp_j}].theta_tau;
+				//prelimenary trajectory
+
+				auto Tin_Teheta = TinFunc.tin_theta(e, l);
+
+				auto Tin = Tin_Teheta * theta_max;
+				auto Tout = ToutFunc(e, l, Ltmp);
+
+				auto mk_factor =
+					weight * Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
+
+				for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
+					auto tau = G();
+					auto [theta_undim, d_theta_undim] = th00(tau);
+					auto theta = theta_undim * theta_max;
+					auto d_theta = d_theta_undim * theta_max;
+
+					auto cth2 = std::cos(theta / 2);
+					auto sth2 = std::sin(theta / 2);
+					Traj_t r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
+
+#ifndef NDEBUG
+					auto _C0 = Phi(std::sqrt(u0)) + e - Ltmp * Ltmp / u0;
+					auto _C0_p = Phi(std::sqrt(u0 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 + 1e-4));
+					auto _C0_m = Phi(std::sqrt(u0 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 - 1e-4));
+					auto _C1 = Phi(std::sqrt(u1)) + e - Ltmp * Ltmp / u1;
+					auto _C1_p = Phi(std::sqrt(u1 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 + 1e-4));
+					auto _C1_m = Phi(std::sqrt(u1 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 - 1e-4));
+#endif
+					auto renorm_factor =
+						d_theta_undim /
+						(2 * Tin_Teheta * std::sqrt(S_func(r, r0, r1)));
+
+					Traj_t v2 = downbound(Phi(r) + e, 0);
+					auto v = std::sqrt(v2);
+					Traj_t vt = upbound(Ltmp / r, v);
+					Traj_t vr = ssqrt(v2 - vt * vt);
+
+					vec3<Traj_t > V_in_nd(vt, 0, vr);
+					vec3<Traj_t > V_in = V_in_nd * VescMin;
+					Traj_t v_esc_nd = VescR(r);
+					auto [dVout, factor] =
+						DeltaVout1_Scatter(
+							V_in, v, G, ThermGen,
+							mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm,
+							dF,
+							v_esc_nd * VescMin, VescMin,
+							Nir(r), TempR(r)
+						);
+					vec3<Traj_t > dVout_nd = dVout * (1 / VescMin);
+					auto VplusV1 = 2 * V_in_nd + dVout_nd;
+					auto dVtau2 = dVout_nd[0] * VplusV1[0] +
+						dVout_nd[1] * VplusV1[1];
+
+					Traj_t deltaE = dVtau2 + dVout_nd[2] * VplusV1[2];
+					//vec3<Traj_t > v_nd = Vout / VescMin;//OK
+					Traj_t e_out = e + deltaE;
+					//Traj_t e_out = ((V_in_nd + dVout_nd).squaredNorm() - v_esc_nd * v_esc_nd);
+
+					auto final_factor = factor * mk_factor * renorm_factor;
+					if (e_out < 0) {
+						Traj_t deltaL2 = (r * r) * dVtau2;
+						Traj_t L_nd2 = Ltmp * Ltmp + deltaL2;
+						Traj_t L_nd = ssqrt(L_nd2);
+
+						auto Lcutter = [](Traj_t Lmax) ->Traj_t {
+							return Lmax > 0 ? 1 / Lmax : 0;
+						};
+
+						Traj_t Lm_inv = Lcutter(Lmax);
+						Traj_t Lmax_out = LEf(-e_out);
+						Traj_t Lm_inv1 = Lcutter(Lmax_out);
+
+						Traj_t l_out = upbound(L_nd2 * Lm_inv1, 1);
+						//Traj_t l_out1= (Lmax_out > 0 ? L_nd / Lmax_out : 0);
+						//Traj_t deltal = l_out - l;
+						auto [x0, y0] = m_mes.toXY(e, l);
+						auto [x1, y1] = m_mes.toXY(e_out, l_out);
+						Traj_t dx = x1 - x0;
+						Traj_t dy = y1 - y0;
+						
+						
+						Traj_t Xmin = X0X1.left + dx;
+						Traj_t Xmax = X0X1.right + dx;
+						Traj_t Ymin = Y0Y1.left + dy;
+						Traj_t Ymax = Y0Y1.right + dy;
+						bin_dedl_t<Traj_t> binout({ Xmin,Xmax }, { Ymin,Ymax });
+
+						auto [emin, lmin] = m_mes.fromXY(Xmin, Ymin);
+						auto [emax, lmax] = m_mes.fromXY(Xmax, Ymax);
+
+						size_t i2_0 = grid.grid().pos(emin);
+						size_t i2_1 = grid.grid().pos(emax) + 1;
+						for (size_t i = i2_0; i < i2_1; ++i) {
+							auto gridl = grid.inner(i);
+
+							size_t j2_0 = gridl.pos(lmin);
+							size_t j2_1 = gridl.pos(lmax) + 1;
+
+							for (size_t j = j2_0; j < j2_1; ++j) {
+								auto mbin = grid[{i,j}];
+								
+								auto VolOut = grob::intersect(binout,mbin).volume();
+								auto vol_factor = VolOut*Lcutter(binout.volume());
+
+								size_t k = grid.LinearIndex(i, j);
+								triplets[i].push_back({ 
+										k + MatrixIndexShift_Out,
+										i + MatrixIndexShift_In,
+										final_factor * vol_factor }
+								);
+							}
+						}
+					}
+					else {
+						EvapDistrib.Values[i] += final_factor;
+					}
+				}
+			}
+
+			m_bar.next();
+		}
+		std::vector<SpTriplet_t<Mat_vt>>
+			AllTriplets(flatten(triplets));
+
+		SpMatrix_t<Mat_vt> Ret(MatSize, MatSize);
+		Ret.setFromTriplets(AllTriplets.begin(), AllTriplets.end());
+
+		return Ret;
+	}
 }; //namespace evdm 

@@ -6,6 +6,8 @@
 #include "utils/math_external.hpp"
 namespace evdm {
 
+    
+
     /**
     * no measure, absolute value instead of density
     */
@@ -27,6 +29,61 @@ namespace evdm {
 
     template <typename T>
     using bin_dedl_t = grob::Point<grob::Rect<T>, grob::Rect<T>>;
+
+    template <typename EL_t>
+    struct measure_dEpdlq {
+        EL_t p;
+        EL_t q;
+        EL_t emin_abs;
+        EL_t emin_abs_inv;
+
+        measure_dEpdlq(EL_t p, EL_t q, EL_t emin_abs):
+            p(p),q(q), emin_abs(std::abs(emin_abs)), 
+            emin_abs_inv(1/ std::abs(emin_abs)){}
+
+        template <typename T>
+        inline bin_dedl_t<T> toXY(bin_dedl_t<T> const& m_bin) const {
+            auto [es, ls] = m_bin;
+            return bin_dedl_t<T>(
+                grob::Rect<T>(
+                    std::pow((es.left + (T)emin_abs)* (T)emin_abs_inv,(T)p),
+                    std::pow( (es.right + (T)emin_abs) * (T)emin_abs_inv,(T)p)
+                ),
+                grob::Rect<T>(
+                    std::pow(ls.left,(T)q),
+                    std::pow(ls.right,(T)q)
+                )
+            );
+        }
+        template <typename T>
+        inline  grob::Point<T, T> toXY(T e,T l)const {
+            return { std::pow((e + (T)emin_abs) * (T)emin_abs_inv,(T)p),std::pow(l,(T)q) };
+        }
+
+
+        template <typename T>
+        inline  grob::Point<T, T> fromXY(T x, T y)const {
+            return { (T)emin_abs*std::pow(x,1/(T)p)- (T)emin_abs,std::pow(y,1 /(T)q) };
+        }
+
+        template <typename T>
+        inline  EL_t operator ()(bin_dedl_t<T> const& m_bin)const {
+            return toXY(m_bin).volume();
+        }
+
+        template <typename T>
+        inline auto get_gen(bin_dedl_t<T> const& m_bin)const{
+            auto InnerBin = toXY(m_bin);
+            return [InnerBin,p_inv=1/(T)p,q_inv=1/(T)q,Emin=(T)emin_abs]
+                (auto& Generator)->grob::Point<T, T> 
+            {
+                T x = std::get<0>(InnerBin).reduction(I0E1_G(Generator));
+                T y = std::get<1>(InnerBin).reduction(I0E1_G(Generator));
+                return { Emin*std::pow(x,p_inv)-Emin, std::pow(y,q_inv)};
+            };
+        }
+
+    };
 
     template <typename T, typename U>
     inline T dEdl(bin_dedl_t<T> const& m_bin,

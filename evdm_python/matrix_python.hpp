@@ -14,7 +14,7 @@ struct Py_Matrix {
 		m_matrix(
 			std::visit([](auto const& _grid)->Matrix_Variant_t {
 				return std::make_pair(
-					evdm::make_Matrix<T>(_grid, 1),
+					evdm::make_Matrix<T>(_grid),
 					evdm::make_Distribution<T>(_grid, false,1)
 				);
 				}, mGridEL.m_grid)
@@ -60,49 +60,31 @@ struct Py_Matrix {
 
 	template <typename T>
 	Py_Matrix(Py_EL_Grid const& mGridEL,
-		const T* m_data, size_t N,
-		size_t _OuterStride, size_t _InnerStride,
-		const T* m_data_evap, size_t Nevap, size_t _strideEvap/*,
+		evdm::SpMatrix_t<T> matrix,
+		Eigen::VectorX<T> EvapVector/*,
 		int padding = -1*/) :
 		m_matrix(
 			std::visit([&](auto const& _grid)->Matrix_Variant_t {
 				size_t grid_size = _grid.Grid->size();
-
-	size_t mat_padding = (N >= grid_size) ?
-		evdm::min_deg_2(N - grid_size) : 1;
-
-
-	size_t vec_padding = (Nevap >= grid_size) ?
-		evdm::min_deg_2(Nevap - grid_size) : 1;
-	/*if (padding > 0) {
-		mat_padding = padding;
-		vec_padding = padding;
-	}*/
-
-	if (Nevap != 0 && m_data_evap != nullptr) {
-		return std::make_pair(
-			evdm::make_Matrix<T>(_grid, m_data, grid_size,
-				_OuterStride, _InnerStride, 1/*mat_padding*/),
-			evdm::make_Distribution_data<T>(
-				_grid, m_data_evap, _strideEvap, grid_size, 1/*vec_padding*/
-				)
-		);
-	}
-	else {
-		return std::make_pair(
-			evdm::make_Matrix<T>(_grid, m_data, N,
-				_OuterStride, _InnerStride, 1/*mat_padding*/),
-			evdm::make_Distribution<T>(
-				_grid, false, 1/*vec_padding*/
-				)
-		);
-	}
-				}, mGridEL.m_grid)
+				if (matrix.rows() == 0 && matrix.cols() == 0) {
+					matrix.resize(grid_size, grid_size);
+				}
+				if (EvapVector.size() ==0 ) {
+					EvapVector.resize(grid_size);
+					EvapVector.setZero();
+				}
+				return std::make_pair(
+					evdm::make_Matrix<T>(_grid, std::move(matrix)),
+					evdm::make_Distribution_data<T>(
+						_grid, EvapVector.data(), 1, grid_size, 1/*vec_padding*/
+						)
+				);
+			}, mGridEL.m_grid)
 		) {}
 
 	static Py_Matrix fromArray_impl(
 		Py_EL_Grid const& mGridEL,
-		pybind11::array const& Mat,
+		pybind11::handle Mat,
 		pybind11::array const& Evap/*,
 		int padding*/
 	);
@@ -113,7 +95,7 @@ struct Py_Matrix {
 	);
 	static Py_Matrix fromArray2
 	(Py_EL_Grid const& mGridEL,
-		pybind11::array const& Mat);
+		pybind11::handle Mat);
 	static Py_Matrix from_dict(pybind11::dict const&);
 
 	size_t get_padding() const;
@@ -129,7 +111,7 @@ struct Py_Matrix {
 	}
 
 	Py_Matrix copy() const;
-	void calc_diag();
+	void calc_diag(bool CountEvap = false);
 	Py_Matrix evolve_matrix() const;
 	/// @brief adds two matrix if events not intersects
 	void combine(Py_Matrix const& _another);
@@ -147,7 +129,7 @@ struct Py_Matrix {
 	Py_Distribution evap_distrib();
 
 
-	pybind11::array get_matrix(
+	pybind11::object get_matrix(
 		pybind11::handle self, int p_in, int p_out, bool raw
 	);
 	pybind11::dict get_object(pybind11::handle self);

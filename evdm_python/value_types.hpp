@@ -296,30 +296,34 @@ using PreAnn_Variant_t =
 variant_type_t<convert_matrix_ann_tp, distrib_tp_t>;
 
 #define SCATTER_COUNT \
-	((defined SCATTER_METHOD_USE_NAIVE) + \
+	(1 + (defined SCATTER_METHOD_USE_NAIVE) + \
 	 (defined SCATTER_METHOD_USE_SOFT) + \
 	 (defined SCATTER_METHOD_USE_NOTHERM) + \
 	 (defined SCATTER_METHOD_USE_SOFT_TRESH))
 
 using ScatterMethodVariant_t =
 	std::variant <
+	evdm::ThermGaussGenerator_Full
+#if (SCATTER_COUNT > 1)
+	,
+#endif
 #ifdef SCATTER_METHOD_USE_NAIVE
 	evdm::ThermGaussGenerator_Naive
 #endif //SCATTER_METHOD_USE_NAIVE
-#if (SCATTER_COUNT > 1)
+#if (SCATTER_COUNT > 2)
 	,
 #endif 
 #ifdef SCATTER_METHOD_USE_SOFT
 	evdm::ThermGaussGenerator_Soft8
 #endif //SCATTER_METHOD_USE_SOFT
 
-#if (SCATTER_COUNT > 2)
+#if (SCATTER_COUNT > 3)
 	,
 #endif
 #ifdef SCATTER_METHOD_USE_NOTHERM
 	evdm::ThermGaussGenerator_NoTherm
 #endif // SCATTER_METHOD_USE_NOTHERM
-#if (SCATTER_COUNT > 3)
+#if (SCATTER_COUNT > 4)
 	,
 #endif
 #ifdef SCATTER_METHOD_USE_SOFT_TRESH

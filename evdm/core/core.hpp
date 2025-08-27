@@ -11,11 +11,5 @@
 #include "traj_pool.hpp"
 
 namespace evdm{
-
-    
-
-    
-
-    
 };
 #endif//CORE_HPP

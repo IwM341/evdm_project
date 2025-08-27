@@ -57,37 +57,20 @@ void Py_ScatterProcess(
 	{
 		return T{};
 	};
-	std::string measure_str = pyget<std::string>("dEdL", ExtraArgs, "measure");
-	auto mes_detector = []<class T>(
-		std::type_identity<T>,
-		std::string_view S)
-	{
-		if constexpr (std::is_same_v<T, evdm::measure_dEdL>) {
-			return S == "dEdL";
-		}
-		else if constexpr (std::is_same_v<T, evdm::measure_dEdL2>) {
-			return S == "dEdL2";
-		}
-		else {
-			return false;
-		}
-	};
-	ScatterMeasureVariant_t m_measure = std::visit(
-		mes_consr,
-		VariantFromString(
-			mes_detector,
-			measure_str,
-			std::type_identity< ScatterMeasureVariant_t>{}
-		)
-	);
+	std::tuple < double , double > measure_tp = pyget<std::tuple<double, double>>(
+		std::make_tuple((double)1,(double)2), ExtraArgs, "measure");
 
+	
 	std::visit([&]
-		<class ThermGen_t,class Measure_t,
-			class Vt, class Bt, class Gvt, evdm::GridEL_type G_tp
+		<class ThermGen_t,
+			class Vt, class Bt, class Gvt, 
+			evdm::GridEL_type G_tp
 		>
 		(Matrix_Pair_Inst<Vt, Bt, Gvt, G_tp> &m_matrix, 
-			ThermGen_t m_therm_gen, Measure_t m_el_measure)->void {
+			ThermGen_t m_therm_gen)->void {
 		typedef Gvt T;
+
+
 		evdm::Distribution<Vt, Bt, Gvt, G_tp>& m_evp = m_matrix.second;
 		evdm::GridMatrix<Vt, Bt, Gvt, G_tp>& m_mat = m_matrix.first;
 		evdm::xorshift<T> G(seed);
@@ -96,6 +79,11 @@ void Py_ScatterProcess(
 			Nmk = Nmk_v.cast<size_t>();
 		}
 		catch (pybind11::cast_error&) {}
+
+		auto [p, q] = measure_tp;
+		auto Emin = m_evp.grid().inner(0).grid()[0].left;
+		evdm::measure_dEpdlq<Gvt> m_el_measure(p, q, Emin);
+
 
 		pybind11::gil_scoped_release m_unlock;
 		if (Nmk) {
@@ -115,7 +103,7 @@ void Py_ScatterProcess(
 			);
 		}
 		
-	}, ScatterAccum.m_matrix,ThermGenVar, m_measure);
+	}, ScatterAccum.m_matrix,ThermGenVar);
 
 
 	auto sce_info = sc_event.unique ?
@@ -149,8 +137,7 @@ void add_pyscatter_to_python_module(pybind11::module_& m)
 		"Nmk : int | function | vector\n\tnumber of monte-carle steps.\n\t"
 		"May depends on (e,l) or on (e0,e1,l0,l1)\n"
 		"measure: how E,L distributed in bin.\n\t"
-		"if measure == 'dEdL' then uniformly distributed by dEdL measure\n\t"
-		"if measure == 'dEdL2' then uniformly distributed by dEdL^2 measure\n"
+		"should be a tuple (p,q). E and l would be uniformly distributed by dE^pdl^q. default (1,2)\n\t"
 		"method : str\n\t method of generating therm velocity of nuclei."
 		"can be: \n\t 'notherm', 'naive',"
 		"'soft' (more probability of high velocities)"
