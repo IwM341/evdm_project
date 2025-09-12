@@ -486,7 +486,6 @@ namespace evdm {
 	}
 
 
-	
 	template <
 		typename Grid_vt,
 		typename Mat_vt,
@@ -734,7 +733,11 @@ namespace evdm {
 			MatrixIndexShift_Out, MatrixIndexShift_In);
 
 		SpMatrix_t<Mat_vt> Ret(MatSize, MatSize);
-		Ret.setFromSortedTriplets(m_triplets.begin(), m_triplets.end());
+
+
+		
+
+		Ret.setFromTriplets(m_triplets.begin(), m_triplets.end());
 
 		Ret.makeCompressed();
 
