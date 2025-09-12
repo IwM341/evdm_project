@@ -76,7 +76,8 @@ struct ScatterImpl_Args {
 			auto Emin = m_evp.grid().inner(0).grid()[0].left;
 			auto [p, q] = m_el_measure_pair;
 			evdm::measure_dEpdlq<Gvt> m_el_measure(p, q, Emin);
-			evdm::ThermGaussGenerator_Variant therm_gen = therm_gen_var;
+			evdm::ThermGaussGenerator_Variant<
+				ScatterMethodVariant_t> therm_gen{ therm_gen_var };
 			evdm::Scatter(std::integral_constant<int, algol>{},
 				m_mat, m_evp, zero_val, ptype_in, ptype_out,
 				sc_event, G, therm_gen, m_el_measure,
