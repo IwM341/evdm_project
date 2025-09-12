@@ -4,6 +4,8 @@
 #include <ranges>
 #include "../core/core_matrix.hpp"
 #include <deque>
+#include <algorithm>
+//#include <>
 
 #ifdef _OPENMP
 #include <omp.h>
