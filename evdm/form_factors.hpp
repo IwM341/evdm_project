@@ -365,6 +365,11 @@ namespace evdm{
                 return Poly;
             }, as_variant());
         }
+        inline float ScatterFactor(float q_2, float v_2,float inel_enloss)const noexcept {
+            return std::visit([q_2, v_2, inel_enloss](const auto& Poly) ->float{
+                return Poly.ScatterFactor(q_2, v_2, inel_enloss);
+            },*this);
+        }
         float eval_slow(float y, float v2T) const{
             return std::visit([y, v2T](const auto& Poly) {
                 if constexpr (

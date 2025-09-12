@@ -20,8 +20,12 @@ namespace evdm {
     template <typename T>
     using SpTriplet_t = Eigen::Triplet<T>;
 
-    template<typename T>
-    std::vector<T> flatten(const std::vector<std::vector<T>>& nested) {
+    template<typename Container_t>
+    std::vector<
+        std::decay_t<
+            typename std::decay_t<Container_t>::value_type 
+        >
+    > flatten(const std::vector<Container_t>& nested) {
         auto joined = nested | std::views::join;
         return { joined.begin(), joined.end() };
     }

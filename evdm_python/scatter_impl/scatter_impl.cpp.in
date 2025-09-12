@@ -1,0 +1,20 @@
+#include "../scatter_impl.hpp"
+void ScatterImpl(
+	std::integral_constant<int, @ALGOL_N@>,
+	evdm::GridMatrix< @VAL_T@, @BODY_VAL_T@, @GRID_VAL_T@, evdm::GridEL_type::@GRID_TYPE@>& m_mat,
+	evdm::Distribution< @VAL_T@, @BODY_VAL_T@, @GRID_VAL_T@, evdm::GridEL_type::@GRID_TYPE@>& m_evp,
+	double zero_val, int ptype_in, int ptype_out, size_t seed,
+	evdm::ScatterEvent const&  sc_event, evdm::ThermGaussGenerator_@THERMGEN_TYPE@ m_therm_gen,
+	evdm::measure_dEpdlq< @GRID_VAL_T@> m_el_measure,
+	float M_DM, float deltaM, float NucleiM,
+	@NMK_T@ const& Nmk, size_t Nmk_per_traj,
+	double weight, evdm::progress_omp_function<> ProgFunc
+){
+	ScatterImpl_inner(
+		std::integral_constant<int,@ALGOL_N@> {},
+		m_mat,m_evp, zero_val, ptype_in,  ptype_out, seed,
+		sc_event,  m_therm_gen,m_el_measure,
+		 M_DM, deltaM,  NucleiM,Nmk,  Nmk_per_traj,
+		 weight,  ProgFunc
+	);
+}

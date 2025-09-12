@@ -5,9 +5,11 @@
 #include <grob/grid_objects.hpp>
 #include <numbers>
 #include "../utils/mc.hpp"
-
+#include "../utils/type_tr.hpp"
+#include <Eigen/Eigen>
 namespace evdm {
-	using FormFactor_t = QexpFactors<std::index_sequence<2, 4, 8, 12>>;
+	using FormFactor_t = QexpFactors<
+		std::index_sequence<1,2, 3,4,6, 8,10, 12,14,16>>;
 
 	template <typename T>
 	using vec3 = Eigen::Vector3<T>;
@@ -330,6 +332,31 @@ namespace evdm {
 			);
 			return Gauss3_Soft8(G, Vdisp, Vtresh);
 		}
+	};
+	template <typename ThermGaussGeneratorVariant_t>
+	struct ThermGaussGenerator_Variant {
+		ThermGaussGeneratorVariant_t _impl;
+
+		template <typename Gen_t>
+		inline MCResult<Gen_vt<Gen_t>, Gen_vt<Gen_t>> gen_abs(
+			Gen_t& G, Gen_vt<Gen_t> Delta_x_2_div_mu,
+			Gen_vt<Gen_t> Vmk, Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			return std::visit([&G, Delta_x_2_div_mu, Vmk, Therm, Mtarget]<class ThGen_t>(ThGen_t TGt) {
+				return TGt.gen_abs(G, Delta_x_2_div_mu, Vmk, Therm, Mtarget);
+			}, _impl);
+		}
+
+		template <class Gen_t>
+		inline MCResult<vec3<Gen_vt<Gen_t>>, Gen_vt<Gen_t>> gen(
+			Gen_t& G, Gen_vt<Gen_t> Delta_x_2_div_mu,
+			Gen_vt<Gen_t> Vmk, Gen_vt<Gen_t> Therm, Gen_vt<Gen_t> Mtarget)
+		{
+			return std::visit([&G, Delta_x_2_div_mu, Vmk, Therm, Mtarget]<class ThGen_t>(ThGen_t TGt) {
+				return TGt.gen(G, Delta_x_2_div_mu, Vmk, Therm, Mtarget);
+			}, _impl);
+		}
+
 	};
 
 	struct ThermGaussGenerator_Full {

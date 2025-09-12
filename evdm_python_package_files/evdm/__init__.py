@@ -130,6 +130,8 @@ def ScatterCalc(sc_matrix,scatter_model : ff.ScatterModel,n_dense,
         number of monte-carle steps.
     method : string
         'notherm', 'naive','soft','soft_tresh','full'
+    algol : string
+        'naive', 'shift', 'diffuse'
     measure: tuple
         how E,L distributed in bin.
         should be a tuple (p,q). 

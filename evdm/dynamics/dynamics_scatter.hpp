@@ -2,9 +2,128 @@
 #include "dynamics.hpp"
 #include "../utils/progress_bar.hpp"
 #include <ranges>
+#include "../core/core_matrix.hpp"
+#include <deque>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+#if defined(_MSC_VER)
+#define NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define NOINLINE __attribute__((noinline))
+#else
+#define NOINLINE
+#endif
+
 namespace evdm {
 
-	
+
+	template <typename inner_iterator_t>
+	struct TripletView {
+		int RowShift, ColShift;
+		inner_iterator_t m_begin, m_end;
+		typedef inner_iterator_t inner_iterator;
+		typedef typename inner_iterator::value_type SpVec_t;
+		typedef typename std::decay_t<SpVec_t>::InnerIterator sp_iterator;
+		typedef typename std::decay_t<SpVec_t>::Scalar inner_value_type;
+		typedef Eigen::Triplet<inner_value_type> value_type;
+
+		struct iterator : std::iterator<std::output_iterator_tag, value_type> {
+
+			friend struct TripletView;
+
+			inner_iterator vec_iter;
+			inner_iterator vec_end;
+
+			sp_iterator sp_iter;
+			int RowShift, ColShift;
+			int j;
+
+		private:
+			iterator(inner_iterator vec_iter,
+				inner_iterator vec_end,
+				sp_iterator sp_iter,
+				int RowShift, int ColShift, int j
+			) :vec_iter(vec_iter), vec_end(vec_end), sp_iter(sp_iter),
+				RowShift(RowShift), ColShift(ColShift), j(j) {}
+
+		public:
+			bool operator !=(iterator other)const {
+				return (vec_iter != other.vec_iter);
+			}
+			bool operator ==(iterator other) const {
+				return (vec_iter == other.vec_iter);
+			}
+			iterator& operator++() {
+				if (sp_iter) {
+					++sp_iter;
+				}
+				if (sp_iter) {
+					return *this;
+				}
+				else {
+					++vec_iter;
+					for (; vec_iter != vec_end; ++vec_iter) {
+						if ((*vec_iter).nonZeros()) {
+							break;
+						}
+						++j;
+					}
+
+					if (vec_iter != vec_end) {
+						sp_iter = sp_iterator(*vec_iter);
+						++j;
+					}
+				}
+				return *this;
+			}
+			value_type operator*()const {
+				return { sp_iter.index() + ColShift,j + RowShift,sp_iter.value() };
+			}
+			struct proxy {
+				value_type m_value;
+				value_type* operator->() {
+					return &m_value;
+				}
+				value_type& operator *() {
+					return m_value;
+				}
+			};
+			proxy operator->()const {
+				return { operator*() };
+			}
+		};
+		TripletView(inner_iterator_t _begin, inner_iterator_t _end,
+			int ColShift, int RowShift) :m_begin(_begin), m_end(_end), 
+			ColShift(ColShift), RowShift(RowShift) {
+		}
+
+		iterator begin() {
+			sp_iterator it;
+			int j = 0;
+			for (; m_begin != m_end; ++m_begin) {
+				if ((*m_begin).nonZeros()) {
+					it = sp_iterator(*m_begin);
+					break;
+				}
+				++j;
+			}
+			return { m_begin,m_end,it,ColShift,RowShift,j };
+		}
+		iterator end() {
+			sp_iterator it;
+			return { m_end,m_end,it,ColShift,RowShift,0 };
+		}
+	};
+
+	template <typename iter_t>
+	TripletView<iter_t> triplet_view(
+		iter_t begin, iter_t end,  int ColShift = 0, int RowShift = 0) {
+		return { begin, end,RowShift, ColShift };
+	}
+
 
 	/*MK generator of output vu', considering evaporation */
 	template <class Gen_t, typename VectorT>
@@ -87,7 +206,7 @@ namespace evdm {
 		//thermal generation
 		
 		MCResult< T, T> Input_Vel_gen_abs = 
-			ThermGen_t::gen_abs(G, deltaE_div_m_cm, V_wimp_norm, TempR, mi);
+			ThrmGen.gen_abs(G, deltaE_div_m_cm, V_wimp_norm, TempR, mi);
 		factor *= Input_Vel_gen_abs.RemainDensity;
 		T V1_abs = Input_Vel_gen_abs.Result;
 
@@ -168,7 +287,7 @@ namespace evdm {
 		typename VescFunc_t,
 		typename Nmk_Vec_t
 	>
-	SpMatrix_t<Mat_vt> ScatterImpl(
+	NOINLINE SpMatrix_t<Mat_vt> ScatterImpl(
 		std::type_identity<Grid_vt>,
 		std::type_identity<Mat_vt>,
 		size_t MatSize,
@@ -181,7 +300,7 @@ namespace evdm {
 		size_t MatrixIndexShift_In,
 		size_t MatrixIndexShift_Out,
 		HistoEvap_t&& EvapDistrib,
-		bool count_evap,
+		Gen_vt<Gen_t> ZeroValue,
 		LEFunc_t const& LEf,
 		Gen_vt<Gen_t> _F2_value,
 		const BinTrajPool_t& TrajPoolVec,
@@ -240,6 +359,7 @@ namespace evdm {
 				Nmk = Nmk_v[i];
 			}
 			for (size_t nm = 0; nm < Nmk; ++nm) {
+				
 				auto [e, l] = m_bin_el_gen(G);
 				auto Lmax = LEf(-e);
 				auto Ltmp = l * Lmax;
@@ -312,22 +432,25 @@ namespace evdm {
 					//Traj_t e_out1 = ((V_in_nd+ dVout_nd).squaredNorm() - v_esc_nd * v_esc_nd);
 
 					auto final_factor = factor * mk_factor * renorm_factor;
+					auto m_zero = ZeroValue / Nmk;
 					if (e_out < 0) {
-						Traj_t deltaL2 = (r * r) * dVtau2;
-						Traj_t L_nd2 = Ltmp * Ltmp + deltaL2;
-						Traj_t L_nd = ssqrt(L_nd2);
-						
-						auto Lcutter = [](Traj_t Lmax) ->Traj_t {
-							return Lmax > 0 ? 1 / Lmax : 0;
-						};
+						if (final_factor > m_zero) {
+							Traj_t deltaL2 = (r * r) * dVtau2;
+							Traj_t L_nd2 = Ltmp * Ltmp + deltaL2;
+							Traj_t L_nd = ssqrt(L_nd2);
 
-						Traj_t Lm_inv = Lcutter(Lmax);
-						Traj_t Lmax_out = LEf(-e_out);
-						Traj_t Lm_inv1 = Lcutter( Lmax_out);
+							auto Lcutter = [](Traj_t Lmax) ->Traj_t {
+								return Lmax > 0 ? 1 / Lmax : 0;
+							};
 
-						Traj_t l_out = upbound(L_nd* Lm_inv1,1);
-						//Traj_t l_out1= (Lmax_out > 0 ? L_nd / Lmax_out : 0);
-						OutHisto.put_force(final_factor, e_out, l_out);
+							Traj_t Lm_inv = Lcutter(Lmax);
+							Traj_t Lmax_out = LEf(-e_out);
+							Traj_t Lm_inv1 = Lcutter(Lmax_out);
+
+							Traj_t l_out = upbound(L_nd * Lm_inv1, 1);
+							//Traj_t l_out1= (Lmax_out > 0 ? L_nd / Lmax_out : 0);
+							OutHisto.put_force(final_factor, e_out, l_out);
+						}
 					}
 					else {
 						EvapDistrib.Values[i] += final_factor;
@@ -337,7 +460,7 @@ namespace evdm {
 
 			size_t NonZeros = std::count_if(
 				OutIBuffer.begin(), OutIBuffer.end(),
-				[](auto x) {return x > 0; }
+				[ZeroValue](auto x) {return x > ZeroValue; }
 			);
 			triplets[i].reserve(NonZeros);
 			for (size_t k = 0; k < OutIBuffer.size(); ++k) {
@@ -373,15 +496,13 @@ namespace evdm {
 		typename LEFunc_t,
 		typename BinTrajPool_t,
 
-		typename BinMes_t,
-
 		typename PhiFunc_t,
 		typename SFunc_t,
 		typename TempFunc_t,
 		typename VescFunc_t,
 		typename Nmk_Vec_t
 	>
-	SpMatrix_t<Mat_vt> ScatterImplDiffuse (
+	NOINLINE SpMatrix_t<Mat_vt> ScatterImplShift (
 		std::type_identity<Grid_vt>,
 		std::type_identity<Mat_vt>,
 		size_t MatSize,
@@ -394,7 +515,7 @@ namespace evdm {
 		size_t MatrixIndexShift_In,
 		size_t MatrixIndexShift_Out,
 		HistoEvap_t&& EvapDistrib,
-		bool count_evap,
+		Gen_vt<Gen_t> ZeroValue,
 		LEFunc_t const& LEf,
 		Gen_vt<Gen_t> _F2_value,
 		const BinTrajPool_t& TrajPoolVec,
@@ -425,10 +546,15 @@ namespace evdm {
 		auto mi_frac = mi / (mk + mi);
 		auto mk_frac = mk / (mk + mi);
 		const auto _seed = _G.state;
-		std::vector<std::vector<SpTriplet_t<Mat_vt>>> triplets(N_in);
-#pragma	omp parallel for  firstprivate(OutIBuffer)
+
+
+		std::vector<Eigen::SparseVector<Mat_vt>> Columns(N_in);
+		
+#pragma	omp parallel for
 		for (int i = 0; i < N_in; ++i) {
-			triplets[i].reserve(9);
+			
+			Columns[i] = Eigen::SparseVector<Mat_vt>(N_in);
+
 			auto G = _G;
 			G.set_seed(_seed ^ i + 1);
 			auto IJ = grid.FromLinear(i);
@@ -530,7 +656,7 @@ namespace evdm {
 					//Traj_t e_out = ((V_in_nd + dVout_nd).squaredNorm() - v_esc_nd * v_esc_nd);
 
 					auto final_factor = factor * mk_factor * renorm_factor;
-					if (e_out < 0) {
+					if (e_out < 0 && final_factor > ZeroValue/Nmk) {
 						Traj_t deltaL2 = (r * r) * dVtau2;
 						Traj_t L_nd2 = Ltmp * Ltmp + deltaL2;
 						Traj_t L_nd = ssqrt(L_nd2);
@@ -543,60 +669,72 @@ namespace evdm {
 						Traj_t Lmax_out = LEf(-e_out);
 						Traj_t Lm_inv1 = Lcutter(Lmax_out);
 
-						Traj_t l_out = upbound(L_nd2 * Lm_inv1, 1);
+						Traj_t l_out = upbound(L_nd* Lm_inv1, 1);
 						//Traj_t l_out1= (Lmax_out > 0 ? L_nd / Lmax_out : 0);
 						//Traj_t deltal = l_out - l;
-						auto [x0, y0] = m_mes.toXY(e, l);
+						//auto [x0, y0] = m_mes.toXY(e, l);
 						auto [x1, y1] = m_mes.toXY(e_out, l_out);
-						Traj_t dx = x1 - x0;
-						Traj_t dy = y1 - y0;
+						Traj_t dx = x1 - X0;
+						Traj_t dy = y1 - Y0;
 						
 						
 						Traj_t Xmin = X0X1.left + dx;
 						Traj_t Xmax = X0X1.right + dx;
 						Traj_t Ymin = Y0Y1.left + dy;
 						Traj_t Ymax = Y0Y1.right + dy;
-						bin_dedl_t<Traj_t> binout({ Xmin,Xmax }, { Ymin,Ymax });
+						bin_dedl_t<Traj_t> binout(
+							grob::Rect<Traj_t>( Xmin,Xmax ),
+							grob::Rect<Traj_t>(Ymin,Ymax )
+						);
 
 						auto [emin, lmin] = m_mes.fromXY(Xmin, Ymin);
 						auto [emax, lmax] = m_mes.fromXY(Xmax, Ymax);
 
 						size_t i2_0 = grid.grid().pos(emin);
 						size_t i2_1 = grid.grid().pos(emax) + 1;
-						for (size_t i = i2_0; i < i2_1; ++i) {
-							auto gridl = grid.inner(i);
+						for (size_t i1 = i2_0; i1 < i2_1; ++i1) {
+							auto gridl = grid.inner(i1);
 
 							size_t j2_0 = gridl.pos(lmin);
 							size_t j2_1 = gridl.pos(lmax) + 1;
 
 							for (size_t j = j2_0; j < j2_1; ++j) {
-								auto mbin = grid[{i,j}];
+								auto mbin = m_mes.toXY(grid[{i1,j}]);
 								
-								auto VolOut = grob::intersect(binout,mbin).volume();
-								auto vol_factor = VolOut*Lcutter(binout.volume());
-
-								size_t k = grid.LinearIndex(i, j);
-								triplets[i].push_back({ 
-										k + MatrixIndexShift_Out,
-										i + MatrixIndexShift_In,
-										final_factor * vol_factor }
-								);
+								auto [binOut,isint] = grob::intersect(binout,mbin);
+								auto VolOut = binOut.volume();
+								if (isint) {
+									auto vol_factor = VolOut * Lcutter(binout.volume());
+									size_t k = grid.LinearIndex({ i1, j });
+									Columns[i].coeffRef(k) += final_factor * vol_factor;
+								}
 							}
 						}
 					}
-					else {
+					else if(e>=0){
 						EvapDistrib.Values[i] += final_factor;
 					}
 				}
 			}
-
 			m_bar.next();
 		}
-		std::vector<SpTriplet_t<Mat_vt>>
-			AllTriplets(flatten(triplets));
+		//std::vector<SpTriplet_t<Mat_vt>>
+		//	AllTriplets(flatten(triplets));
+		auto nonZeros = std::accumulate(
+			Columns.begin(),
+			Columns.end(),
+			0ull,
+			[](size_t acc, const auto& vec) {
+				return acc + vec.nonZeros();
+			}
+		);
+		auto m_triplets = triplet_view(Columns.begin(), Columns.end(), 
+			MatrixIndexShift_Out, MatrixIndexShift_In);
 
 		SpMatrix_t<Mat_vt> Ret(MatSize, MatSize);
-		Ret.setFromTriplets(AllTriplets.begin(), AllTriplets.end());
+		Ret.setFromSortedTriplets(m_triplets.begin(), m_triplets.end());
+
+		Ret.makeCompressed();
 
 		return Ret;
 	}

@@ -1,5 +1,6 @@
 #include "dynamic_python.hpp"
-#include <evdm/core/core_dynamics_scatter.hpp>
+//#include <evdm/core/core_dynamics_scatter.hpp>
+#include "scatter_impl/scatter_impl.hpp"
 #include <evdm/utils/prng.hpp>
 #include "grob_python.hpp"
 #include "progress_log.hpp"
@@ -25,6 +26,31 @@ void Py_ScatterProcess(
 	);
 
 	std::string methodS = pyget<std::string>("notherm", ExtraArgs, "method");
+	std::string algolS = pyget<std::string>("naive", ExtraArgs, "algol");
+
+	double zero_val = pyget<double>(0.0, ExtraArgs, "zero");
+
+	std::variant<
+		std::integral_constant<int,0>,
+		std::integral_constant<int, 1>,
+		std::integral_constant<int, 2>
+	> algol = std::integral_constant<int, 0>{};
+	if (algolS == "naive") {
+		algol = std::integral_constant <int, evdm::AlgolNaive>{};
+	}
+	else if (algolS == "shift") {
+		algol = std::integral_constant <int, evdm::AlgolShift>{};
+	}
+	else if (algolS == "diffuse") {
+		algol = std::integral_constant <int, evdm::AlgolDiffuse>{};
+	}
+	else {
+		std::ostringstream error;
+		error << "algol should be 'naive', 'shift' or 'diffuse', but got " << algolS;
+		throw std::runtime_error(error.str());
+	}
+
+
 	double weight = pyget<double>(1, ExtraArgs, "weight");
 	
 	auto m_compare =
@@ -37,6 +63,21 @@ void Py_ScatterProcess(
 	}
 	auto ProgFunc = make_progress_func(update_function);
 	size_t Nmk = 0;
+	Nmk_vector Nmk_var;
+
+	try {
+		Nmk_var = Nmk_v.cast<size_t>();
+	}
+	catch (pybind11::cast_error&) {
+		Nmk_var =
+			std::visit([&](auto && m_matevap)->Nmk_vector {
+				return get_N_distrib_from_handle(
+					m_matevap.second.grid().inner(0), Nmk_v
+				);
+			}, ScatterAccum.m_matrix);
+	}
+
+	
 	ScatterMethodVariant_t ThermGenVar = std::visit(
 		[]<class T>(std::type_identity<T>)->
 			ScatterMethodVariant_t {
@@ -60,58 +101,26 @@ void Py_ScatterProcess(
 	std::tuple < double , double > measure_tp = pyget<std::tuple<double, double>>(
 		std::make_tuple((double)1,(double)2), ExtraArgs, "measure");
 
+
+	ScatterImpl_Args m_scatter_args{ ScatterAccum,
+	 zero_val,ptype_in, ptype_out, seed,
+	sc_event,  ThermGenVar,
+	measure_tp, M_DM, deltaM, NucleiM,
+	Nmk_var, Nmk_per_traj,
+	weight,  ProgFunc };
 	
-	std::visit([&]
-		<class ThermGen_t,
-			class Vt, class Bt, class Gvt, 
-			evdm::GridEL_type G_tp
-		>
-		(Matrix_Pair_Inst<Vt, Bt, Gvt, G_tp> &m_matrix, 
-			ThermGen_t m_therm_gen)->void {
-		typedef Gvt T;
-
-
-		evdm::Distribution<Vt, Bt, Gvt, G_tp>& m_evp = m_matrix.second;
-		evdm::GridMatrix<Vt, Bt, Gvt, G_tp>& m_mat = m_matrix.first;
-		evdm::xorshift<T> G(seed);
-		
-		try {
-			Nmk = Nmk_v.cast<size_t>();
-		}
-		catch (pybind11::cast_error&) {}
-
-		auto [p, q] = measure_tp;
-		auto Emin = m_evp.grid().inner(0).grid()[0].left;
-		evdm::measure_dEpdlq<Gvt> m_el_measure(p, q, Emin);
-
-
+	{
 		pybind11::gil_scoped_release m_unlock;
-		if (Nmk) {
-			evdm::Scatter(
-				m_mat, m_evp, count_evap, ptype_in, ptype_out,
-				sc_event, G, m_therm_gen, m_el_measure,
-				M_DM, deltaM, NucleiM, Nmk, Nmk_per_traj, weight, ProgFunc
-			);
-		} else {
-			auto Nmk_vc = get_N_distrib_from_handle(m_evp.grid().inner(0), Nmk_v);
-			Nmk = std::accumulate(Nmk_vc.begin(), Nmk_vc.end(),0) /
-				 Nmk_vc.size();
-			evdm::Scatter(
-				m_mat, m_evp, count_evap, ptype_in, ptype_out,
-				sc_event, G, m_therm_gen, m_el_measure,
-				M_DM, deltaM, NucleiM, Nmk_vc, Nmk_per_traj, weight, ProgFunc
-			);
-		}
-		
-	}, ScatterAccum.m_matrix,ThermGenVar);
-
+		std::visit([&](auto m_algol) {
+			m_scatter_args.apply(m_algol);
+		}, algol);
+	}
 
 	auto sce_info = sc_event.unique ?
 		scatter_event_info(sc_event.name, ptype_in, ptype_out, 0, Nmk) :
 		scatter_event_info();
 
 	{
-		pybind11::gil_scoped_acquire m_lock;
 		ScatterAccum.events.push_back(sce_info);
 	}
 
@@ -141,7 +150,10 @@ void add_pyscatter_to_python_module(pybind11::module_& m)
 		"method : str\n\t method of generating therm velocity of nuclei."
 		"can be: \n\t 'notherm', 'naive',"
 		"'soft' (more probability of high velocities)"
-		", 'soft_tresh' (same as soft, but considering inelastic treshold)\n"
+		", 'soft_tresh' (same as soft, but considering inelastic treshold), full\n"
+		"algol : str\n\t method of calc matrix: could be \n\t"
+		"naive, shift, diffuse"
+		"zero : float\n\t if matrix element Sij < zero, then it assumed to be zero"
 		"Nmk_traj: int\n\tnumber of monte-carle steps on each trajectory.\n"
 		"weight : float\n\t[optional] scale factor, default - 1.\n"
 		"bar : object\n\t[optional] progress bar update function.",

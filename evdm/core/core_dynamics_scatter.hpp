@@ -5,15 +5,22 @@
 #include "../core/core_matrix.hpp"
 #include "../core/core_distrib.hpp"
 
+
 namespace evdm {
+    constexpr int AlgolNaive = 0;
+    constexpr int AlgolShift = 1;
+    constexpr int AlgolDiffuse = 2;
+
+
     template <typename DistrT, typename Body_vt,
         typename GridEL_vt, GridEL_type grid_type,
         typename Gen_t,typename ThermGaussGenerator_t, 
-        typename Nmk_vec_t>
+        typename Nmk_vec_t, int algol>
     void Scatter(
+        std::integral_constant<int, algol> AlgolConst,
         GridMatrix<DistrT, Body_vt, GridEL_vt, grid_type>& mMatrix,
         Distribution<DistrT, Body_vt, GridEL_vt, grid_type>& mEvap,
-        bool count_evap,
+        evdm::same_t<DistrT> m_zero,
         size_t ptype_in, size_t ptype_out, ScatterEvent const& se,
         Gen_t&& G, ThermGaussGenerator_t ThermGen, measure_dEpdlq<Gen_vt< Gen_t>> m_measure,
         Gen_vt< Gen_t> mk, Gen_vt< Gen_t> dm, Gen_vt< Gen_t> mi,
@@ -40,21 +47,40 @@ namespace evdm {
         size_t InShift = ptype_in* GridSize;
         size_t OutShift = ptype_out * GridSize;
         typedef decltype(mMatrix.get_vtype()) Mat_t;
-        SpMatrix_t< Mat_t> MmatNew = std::visit(
-            [&](auto const& dF) -> SpMatrix_t< Mat_t> {
-                return ScatterImpl(
+        SpMatrix_t< Mat_t> MmatNew = [&]() -> SpMatrix_t< Mat_t> 
+        {
+            if constexpr (algol == AlgolShift)
+            {
+                return ScatterImplShift(
                     std::type_identity< GridEL_vt>{},
-                    std::type_identity< Mat_t>{}, GridSize* ptypes,G, ThermGen,
-                    mk, dm, mi, dF,se.n_e,
-                    InShift,OutShift, EvapSlice, count_evap,
+                    std::type_identity< Mat_t>{}, GridSize* ptypes, G, ThermGen,
+                    mk, dm, mi, se.sf, se.n_e,
+                    InShift, OutShift, EvapSlice, m_zero,
                     LEf, _F2, mMatrix.Grid.TrajPools(),
                     m_measure, Phi, Sfunc, Temp,
                     mEvap.body().VescFunc, mEvap.body().Vesc,
                     Nmk_v, Nmk_per_traj, weight, m_progress_func
                 );
-            },
-            se.sf
-        );
+            }
+            else if constexpr (algol == AlgolDiffuse){
+                throw std::runtime_error("diffuse algorythm is not implemented");
+            }
+            else if constexpr (algol == AlgolNaive){
+                return ScatterImpl(
+                    std::type_identity< GridEL_vt>{},
+                    std::type_identity< Mat_t>{}, GridSize* ptypes, G, ThermGen,
+                    mk, dm, mi, se.sf, se.n_e,
+                    InShift, OutShift, EvapSlice, m_zero,
+                    LEf, _F2, mMatrix.Grid.TrajPools(),
+                    m_measure, Phi, Sfunc, Temp,
+                    mEvap.body().VescFunc, mEvap.body().Vesc,
+                    Nmk_v, Nmk_per_traj, weight, m_progress_func
+                );
+            }
+            else {
+                throw std::runtime_error("unexpected algol");
+            }
+        }();
         mMatrix.values() += MmatNew;
     }
 };//namespace evdm 

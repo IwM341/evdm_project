@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 
-set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ version selection")
+set(CMAKE_CXX_STANDARD 23 CACHE STRING "C++ version selection")
 
 
 project(evdm_python_mudule LANGUAGES CXX VERSION 2.0.0)
@@ -34,6 +34,7 @@ endif()
 
 #types, available in structs. 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/type_properties.cmake)
+#include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/scatter_config.cmake)
 #optional
 
 
@@ -68,7 +69,11 @@ endif()
 
 set(P_SOURCES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/evdm_python)
 set(FORM_FACTOR_SOURCES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/NuclearFormFactors)
-set(SOURCES 
+
+file(GLOB_RECURSE SOURCES "${P_SOURCES_DIR}/*.cpp")
+
+
+set(OLD_SOURCES 
     ${P_SOURCES_DIR}/pyevdm.cpp
     ${P_SOURCES_DIR}/body_model.cpp
     ${P_SOURCES_DIR}/el_grid.cpp
@@ -83,6 +88,7 @@ set(SOURCES
     ${P_SOURCES_DIR}/scatter_event_info.cpp
     ${P_SOURCES_DIR}/pygridproj.cpp
     ${P_SOURCES_DIR}/pymarkov.cpp
+    ${P_SOURCES_DIR}/pyevolutor.cpp
 )
 
 include(cmake/CPM.cmake)
@@ -106,7 +112,7 @@ if(NOT Grob_FOUND)
 endif()
 
 
-add_library(pyevdm MODULE ${SOURCES})
+add_library(pyevdm MODULE ${SOURCES} )
 set_property(TARGET pyevdm PROPERTY CXX_STANDARD 20)
 
 target_link_libraries(pyevdm pybind11::module)

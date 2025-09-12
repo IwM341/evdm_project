@@ -2,6 +2,7 @@
 #define VARIANT_TOOLS_HPP
 #include <variant>
 #include <tuple>
+#include <stdexcept>
 
 #ifndef MAX_RETURN_ALIGN
 #define MAX_RETURN_ALIGN 4*sizeof(max_align_t)

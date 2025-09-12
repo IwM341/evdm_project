@@ -1,5 +1,5 @@
-#ifndef CORE_PYTHON_HPP
-#define CORE_PYTHON_HPP
+#pragma once
+
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/functional.h>
@@ -143,5 +143,3 @@ std::vector<size_t> get_N_distrib_from_handle(Grid_t const& Grid, pybind11::hand
 	}
 }
 
-
-#endif//CORE_PYTHON_HPP

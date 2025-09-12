@@ -11,6 +11,7 @@
 namespace py = pybind11;
 
 void PyMarkov_add_to_python_module(pybind11::module& m);
+void PyEvolutor_add_to_python_module(pybind11::module& m);
 
 PYBIND11_MODULE(pyevdm, m)
 {
