@@ -488,10 +488,27 @@ namespace evdm{
         /// @param rmin 
         /// @param rmax 
         /// @return 
-        inline std::pair<size_t,size_t> _i0i1r(T const & rmin,T const & rmax){
+        inline std::pair<size_t,size_t> _i0i1r(T const & rmin,T const & rmax)const {
             return {Phi.Grid.pos(rmin),Phi.Grid.pos(rmax)+1};
         }
         
+        inline auto get_theta_max(T const& rmin, T const& rmax)const {
+            auto u0 = rmin * rmin;
+            auto u1 = rmax * rmax;
+
+            auto u_av = (u0 + u1) / 2;
+            auto u_d = (u0 - u1) / 2;
+            T theta_max = std::numbers::pi;
+            if (u1 > 1) {
+                auto pot_cos = (1 - u_av) / u_d;
+                theta_max = std::acos(
+                    pot_cos < -1 ? -1 : (
+                        pot_cos <= 1 ? pot_cos : 1
+                        )
+                );
+            }
+            return theta_max;
+        }
         /// @brief get grid function of tau(theta/theta1)
         /// tau_max = real Tin/theta_max
         /// @tparam U type of trajectory function
@@ -509,15 +526,7 @@ namespace evdm{
             
             
 
-            T theta_max = std::numbers::pi;
-            if (u1 > 1) {
-                auto pot_cos = (1 - u_av) / u_d;
-                theta_max = std::acos(
-                    pot_cos < -1 ? -1 : (
-                        pot_cos <= 1 ? pot_cos : 1
-                    )
-                );
-            }
+            T theta_max = get_theta_max(rmin, rmax);
 
             auto R = [&](auto theta){
                 return std::sqrt(u_av + u_d*std::cos(theta));
@@ -541,7 +550,7 @@ namespace evdm{
             }
             return std::make_tuple(theta_max,tau_max,Taus);
         }
-        inline auto get_internal_period(T const & rmin,T const & rmax,size_t Nbins){
+        inline auto get_internal_period(T const & rmin,T const & rmax,size_t Nbins)const {
             auto u0 = rmin*rmin;
             auto u1 = rmax*rmax;
             

@@ -63,7 +63,16 @@ namespace evdm {
                 );
             }
             else if constexpr (algol == AlgolDiffuse){
-                throw std::runtime_error("diffuse algorythm is not implemented");
+                return ScatterImplShift1(
+                    std::type_identity< GridEL_vt>{},
+                    std::type_identity< Mat_t>{}, GridSize* ptypes, G, ThermGen,
+                    mk, dm, mi, se.sf, se.n_e,
+                    InShift, OutShift, EvapSlice, m_zero,
+                    LEf, _F2, mMatrix.Grid.TrajPools(),
+                    m_measure, Phi, Sfunc, Temp,
+                    mEvap.body().VescFunc, mEvap.body().Vesc,
+                    Nmk_v, Nmk_per_traj, weight, m_progress_func
+                );
             }
             else if constexpr (algol == AlgolNaive){
                 return ScatterImpl(

@@ -8,9 +8,9 @@
 #include <memory>
 
 #include "../traj_pool.hpp"
-#include "../utils/quadtree.hpp"
-#include "../utils/progress_bar.hpp"
-#include "../dynamics/dynamics.hpp"
+
+
+
 
 
 namespace grob {
@@ -32,50 +32,160 @@ namespace grob {
 
 namespace evdm {
 
+	struct interpolator_idx {
+		template <typename GridType, typename ContainerType, typename Point_t>
+		inline constexpr static auto interpolate(GridType const& grid,
+			ContainerType const& values,
+			Point_t const& point)
+		{
+			values[point];
+		}
+	};
+
+	struct interpolator_none {
+		template <typename GridType, typename ContainerType, typename Point_t>
+		inline constexpr static auto interpolate(GridType const& grid,
+			ContainerType const& values,
+			Point_t const& point)
+		{
+			throw std::runtime_error("non callable interpolator");
+		}
+	};
+
+	namespace detail {
+		template <typename GridFuncType, typename GridType>
+		void setGrid(GridFuncType& F, GridType G) {
+			F.Grid = std::move(G);
+			F.Values.resize(F.Grid.size());
+		}
+	};
+
+	
+	
+	template <typename T, typename FormFactor_t>
 	struct ElementInfo_t {
-		float M;
-		FormFactor_t ff;
+		T M;
+		FormFactor_t dF;
+		Eigen::VectorX<T> Rd;
 		size_t Nmk;
 	};
 
-
-	template <typename T>
-	struct ElementScatterPreInfo {
-		float M, dM;
-		T e, l;
-		ElementInfo_t* m_element;
-		//theta param from [0:1], probability density, std/sqrt(N)
-		std::list<std::pair<T, float,float>> m_prob;
-	};
-
-	template <typename T>
-	struct ElementScatterPreInfo {
-		float M, dM;
-		T e, l;
-		ElementInfo_t* m_element;
-		T theta_max;
-		//theta param from [0:1], probability density
-		std::list<std::pair<T, T>> m_prob;
-	};
-
-	struct ScatterInfo {
-		float M, dM;
-		
-	};
-
-	template <typename T>
+	template <typename T,typename FormFactor_t>
 	struct MCEvolutor {
-		std::vector<ElementInfo_t> ElementInfos;
+
+
 		typedef grob::GridUniform<T> Grid_fp_t;
+
 		typedef grob::GridRangeLight<int> Grid_idx_t;
+
+		typedef grob::MultiGrid<
+			Grid_fp_t,
+			grob::ConstValueVector<Grid_fp_t>
+		> ELGrid_t;
+
+		typedef grob::MultiGrid<
+			Grid_idx_t,
+			grob::ConstValueVector<
+			grob::MultiGrid<
+			Grid_fp_t,
+			grob::ConstValueVector<Grid_fp_t>
+			>
+			>
+		> Grid_pin_El_t;
+		//(ptype, E,l) => total probs for P(pin, E, l)
+
+		typedef grob::MultiGrid<
+			Grid_pin_El_t,
+			grob::ConstValueVector<
+			Grid_idx_t
+			>
+		> Grid_pin_El_pout_t;
+		//+ P(pin, E, l -> pout) PCF array => P(pin, E, l)(pout)
+
+		typedef grob::MultiGrid <
+			Grid_idx_t,
+				grob::ConstValueVector <
+					grob::MultiGrid<
+						Grid_pin_El_t,
+						grob::ConstValueVector<Grid_idx_t>
+				>
+			>
+		>Grid_pout_pin_El_element_t;
+		//+ P(pin, E, l,pout -> scatterelement) PCF array => P(pout,{pin, E, l})(element)
+
+		typedef grob::MultiGrid<
+			Grid_idx_t,
+			grob::ConstValueVector<grob::MultiGrid<
+				Grid_idx_t,
+				grob::ConstValueVector<grob::MultiGrid<
+					Grid_pin_El_t,
+					grob::ConstValueVector<Grid_fp_t>
+				>>
+			>>
+		> Grid_element_pout_pin_El_taupar_t;
+		// 
+		//ptype, ptype, E,l => probs on elements, element sample functions
+
+		template <typename It, typename Iu>
+		using iprod = grob::interpolator_product<It, Iu>;
+
+		typedef grob::linear_interpolator linint;
+		typedef interpolator_idx idxint;
+
+		typedef iprod<linint, linint> EL_interpol;
+		typedef iprod<idxint, EL_interpol> EL_ptype_interpol;
+
+		typedef iprod<
+			idxint,
+			EL_ptype_interpol
+		>  EL_ptype_element_interpol;
+
+
+		typedef grob::MultiGrid<
+			ELGrid_t,
+			grob::ConstValueVector<
+			Grid_fp_t
+			>
+		> Grid_TrajPool_t;
+
+		grob::GridFunction<
+			interpolator_none,
+			Grid_pin_El_t, Eigen::VectorX<T>
+		> Func_pin_El_to_Ptotal;
+		//    println(X(Eigen::seqN(0,5,2))[4]);
+
+		grob::GridFunction<
+			interpolator_none,
+			Grid_pin_El_pout_t, Eigen::VectorX<T>
+		> Func_pin_El_to_Ppout;
+
+		grob::GridFunction<
+			interpolator_none,
+			Grid_pout_pin_El_element_t, Eigen::VectorX<T>
+		> Func_pout_pin_El_to_CPFelement;
+
+		grob::GridFunction<
+			interpolator_none,
+			Grid_element_pout_pin_El_taupar_t, Eigen::VectorX<T>
+		> Func_element_pout_pin_El_to_CPFtau;
+
 		evdm::Body<T> B;
 		decltype (B.get_le(0)) LE;
 
+		bool ValuesFilled;
+		grob::GridFunction<
+			interpolator_none,
+			Grid_TrajPool_t, Eigen::VectorX<T>
+		> TrajPool;
+
+
+		std::vector<ElementInfo_t<T, FormFactor_t>> ElementInfos;
+
 		MCEvolutor(
 			evdm::Body<T> _B,
-			size_t ptypes,size_t max_el_grid_size,
-			size_t max_theta_size, size_t Ntraj,
-			std::vector< ElementInfo_t > m_elements
+			size_t ptypes,size_t Ne,size_t Nl,size_t Ntraj,
+			std::vector< ElementInfo_t<T, FormFactor_t> > m_elements
+			
 		):B(std::move(_B)), ElementInfos(std::move(m_elements)), LE(B.get_le(2*Ne)){
 
 			ValuesFilled = false;

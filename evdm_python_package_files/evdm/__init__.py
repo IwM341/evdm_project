@@ -29,9 +29,9 @@ def MakeGrid(mBody,Evalues,Lvalues,ptypes = 1,value_type = 'float'):
     else:
         raise TypeError(f'Unknown dtype "{value_type}"')
 
-    Lvalues = np.array(Lvalues,dtype=dtype)
     Evalues = np.array(Evalues,dtype=dtype)
-    ndims = Lvalues.ndim
+    not_list = (isinstance(Lvalues,np.ndarray))
+
     def chek_array(X,name):
         if(not np.all(np.diff(X)> 0)):
             raise ValueError(f'{name} array is not monotonic')
@@ -43,11 +43,11 @@ def MakeGrid(mBody,Evalues,Lvalues,ptypes = 1,value_type = 'float'):
             raise ValueError('Lvalues[-1] should be 1')
     
     chek_array(Evalues,'Evalues')
-    if(ndims == 1):
+    if(not_list):
         check_l(Lvalues)
         Lvalues = [Lvalues for i in range(len(Evalues)-1)]
     else:
-        for i in range(Lvalues.shape[0]):
+        for i in range(len(Lvalues)):
             check_l(Lvalues[i])
         
         Lvalues = [Lvalues[i] for i in range(len(Evalues)-1)]
@@ -137,6 +137,8 @@ def ScatterCalc(sc_matrix,scatter_model : ff.ScatterModel,n_dense,
         should be a tuple (p,q). 
         E and l would be uniformly distributed by dE^pdl^q.
         default is (1,2)
+    zero: float
+        replace elements of scatter matrix sij < zero to zero
     Nmk_traj : int
         number of monte-carle steps on each trajectory.
         default is 1
@@ -203,3 +205,14 @@ class Group:
         ret['type'] = 'evdm.Group'
         return ret
 
+
+def _plot_grid(self,is_internal,ax = None):
+    import matplotlib.pyplot as plt
+    from matplotlib.collections import LineCollection
+    mlc = LineCollection(self.plot(is_internal))
+    if(not ax):
+        fig, ax = plt.subplots()
+    ax.add_collection(mlc)
+    ax.autoscale()
+
+GridEL.pyplot = _plot_grid

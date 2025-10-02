@@ -743,4 +743,298 @@ namespace evdm {
 
 		return Ret;
 	}
+
+
+
+	template <
+		typename Grid_vt,
+		typename Mat_vt,
+		typename Gen_t,
+		typename ScatterFactor_t,
+		typename NDensityEvent_t,
+		typename ThermGenerator_t,
+		typename HistoEvap_t,
+		typename LEFunc_t,
+		typename BinTrajPool_t,
+
+		typename PhiFunc_t,
+		typename SFunc_t,
+		typename TempFunc_t,
+		typename VescFunc_t,
+		typename Nmk_Vec_t
+	>
+	NOINLINE SpMatrix_t<Mat_vt> ScatterImplShift1(
+		std::type_identity<Grid_vt>,
+		std::type_identity<Mat_vt>,
+		size_t MatSize,
+		Gen_t&& _G,
+		ThermGenerator_t ThermGen,
+		Gen_vt<Gen_t> mk, Gen_vt<Gen_t> dm,
+		Gen_vt<Gen_t> mi,
+		ScatterFactor_t const& dF,
+		NDensityEvent_t const& Nir,
+		size_t MatrixIndexShift_In,
+		size_t MatrixIndexShift_Out,
+		HistoEvap_t&& EvapDistrib,
+		Gen_vt<Gen_t> ZeroValue,
+		LEFunc_t const& LEf,
+		Gen_vt<Gen_t> _F2_value,
+		const BinTrajPool_t& TrajPoolVec,
+		measure_dEpdlq<Grid_vt> m_mes,
+		PhiFunc_t const& Phi,
+		SFunc_t const& S_func,
+
+		TempFunc_t const& TempR,
+		VescFunc_t const& VescR,
+		Gen_vt<Gen_t> VescMin,
+		Nmk_Vec_t const& Nmk_v,
+		size_t Nmk_per_traj,
+		Gen_vt<Gen_t> weight,
+		progress_omp_function<>& m_progress_func
+	) {
+		typedef Grid_vt Traj_t;
+
+
+		const size_t N_in = EvapDistrib.Grid.size();
+		auto&& grid = EvapDistrib.Grid;
+		progress_omp_bar<> m_bar(
+			m_progress_func, N_in, std::max((int)(N_in / 1000), 1)
+		);
+		auto m_cm = mk * mi / (mk + mi);
+
+		auto deltaE_div_m_cm = 2 * dm / m_cm;
+
+		auto mi_frac = mi / (mk + mi);
+		auto mk_frac = mk / (mk + mi);
+		const auto _seed = _G.state;
+
+
+		std::vector<Eigen::SparseVector<Mat_vt>> Columns(N_in);
+
+#pragma	omp parallel for
+		for (int i = 0; i < N_in; ++i) {
+
+			Columns[i] = Eigen::SparseVector<Mat_vt>(N_in);
+
+			auto G = _G;
+			G.set_seed(_seed ^ i + 1);
+			auto IJ = grid.FromLinear(i);
+
+			auto el_bin = grid[IJ];
+			auto [X0X1, Y0Y1] = m_mes.toXY(el_bin);
+
+			//auto OutHisto = grob::make_histo_view(grid, OutIBuffer);
+			const bin_traj_pool_t<Traj_t>& el_trajpool = TrajPoolVec[i];
+
+			auto TinFunc = make_bin_traj_pool_Tin_func(
+				el_trajpool, LEf, _F2_value);
+			auto ToutFunc = make_bin_traj_pool_Tout_func(
+				el_trajpool, LEf);
+
+			//auto m_bin_el_gen = gen_EL(m_mes, el_bin, G, LEf);
+
+			size_t Nmk = 0;
+			if constexpr (std::is_same_v<Nmk_Vec_t, size_t>) {
+				Nmk = Nmk_v;
+			}
+			else {
+				Nmk = Nmk_v[i];
+			}
+
+			for (size_t corner_i = 0; corner_i < 4; ++corner_i) {
+				auto X0 = i < 2 ? X0X1.left : X0X1.right;
+				auto Y0 = i % 2 ? Y0Y1.left : Y0Y1.right;
+				auto [e, l] = m_mes.fromXY(X0, Y0);
+				Traj_t Lmax = LEf(-e);
+				auto Ltmp = l * Lmax;
+				auto [u0, u1, theta_max] =
+					TinFunc.u0_u1_theta1(e, l, Lmax);
+
+				u0 = std::clamp(u0, (decltype(u0))0, (decltype(u0))1);
+				u1 = std::clamp(u1, (decltype(u1))0, (decltype(u1))1);
+				auto r0 = std::sqrt(u0);
+				auto r1 = std::sqrt(u1);
+				auto [tp_i, tp_j] = el_trajpool.Grid.pos(e, l);
+
+				auto const& th00 = el_trajpool[{tp_i, tp_j}].theta_tau;
+				//prelimenary trajectory
+
+				auto Tin_Teheta = TinFunc.tin_theta(e, l);
+
+				auto Tin = Tin_Teheta * theta_max;
+				auto Tout = ToutFunc(e, l, Ltmp);
+
+				
+
+				auto tau_tr_1 = 1;
+				auto tau_tr_0 = 0;
+				auto h = 0.5;
+				auto reaction_goes = [&](auto tau) {
+					auto [theta_undim, d_theta_undim] = th00(tau);
+					auto theta = theta_undim * theta_max;
+					
+					auto cth2 = std::cos(theta / 2);
+					auto sth2 = std::sin(theta / 2);
+					Traj_t r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
+					auto renorm_factor =
+						d_theta_undim /
+						(2 * Tin_Teheta * std::sqrt(S_func(r, r0, r1)));
+					Traj_t v2 = downbound(Phi(r) + e, 0);
+					auto Tr = TempR(r);
+					auto Vmax = std::sqrt(v2) + 8 * std::sqrt(Tr / mi);
+					return Vmax >= ssqrt(deltaE_div_m_cm);
+				};
+				if (!reaction_goes(tau_tr_0)) {
+					;
+				}
+				else if (reaction_goes(tau_tr_1)) {
+					tau_tr_0 = tau_tr_1;
+				}
+				else {
+					for (size_t _s = 0; _s < 20; ++_s) {
+						if (reaction_goes(tau_tr_1)) {
+							tau_tr_0 = tau_tr_1;
+							break;
+						}
+
+						auto tau1 = (tau_tr_1 + tau_tr_0) / 2;
+						if (reaction_goes(tau1)) {
+							tau_tr_0 = tau1;
+						}
+						else {
+							tau_tr_1 = tau1;
+						}
+					}
+				}
+				auto tau_max = tau_tr_0;
+				auto mk_factor =
+					tau_max*weight * Tin / ((Tin + Tout) * Nmk) / 4;
+
+				if (tau_max > 1e-9) {
+					for (size_t nt = 0; nt < Nmk; ++nt) {
+						auto tau = G()*tau_max;
+						auto [theta_undim, d_theta_undim] = th00(tau);
+						auto theta = theta_undim * theta_max;
+						
+						auto cth2 = std::cos(theta / 2);
+						auto sth2 = std::sin(theta / 2);
+						Traj_t r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
+						auto renorm_factor = 1;
+
+						Traj_t v2 = downbound(Phi(r) + e, 0);
+						auto v = std::sqrt(v2);
+						Traj_t vt = upbound(Ltmp / r, v);
+						Traj_t vr = ssqrt(v2 - vt * vt);
+
+						vec3<Traj_t > V_in_nd(vt, 0, vr);
+						vec3<Traj_t > V_in = V_in_nd * VescMin;
+						Traj_t v_esc_nd = VescR(r);
+						auto [dVout, factor] =
+							DeltaVout1_Scatter(
+								V_in, v, G, ThermGen,
+								mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm,
+								dF,
+								v_esc_nd * VescMin, VescMin,
+								Nir(r), TempR(r)
+							);
+						vec3<Traj_t > dVout_nd = dVout * (1 / VescMin);
+						auto VplusV1 = 2 * V_in_nd + dVout_nd;
+						auto dVtau2 = dVout_nd[0] * VplusV1[0] +
+							dVout_nd[1] * VplusV1[1];
+
+						Traj_t deltaE = dVtau2 + dVout_nd[2] * VplusV1[2];
+						//vec3<Traj_t > v_nd = Vout / VescMin;//OK
+						Traj_t e_out = e + deltaE;
+						//Traj_t e_out = ((V_in_nd + dVout_nd).squaredNorm() - v_esc_nd * v_esc_nd);
+
+						auto final_factor = factor * mk_factor * renorm_factor;
+						if (e_out < 0 && final_factor > ZeroValue / Nmk) {
+							Traj_t deltaL2 = (r * r) * dVtau2;
+							Traj_t L_nd2 = Ltmp * Ltmp + deltaL2;
+							Traj_t L_nd = ssqrt(L_nd2);
+
+							auto Lcutter = [](Traj_t Lmax) ->Traj_t {
+								return Lmax > 0 ? 1 / Lmax : 0;
+							};
+
+							Traj_t Lm_inv = Lcutter(Lmax);
+							Traj_t Lmax_out = LEf(-e_out);
+							Traj_t Lm_inv1 = Lcutter(Lmax_out);
+
+							Traj_t l_out = upbound(L_nd * Lm_inv1, 1);
+							//Traj_t l_out1= (Lmax_out > 0 ? L_nd / Lmax_out : 0);
+							//Traj_t deltal = l_out - l;
+							//auto [x0, y0] = m_mes.toXY(e, l);
+							auto [x1, y1] = m_mes.toXY(e_out, l_out);
+							Traj_t dx = x1 - X0;
+							Traj_t dy = y1 - Y0;
+
+
+							Traj_t Xmin = X0X1.left + dx;
+							Traj_t Xmax = X0X1.right + dx;
+							Traj_t Ymin = Y0Y1.left + dy;
+							Traj_t Ymax = Y0Y1.right + dy;
+							bin_dedl_t<Traj_t> binout(
+								grob::Rect<Traj_t>(Xmin, Xmax),
+								grob::Rect<Traj_t>(Ymin, Ymax)
+							);
+
+							auto [emin, lmin] = m_mes.fromXY(Xmin, Ymin);
+							auto [emax, lmax] = m_mes.fromXY(Xmax, Ymax);
+
+							size_t i2_0 = grid.grid().pos(emin);
+							size_t i2_1 = grid.grid().pos(emax) + 1;
+							for (size_t i1 = i2_0; i1 < i2_1; ++i1) {
+								auto gridl = grid.inner(i1);
+
+								size_t j2_0 = gridl.pos(lmin);
+								size_t j2_1 = gridl.pos(lmax) + 1;
+
+								for (size_t j = j2_0; j < j2_1; ++j) {
+									auto mbin = m_mes.toXY(grid[{i1, j}]);
+
+									auto [binOut, isint] = grob::intersect(binout, mbin);
+									auto VolOut = binOut.volume();
+									if (isint) {
+										auto vol_factor = VolOut * Lcutter(binout.volume());
+										size_t k = grid.LinearIndex({ i1, j });
+										Columns[i].coeffRef(k) += final_factor * vol_factor;
+									}
+								}
+							}
+						}
+						else if (e >= 0) {
+							EvapDistrib.Values[i] += final_factor;
+						}
+
+					}
+				}
+				
+			}
+			m_bar.next();
+		}
+		//std::vector<SpTriplet_t<Mat_vt>>
+		//	AllTriplets(flatten(triplets));
+		auto nonZeros = std::accumulate(
+			Columns.begin(),
+			Columns.end(),
+			0ull,
+			[](size_t acc, const auto& vec) {
+				return acc + vec.nonZeros();
+			}
+		);
+		auto m_triplets = triplet_view(Columns.begin(), Columns.end(),
+			MatrixIndexShift_Out, MatrixIndexShift_In);
+
+		SpMatrix_t<Mat_vt> Ret(MatSize, MatSize);
+
+
+
+
+		Ret.setFromTriplets(m_triplets.begin(), m_triplets.end());
+
+		Ret.makeCompressed();
+
+		return Ret;
+	}
 }; //namespace evdm 
