@@ -892,11 +892,6 @@ namespace evdm {
 				}
 				else {
 					for (size_t _s = 0; _s < 20; ++_s) {
-						if (reaction_goes(tau_tr_1)) {
-							tau_tr_0 = tau_tr_1;
-							break;
-						}
-
 						auto tau1 = (tau_tr_1 + tau_tr_0) / 2;
 						if (reaction_goes(tau1)) {
 							tau_tr_0 = tau1;
