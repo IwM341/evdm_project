@@ -21,7 +21,7 @@ struct PyMarkovChain {
 
 	pybind11::array evolute(
 		pybind11::array initials,
-		double maxT, int Ntraj, int maxStep
+		double maxT, int Ntraj, int maxStep, size_t seed = 1
 	);
 
 };
@@ -53,9 +53,11 @@ void PyMarkov_add_to_python_module(pybind11::module& m) {
 		"number of trajectories\n",
 		"max_step : int\n\t"
 		"maximum iteration value\n",
+		"seed: generator seed\n",
 
 		py::arg("init"), py::arg("t_max"),
-		py::arg("traj_num"), py::arg("max_step")
+		py::arg("traj_num"), py::arg("max_step"), 
+		py::arg("seed")
 	);
 
 }
@@ -195,7 +197,7 @@ PyMarkovChain PyMarkovChain::Consrtuct(pybind11::handle m_matrix) {
 
 pybind11::array PyMarkovChain::evolute(
 	pybind11::array initials,
-	double maxT, int Ntraj, int maxStep
+	double maxT, int Ntraj, int maxStep,size_t seed 
 ) {
 
 	return std::visit([&]<class T>(
@@ -206,7 +208,7 @@ pybind11::array PyMarkovChain::evolute(
 		>();
 
 		evdm::VectorGenerator<T> VG(Init.begin(), Init.end());
-		evdm::xorshift<T, evdm::genpol::E0I1> G;
+		evdm::xorshift<T, evdm::genpol::E0I1> G(seed);
 		
 		Eigen::VectorX<T> FinalDistribs;
 		{

@@ -842,8 +842,8 @@ namespace evdm {
 			}
 
 			for (size_t corner_i = 0; corner_i < 4; ++corner_i) {
-				auto X0 = i < 2 ? X0X1.left : X0X1.right;
-				auto Y0 = i % 2 ? Y0Y1.left : Y0Y1.right;
+				auto X0 = corner_i < 2 ? X0X1.left : X0X1.right;
+				auto Y0 = corner_i % 2 ? Y0Y1.left : Y0Y1.right;
 				auto [e, l] = m_mes.fromXY(X0, Y0);
 				Traj_t Lmax = LEf(-e);
 				auto Ltmp = l * Lmax;
@@ -904,7 +904,9 @@ namespace evdm {
 				auto tau_max = tau_tr_0;
 				auto mk_factor =
 					tau_max*weight * Tin / ((Tin + Tout) * Nmk) / 4;
-
+				if (Nmk_per_traj == 0) {
+					tau_max = 1;
+				}
 				if (tau_max > 1e-9) {
 					for (size_t nt = 0; nt < Nmk; ++nt) {
 						auto tau = G()*tau_max;

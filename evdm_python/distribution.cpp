@@ -289,7 +289,7 @@ pybind11::array Py_Distribution::get_array(pybind11::handle  self, int ptype,boo
 			evdm::Distribution<_DISTRIB_PARS_> &distr
 		)->pybind11::array {
 		using T = decltype(distr.get_vtype());
-		if (!raw) {
+			if (!raw) {
 			Eigen::VectorBlock<Eigen::VectorX<T>> m_block = distr.block(ptype);
 			auto shape = pybind11::array::ShapeContainer({ m_block.size() });
 			auto strides = pybind11::array::ShapeContainer({ sizeof(T) });
