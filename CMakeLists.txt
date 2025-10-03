@@ -15,8 +15,11 @@ if(${VERBOSE})
    add_compile_definitions(_VERBOSE)
 endif()
 
-
+if(CMAKE_BUILD_TYPE MATCHES Release)
+option(OPENMP "" ON)
+else()
 option(OPENMP "" OFF)
+endif()
 option(BUILD_TESTS "BUILD_TESTS" OFF)
 
 
