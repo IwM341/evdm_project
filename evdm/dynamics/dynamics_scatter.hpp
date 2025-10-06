@@ -21,6 +21,43 @@
 
 namespace evdm {
 
+	template <typename T, typename Func_t>
+	inline T critical_value(T left, T right, Func_t&& F, bool expect_first_true, size_t Nstep = 20) {
+		if (expect_first_true) {
+			if (!F(left)) {
+				return left;
+			} if (F(right)) {
+				return right;
+			}
+			for (size_t i = 0; i < Nstep; ++i) {
+				T midl = (left + right) / 2;
+				if (F(midl)) {
+					left = midl;
+				}
+				else {
+					right = midl;
+				}
+			}
+			return right;
+		}
+		else {
+			if (F(left)) {
+				return left;
+			} if (!F(right)) {
+				return right;
+			}
+			for (size_t i = 0; i < Nstep; ++i) {
+				T midl = (left + right) / 2;
+				if (F(midl)) {
+					right = midl;
+				}
+				else {
+					left = midl;
+				}
+			}
+			return left;
+		}
+	}
 
 	template <typename inner_iterator_t>
 	struct TripletView {
@@ -270,6 +307,69 @@ namespace evdm {
 		return { vec3<T>(dVu * mi_frac), factor };
 	}
 
+	template <typename T,typename Func_Phi_t, typename Func_Tr_t,typename TinTraj_t, typename LEf_t>
+	bin_dedl_t<T> PrepairBin(bin_dedl_t<T> m_bin,
+		evdm::same_t<T> m, evdm::same_t<T> mi, evdm::same_t<T> deltaE_div_m_cm,
+		Func_Phi_t &&Phi, Func_Tr_t &&TempR, TinTraj_t && TinFunc, LEf_t&&LEf)
+	{
+		auto reaction_goes_e = [&](auto e) {
+			auto [u0, u1, theta_max] =
+				TinFunc.u0_u1_theta1(e, std::get<1>(m_bin).left, LEf(-e));
+			T r = std::sqrt(u0);
+			T v2 = downbound(Phi(r) + e, 0);
+			auto Tr = TempR(r);
+			auto Vmax = std::sqrt(v2) + 8 * std::sqrt(Tr / mi);
+			return Vmax >= ssqrt(deltaE_div_m_cm);
+		};
+		auto& e0e1 = std::get<0>(m_bin);
+		e0e1.left = critical_value(e0e1.left, e0e1.right, reaction_goes_e, false);
+		
+		auto &l0l1 = std::get<1>(m_bin);
+		T critical_l_worst = std::get<1>(m_bin).left;
+		for (size_t lb = 0; lb < 2; ++lb) {
+			auto e = lb ? e0e1.left : e0e1.right;
+			auto reaction_goes_l = [&](auto l) {
+				auto Le = LEf(-e);
+				auto [u0, u1, theta_max] =
+					TinFunc.u0_u1_theta1(e, l, Le);
+				T r = std::sqrt(u0);
+				T v2 = downbound(Phi(r) + e, 0);
+				auto Tr = TempR(r);
+				auto Vmax = std::sqrt(v2) + 8 * std::sqrt(Tr / mi);
+				return Vmax >= ssqrt(deltaE_div_m_cm);
+			};
+			critical_l_worst = std::max(
+				critical_l_worst, 
+				critical_value(l0l1.left, l0l1.right, reaction_goes_l, true)
+			);
+		}
+		l0l1.right = critical_l_worst;
+		return m_bin;
+	}
+
+	template < typename Te_t,typename U, typename V,typename T,
+		typename Func_Phi_t, typename Func_Tr_t, typename TinTraj_t>
+	auto find_tau_max(Te_t e,U r0,U r1, V theta_max,
+		T m, T mi, evdm::same_t<T> deltaE_div_m_cm,
+		Func_Phi_t&& Phi, Func_Tr_t&& TempR, TinTraj_t&& th00) {
+		
+		typedef  decltype(th00.Grid[0]) Tau_t;
+		auto u0 = r0 * r0;
+		auto u1 = r1 * r1;
+		auto reaction_goes = [&](auto tau) {
+			auto [theta_undim, d_theta_undim] = th00(tau);
+			auto theta = theta_undim * theta_max;
+
+			auto cth2 = std::cos(theta / 2);
+			auto sth2 = std::sin(theta / 2);
+			auto r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
+			auto v2 = downbound(Phi(r) + e, 0);
+			auto Tr = TempR(r);
+			auto Vmax = std::sqrt(v2) + 8 * std::sqrt(Tr / mi);
+			return Vmax >= ssqrt(deltaE_div_m_cm);
+		};
+		return critical_value(Tau_t(0), Tau_t(1), reaction_goes, true);
+	}
 
 	template <
 		typename Grid_vt,
@@ -344,6 +444,8 @@ namespace evdm {
 
 			auto el_bin = grid[IJ];
 
+			
+
 			auto OutHisto = grob::make_histo_view(grid,OutIBuffer);
 			const bin_traj_pool_t<Traj_t>& el_trajpool = TrajPoolVec[i];
 
@@ -351,6 +453,8 @@ namespace evdm {
 				el_trajpool, LEf, _F2_value);
 			auto ToutFunc = make_bin_traj_pool_Tout_func(
 				el_trajpool, LEf);
+
+			el_bin = PrepairBin(el_bin, mk, mi, deltaE_div_m_cm, Phi, TempR, TinFunc, LEf);
 
 			auto m_bin_el_gen = m_mes.get_gen(el_bin);
 
@@ -379,14 +483,18 @@ namespace evdm {
 
 				auto Tin_Teheta = TinFunc.tin_theta(e, l);
 
+
+				Traj_t tau_max = (Nmk_per_traj <= 10) ? Traj_t(1) :
+					find_tau_max(e,r0, r1, theta_max, mk, mi, deltaE_div_m_cm, Phi, TempR, th00);
+
 				auto Tin = Tin_Teheta * theta_max;
 				auto Tout = ToutFunc(e, l, Ltmp);
 
 				auto mk_factor =
-					weight * Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
+					weight * tau_max* Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
 
 				for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
-					auto tau = G();
+					auto tau = G()* tau_max;
 					auto [theta_undim, d_theta_undim] = th00(tau);
 					auto theta = theta_undim * theta_max;
 					auto d_theta = d_theta_undim * theta_max;
@@ -571,6 +679,7 @@ namespace evdm {
 			auto ToutFunc = make_bin_traj_pool_Tout_func(
 				el_trajpool, LEf);
 
+			el_bin = PrepairBin(el_bin, mk, mi, deltaE_div_m_cm, Phi, TempR, TinFunc, LEf);
 			//auto m_bin_el_gen = gen_EL(m_mes, el_bin, G, LEf);
 
 			size_t Nmk = 0;
@@ -605,11 +714,15 @@ namespace evdm {
 				auto Tin = Tin_Teheta * theta_max;
 				auto Tout = ToutFunc(e, l, Ltmp);
 
+				Traj_t tau_max = (Nmk_per_traj <= 10) ? Traj_t(1) :
+					find_tau_max(e,r0, r1, theta_max, mk, mi, deltaE_div_m_cm, Phi, TempR, th00);
+
 				auto mk_factor =
-					weight * Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
+					weight * tau_max*Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
+
 
 				for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
-					auto tau = G();
+					auto tau = G()* tau_max;
 					auto [theta_undim, d_theta_undim] = th00(tau);
 					auto theta = theta_undim * theta_max;
 					auto d_theta = d_theta_undim * theta_max;
@@ -832,6 +945,7 @@ namespace evdm {
 				el_trajpool, LEf);
 
 			//auto m_bin_el_gen = gen_EL(m_mes, el_bin, G, LEf);
+			el_bin = PrepairBin(el_bin, mk, mi, deltaE_div_m_cm, Phi, TempR, TinFunc, LEf);
 
 			size_t Nmk = 0;
 			if constexpr (std::is_same_v<Nmk_Vec_t, size_t>) {
@@ -864,49 +978,13 @@ namespace evdm {
 				auto Tin = Tin_Teheta * theta_max;
 				auto Tout = ToutFunc(e, l, Ltmp);
 
-				
+				Traj_t tau_max = !Nmk_per_traj ? Traj_t(1) : 
+					find_tau_max(e,r0, r1, theta_max, mk, mi, deltaE_div_m_cm, Phi, TempR, th00);
 
-				auto tau_tr_1 = 1;
-				auto tau_tr_0 = 0;
-				auto h = 0.5;
-				auto reaction_goes = [&](auto tau) {
-					auto [theta_undim, d_theta_undim] = th00(tau);
-					auto theta = theta_undim * theta_max;
-					
-					auto cth2 = std::cos(theta / 2);
-					auto sth2 = std::sin(theta / 2);
-					Traj_t r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
-					auto renorm_factor =
-						d_theta_undim /
-						(2 * Tin_Teheta * std::sqrt(S_func(r, r0, r1)));
-					Traj_t v2 = downbound(Phi(r) + e, 0);
-					auto Tr = TempR(r);
-					auto Vmax = std::sqrt(v2) + 8 * std::sqrt(Tr / mi);
-					return Vmax >= ssqrt(deltaE_div_m_cm);
-				};
-				if (!reaction_goes(tau_tr_0)) {
-					;
-				}
-				else if (reaction_goes(tau_tr_1)) {
-					tau_tr_0 = tau_tr_1;
-				}
-				else {
-					for (size_t _s = 0; _s < 20; ++_s) {
-						auto tau1 = (tau_tr_1 + tau_tr_0) / 2;
-						if (reaction_goes(tau1)) {
-							tau_tr_0 = tau1;
-						}
-						else {
-							tau_tr_1 = tau1;
-						}
-					}
-				}
-				auto tau_max = tau_tr_0;
 				auto mk_factor =
 					tau_max*weight * Tin / ((Tin + Tout) * Nmk) / 4;
-				if (Nmk_per_traj == 0) {
-					tau_max = 1;
-				}
+				
+
 				if (tau_max > 1e-9) {
 					for (size_t nt = 0; nt < Nmk; ++nt) {
 						auto tau = G()*tau_max;
