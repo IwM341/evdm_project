@@ -493,77 +493,79 @@ namespace evdm {
 				auto mk_factor =
 					weight * tau_max* Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
 
-				for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
-					auto tau = G()* tau_max;
-					auto [theta_undim, d_theta_undim] = th00(tau);
-					auto theta = theta_undim * theta_max;
-					auto d_theta = d_theta_undim * theta_max;
+				if (tau_max > 0) {
+					for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
+						auto tau = G() * tau_max;
+						auto [theta_undim, d_theta_undim] = th00(tau);
+						auto theta = theta_undim * theta_max;
+						auto d_theta = d_theta_undim * theta_max;
 
-					auto cth2 = std::cos(theta / 2);
-					auto sth2 = std::sin(theta / 2);
-					Traj_t r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
-						
+						auto cth2 = std::cos(theta / 2);
+						auto sth2 = std::sin(theta / 2);
+						Traj_t r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
+
 #ifndef NDEBUG
-					auto _C0 = Phi(std::sqrt(u0)) + e - Ltmp * Ltmp / u0;
-					auto _C0_p = Phi(std::sqrt(u0*(1+1e-4))) + e - Ltmp * Ltmp / (u0 * (1 + 1e-4));
-					auto _C0_m = Phi(std::sqrt(u0 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 - 1e-4));
-					auto _C1 = Phi(std::sqrt(u1)) + e - Ltmp * Ltmp / u1;
-					auto _C1_p = Phi(std::sqrt(u1 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 + 1e-4));
-					auto _C1_m = Phi(std::sqrt(u1 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 - 1e-4));
+						auto _C0 = Phi(std::sqrt(u0)) + e - Ltmp * Ltmp / u0;
+						auto _C0_p = Phi(std::sqrt(u0 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 + 1e-4));
+						auto _C0_m = Phi(std::sqrt(u0 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 - 1e-4));
+						auto _C1 = Phi(std::sqrt(u1)) + e - Ltmp * Ltmp / u1;
+						auto _C1_p = Phi(std::sqrt(u1 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 + 1e-4));
+						auto _C1_m = Phi(std::sqrt(u1 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 - 1e-4));
 #endif
-					auto renorm_factor =
-						d_theta_undim /
-						(2 * Tin_Teheta * std::sqrt(S_func(r, r0, r1)));
+						auto renorm_factor =
+							d_theta_undim /
+							(2 * Tin_Teheta * std::sqrt(S_func(r, r0, r1)));
 
-					Traj_t v2 = downbound(Phi(r) + e, 0);
-					auto v = std::sqrt(v2);
-					Traj_t vt = upbound(Ltmp / r, v);
-					Traj_t vr = ssqrt(v2 - vt * vt);
+						Traj_t v2 = downbound(Phi(r) + e, 0);
+						auto v = std::sqrt(v2);
+						Traj_t vt = upbound(Ltmp / r, v);
+						Traj_t vr = ssqrt(v2 - vt * vt);
 
-					vec3<Traj_t > V_in_nd(vt , 0, vr );
-					vec3<Traj_t > V_in = V_in_nd * VescMin;
-					Traj_t v_esc_nd = VescR(r);
-					auto [dVout, factor] =
-						DeltaVout1_Scatter(
-							V_in,v, G, ThermGen, 
-							mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm, 
-							dF,
-							v_esc_nd * VescMin, VescMin,
-							Nir(r), TempR(r)
-						);
-					vec3<Traj_t > dVout_nd = dVout * (1 / VescMin);
-					auto VplusV1 = 2 * V_in_nd + dVout_nd;
-					auto dVtau2 = dVout_nd[0] * VplusV1[0] +
-						dVout_nd[1] * VplusV1[1];
+						vec3<Traj_t > V_in_nd(vt, 0, vr);
+						vec3<Traj_t > V_in = V_in_nd * VescMin;
+						Traj_t v_esc_nd = VescR(r);
+						auto [dVout, factor] =
+							DeltaVout1_Scatter(
+								V_in, v, G, ThermGen,
+								mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm,
+								dF,
+								v_esc_nd * VescMin, VescMin,
+								Nir(r), TempR(r)
+							);
+						vec3<Traj_t > dVout_nd = dVout * (1 / VescMin);
+						auto VplusV1 = 2 * V_in_nd + dVout_nd;
+						auto dVtau2 = dVout_nd[0] * VplusV1[0] +
+							dVout_nd[1] * VplusV1[1];
 
-					Traj_t deltaE = dVtau2 + dVout_nd[2] * VplusV1[2];
-					//vec3<Traj_t > v_nd = Vout / VescMin;//OK
-					Traj_t e_out = e + deltaE;
-					//Traj_t e_out1 = ((V_in_nd+ dVout_nd).squaredNorm() - v_esc_nd * v_esc_nd);
+						Traj_t deltaE = dVtau2 + dVout_nd[2] * VplusV1[2];
+						//vec3<Traj_t > v_nd = Vout / VescMin;//OK
+						Traj_t e_out = e + deltaE;
+						//Traj_t e_out1 = ((V_in_nd+ dVout_nd).squaredNorm() - v_esc_nd * v_esc_nd);
 
-					auto final_factor = factor * mk_factor * renorm_factor;
-					auto m_zero = ZeroValue / Nmk;
-					if (e_out < 0) {
-						if (final_factor > m_zero) {
-							Traj_t deltaL2 = (r * r) * dVtau2;
-							Traj_t L_nd2 = Ltmp * Ltmp + deltaL2;
-							Traj_t L_nd = ssqrt(L_nd2);
+						auto final_factor = factor * mk_factor * renorm_factor;
+						auto m_zero = ZeroValue / Nmk;
+						if (e_out < 0) {
+							if (final_factor > m_zero) {
+								Traj_t deltaL2 = (r * r) * dVtau2;
+								Traj_t L_nd2 = Ltmp * Ltmp + deltaL2;
+								Traj_t L_nd = ssqrt(L_nd2);
 
-							auto Lcutter = [](Traj_t Lmax) ->Traj_t {
-								return Lmax > 0 ? 1 / Lmax : 0;
-							};
+								auto Lcutter = [](Traj_t Lmax) ->Traj_t {
+									return Lmax > 0 ? 1 / Lmax : 0;
+								};
 
-							Traj_t Lm_inv = Lcutter(Lmax);
-							Traj_t Lmax_out = LEf(-e_out);
-							Traj_t Lm_inv1 = Lcutter(Lmax_out);
+								Traj_t Lm_inv = Lcutter(Lmax);
+								Traj_t Lmax_out = LEf(-e_out);
+								Traj_t Lm_inv1 = Lcutter(Lmax_out);
 
-							Traj_t l_out = upbound(L_nd * Lm_inv1, 1);
-							//Traj_t l_out1= (Lmax_out > 0 ? L_nd / Lmax_out : 0);
-							OutHisto.put_force(final_factor, e_out, l_out);
+								Traj_t l_out = upbound(L_nd * Lm_inv1, 1);
+								//Traj_t l_out1= (Lmax_out > 0 ? L_nd / Lmax_out : 0);
+								OutHisto.put_force(final_factor, e_out, l_out);
+							}
 						}
-					}
-					else {
-						EvapDistrib.Values[i] += final_factor;
+						else {
+							EvapDistrib.Values[i] += final_factor;
+						}
 					}
 				}
 			}
@@ -721,112 +723,115 @@ namespace evdm {
 					weight * tau_max*Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
 
 
-				for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
-					auto tau = G()* tau_max;
-					auto [theta_undim, d_theta_undim] = th00(tau);
-					auto theta = theta_undim * theta_max;
-					auto d_theta = d_theta_undim * theta_max;
+				if(tau_max > 0)
+				{
+					for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
+						auto tau = G() * tau_max;
+						auto [theta_undim, d_theta_undim] = th00(tau);
+						auto theta = theta_undim * theta_max;
+						auto d_theta = d_theta_undim * theta_max;
 
-					auto cth2 = std::cos(theta / 2);
-					auto sth2 = std::sin(theta / 2);
-					Traj_t r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
+						auto cth2 = std::cos(theta / 2);
+						auto sth2 = std::sin(theta / 2);
+						Traj_t r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
 
 #ifndef NDEBUG
-					auto _C0 = Phi(std::sqrt(u0)) + e - Ltmp * Ltmp / u0;
-					auto _C0_p = Phi(std::sqrt(u0 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 + 1e-4));
-					auto _C0_m = Phi(std::sqrt(u0 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 - 1e-4));
-					auto _C1 = Phi(std::sqrt(u1)) + e - Ltmp * Ltmp / u1;
-					auto _C1_p = Phi(std::sqrt(u1 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 + 1e-4));
-					auto _C1_m = Phi(std::sqrt(u1 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 - 1e-4));
+						auto _C0 = Phi(std::sqrt(u0)) + e - Ltmp * Ltmp / u0;
+						auto _C0_p = Phi(std::sqrt(u0 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 + 1e-4));
+						auto _C0_m = Phi(std::sqrt(u0 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u0 * (1 - 1e-4));
+						auto _C1 = Phi(std::sqrt(u1)) + e - Ltmp * Ltmp / u1;
+						auto _C1_p = Phi(std::sqrt(u1 * (1 + 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 + 1e-4));
+						auto _C1_m = Phi(std::sqrt(u1 * (1 - 1e-4))) + e - Ltmp * Ltmp / (u1 * (1 - 1e-4));
 #endif
-					auto renorm_factor =
-						d_theta_undim /
-						(2 * Tin_Teheta * std::sqrt(S_func(r, r0, r1)));
+						auto renorm_factor =
+							d_theta_undim /
+							(2 * Tin_Teheta * std::sqrt(S_func(r, r0, r1)));
 
-					Traj_t v2 = downbound(Phi(r) + e, 0);
-					auto v = std::sqrt(v2);
-					Traj_t vt = upbound(Ltmp / r, v);
-					Traj_t vr = ssqrt(v2 - vt * vt);
+						Traj_t v2 = downbound(Phi(r) + e, 0);
+						auto v = std::sqrt(v2);
+						Traj_t vt = upbound(Ltmp / r, v);
+						Traj_t vr = ssqrt(v2 - vt * vt);
 
-					vec3<Traj_t > V_in_nd(vt, 0, vr);
-					vec3<Traj_t > V_in = V_in_nd * VescMin;
-					Traj_t v_esc_nd = VescR(r);
-					auto [dVout, factor] =
-						DeltaVout1_Scatter(
-							V_in, v, G, ThermGen,
-							mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm,
-							dF,
-							v_esc_nd * VescMin, VescMin,
-							Nir(r), TempR(r)
-						);
-					vec3<Traj_t > dVout_nd = dVout * (1 / VescMin);
-					auto VplusV1 = 2 * V_in_nd + dVout_nd;
-					auto dVtau2 = dVout_nd[0] * VplusV1[0] +
-						dVout_nd[1] * VplusV1[1];
+						vec3<Traj_t > V_in_nd(vt, 0, vr);
+						vec3<Traj_t > V_in = V_in_nd * VescMin;
+						Traj_t v_esc_nd = VescR(r);
+						auto [dVout, factor] =
+							DeltaVout1_Scatter(
+								V_in, v, G, ThermGen,
+								mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm,
+								dF,
+								v_esc_nd * VescMin, VescMin,
+								Nir(r), TempR(r)
+							);
+						vec3<Traj_t > dVout_nd = dVout * (1 / VescMin);
+						auto VplusV1 = 2 * V_in_nd + dVout_nd;
+						auto dVtau2 = dVout_nd[0] * VplusV1[0] +
+							dVout_nd[1] * VplusV1[1];
 
-					Traj_t deltaE = dVtau2 + dVout_nd[2] * VplusV1[2];
-					//vec3<Traj_t > v_nd = Vout / VescMin;//OK
-					Traj_t e_out = e + deltaE;
-					//Traj_t e_out = ((V_in_nd + dVout_nd).squaredNorm() - v_esc_nd * v_esc_nd);
+						Traj_t deltaE = dVtau2 + dVout_nd[2] * VplusV1[2];
+						//vec3<Traj_t > v_nd = Vout / VescMin;//OK
+						Traj_t e_out = e + deltaE;
+						//Traj_t e_out = ((V_in_nd + dVout_nd).squaredNorm() - v_esc_nd * v_esc_nd);
 
-					auto final_factor = factor * mk_factor * renorm_factor;
-					if (e_out < 0 && final_factor > ZeroValue/Nmk) {
-						Traj_t deltaL2 = (r * r) * dVtau2;
-						Traj_t L_nd2 = Ltmp * Ltmp + deltaL2;
-						Traj_t L_nd = ssqrt(L_nd2);
+						auto final_factor = factor * mk_factor * renorm_factor;
+						if (e_out < 0 && final_factor > ZeroValue / Nmk) {
+							Traj_t deltaL2 = (r * r) * dVtau2;
+							Traj_t L_nd2 = Ltmp * Ltmp + deltaL2;
+							Traj_t L_nd = ssqrt(L_nd2);
 
-						auto Lcutter = [](Traj_t Lmax) ->Traj_t {
-							return Lmax > 0 ? 1 / Lmax : 0;
-						};
+							auto Lcutter = [](Traj_t Lmax) ->Traj_t {
+								return Lmax > 0 ? 1 / Lmax : 0;
+							};
 
-						Traj_t Lm_inv = Lcutter(Lmax);
-						Traj_t Lmax_out = LEf(-e_out);
-						Traj_t Lm_inv1 = Lcutter(Lmax_out);
+							Traj_t Lm_inv = Lcutter(Lmax);
+							Traj_t Lmax_out = LEf(-e_out);
+							Traj_t Lm_inv1 = Lcutter(Lmax_out);
 
-						Traj_t l_out = upbound(L_nd* Lm_inv1, 1);
-						//Traj_t l_out1= (Lmax_out > 0 ? L_nd / Lmax_out : 0);
-						//Traj_t deltal = l_out - l;
-						//auto [x0, y0] = m_mes.toXY(e, l);
-						auto [x1, y1] = m_mes.toXY(e_out, l_out);
-						Traj_t dx = x1 - X0;
-						Traj_t dy = y1 - Y0;
-						
-						
-						Traj_t Xmin = X0X1.left + dx;
-						Traj_t Xmax = X0X1.right + dx;
-						Traj_t Ymin = Y0Y1.left + dy;
-						Traj_t Ymax = Y0Y1.right + dy;
-						bin_dedl_t<Traj_t> binout(
-							grob::Rect<Traj_t>( Xmin,Xmax ),
-							grob::Rect<Traj_t>(Ymin,Ymax )
-						);
+							Traj_t l_out = upbound(L_nd * Lm_inv1, 1);
+							//Traj_t l_out1= (Lmax_out > 0 ? L_nd / Lmax_out : 0);
+							//Traj_t deltal = l_out - l;
+							//auto [x0, y0] = m_mes.toXY(e, l);
+							auto [x1, y1] = m_mes.toXY(e_out, l_out);
+							Traj_t dx = x1 - X0;
+							Traj_t dy = y1 - Y0;
 
-						auto [emin, lmin] = m_mes.fromXY(Xmin, Ymin);
-						auto [emax, lmax] = m_mes.fromXY(Xmax, Ymax);
 
-						size_t i2_0 = grid.grid().pos(emin);
-						size_t i2_1 = grid.grid().pos(emax) + 1;
-						for (size_t i1 = i2_0; i1 < i2_1; ++i1) {
-							auto gridl = grid.inner(i1);
+							Traj_t Xmin = X0X1.left + dx;
+							Traj_t Xmax = X0X1.right + dx;
+							Traj_t Ymin = Y0Y1.left + dy;
+							Traj_t Ymax = Y0Y1.right + dy;
+							bin_dedl_t<Traj_t> binout(
+								grob::Rect<Traj_t>(Xmin, Xmax),
+								grob::Rect<Traj_t>(Ymin, Ymax)
+							);
 
-							size_t j2_0 = gridl.pos(lmin);
-							size_t j2_1 = gridl.pos(lmax) + 1;
+							auto [emin, lmin] = m_mes.fromXY(Xmin, Ymin);
+							auto [emax, lmax] = m_mes.fromXY(Xmax, Ymax);
 
-							for (size_t j = j2_0; j < j2_1; ++j) {
-								auto mbin = m_mes.toXY(grid[{i1,j}]);
-								
-								auto [binOut,isint] = grob::intersect(binout,mbin);
-								auto VolOut = binOut.volume();
-								if (isint) {
-									auto vol_factor = VolOut * Lcutter(binout.volume());
-									size_t k = grid.LinearIndex({ i1, j });
-									Columns[i].coeffRef(k) += final_factor * vol_factor;
+							size_t i2_0 = grid.grid().pos(emin);
+							size_t i2_1 = grid.grid().pos(emax) + 1;
+							for (size_t i1 = i2_0; i1 < i2_1; ++i1) {
+								auto gridl = grid.inner(i1);
+
+								size_t j2_0 = gridl.pos(lmin);
+								size_t j2_1 = gridl.pos(lmax) + 1;
+
+								for (size_t j = j2_0; j < j2_1; ++j) {
+									auto mbin = m_mes.toXY(grid[{i1, j}]);
+
+									auto [binOut, isint] = grob::intersect(binout, mbin);
+									auto VolOut = binOut.volume();
+									if (isint) {
+										auto vol_factor = VolOut * Lcutter(binout.volume());
+										size_t k = grid.LinearIndex({ i1, j });
+										Columns[i].coeffRef(k) += final_factor * vol_factor;
+									}
 								}
 							}
 						}
-					}
-					else if(e>=0){
-						EvapDistrib.Values[i] += final_factor;
+						else if (e >= 0) {
+							EvapDistrib.Values[i] += final_factor;
+						}
 					}
 				}
 			}
@@ -985,7 +990,7 @@ namespace evdm {
 					tau_max*weight * Tin / ((Tin + Tout) * Nmk) / 4;
 				
 
-				if (tau_max > 1e-9) {
+				if (tau_max > 0) {
 					for (size_t nt = 0; nt < Nmk; ++nt) {
 						auto tau = G()*tau_max;
 						auto [theta_undim, d_theta_undim] = th00(tau);
