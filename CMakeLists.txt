@@ -23,7 +23,7 @@ endif()
 
 option(BUILD_TESTS "BUILD_TESTS" OFF)
 
-message("USEOPENMP: {$OPENMP}")
+message("USEOPENMP: ${OPENMP}" )
 message("CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     message("Debug flags = " ${CMAKE_CXX_FLAGS})
