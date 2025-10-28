@@ -17,7 +17,7 @@ struct PyMarkovChain {
 		evdm::MarkovProcess<float>,
 		evdm::MarkovProcess<double>
 	> m_process;
-	static PyMarkovChain Consrtuct(pybind11::handle m_matrix);
+	static PyMarkovChain Consrtuct(pybind11::handle m_matrix, pybind11::handle m_evap);
 
 	pybind11::array evolute(
 		pybind11::array initials,
@@ -36,8 +36,9 @@ void PyMarkov_add_to_python_module(pybind11::module& m) {
 		"Parameters:\n"
 		"___________\n"
 		"matrix : array or csc sparse matrix\n\t"
-		"probability matrix a[j,i] from i to j",
-		py::arg("matrix")
+		"probability matrix a[j,i] from i to j"
+		"evap : array | None evaporation vector",
+		py::arg("matrix"), py::arg_v("evap",py::none())
 	);
 	markov.def(
 		"evolute",
@@ -153,7 +154,13 @@ struct matrix_caster {
 	template <typename T>
 	using idt = std::type_identity<T>;
 
-	MarkovVariant operator()(pybind11::array m_arr) {
+	template <typename T>
+	static Eigen::VectorX<T> to_vector(pybind11::handle m_evap) {
+		return m_evap.cast<
+			Eigen::VectorX<T>
+		>();;
+	}
+	MarkovVariant operator()(pybind11::array m_arr, pybind11::handle m_evap) {
 		
 		auto m_type = getType([&m_arr]<class T>(idt<T>) {
 			//bool b = m_arr.dtype().equal(pybind11::dtype::of<T>());
@@ -162,14 +169,17 @@ struct matrix_caster {
 			idt<void>{}
 		);
 		return std::visit(
-			[&m_arr]<class T>(idt<T>)->MarkovVariant
+			[&m_arr, m_evap]<class T>(idt<T>)->MarkovVariant
 		{
 			auto m_mat = ConvertMatrix(pybind11::array_t<T>(m_arr));
 			// m_arr.cast<Eigen::Map<Eigen::MatrixX<T>>>();
-			return evdm::MarkovProcess<T>(m_mat);
+			if(m_evap.is_none())
+				return evdm::MarkovProcess<T>(m_mat);
+			else
+				return evdm::MarkovProcess<T>(m_mat,to_vector<T>(m_evap));
 		},m_type);
 	}
-	MarkovVariant operator()(pybind11::handle m_arr) {
+	MarkovVariant operator()(pybind11::handle m_arr, pybind11::handle m_evap) {
 		pybind11::handle dtype = m_arr.attr("dtype");
 
 		auto m_type = getType([dtype]<class T>(idt<T>) 
@@ -180,19 +190,25 @@ struct matrix_caster {
 			idt<void>{}
 		);
 		return std::visit(
-			[m_arr]<class T>(idt<T>)->MarkovVariant
+			[m_arr, m_evap]<class T>(idt<T>)->MarkovVariant
 		{
 			auto m_mat = ConvertSpMatrix<T>(m_arr);
-			return evdm::MarkovProcess<T>(m_mat);
+			if(m_evap.is_none())
+				return evdm::MarkovProcess<T>(m_mat);
+			else
+				return evdm::MarkovProcess<T>(m_mat, to_vector<T>(m_evap));
 		}, m_type);
 	}
 };
 
-PyMarkovChain PyMarkovChain::Consrtuct(pybind11::handle m_matrix) {
-	matrix_caster m;
+PyMarkovChain PyMarkovChain::Consrtuct(pybind11::handle m_matrix, pybind11::handle m_evap) {
+	
 	return PyMarkovChain{ std::visit(
-		m, array_detect(m_matrix)
-	)};
+		[m_evap](auto m_array) {
+			matrix_caster m;
+			return m(m_array, m_evap);
+		}, array_detect(m_matrix)
+	) };
 }
 
 pybind11::array PyMarkovChain::evolute(

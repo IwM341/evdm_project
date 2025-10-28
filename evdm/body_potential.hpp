@@ -195,18 +195,18 @@ namespace evdm{
             RFunc2_t Internal_lm;
             RFunc2_t Internal_um;
 
-            static LE_func_t constructor(
+            LE_func_t(
                 RFunc2_t Internal_lm,
                 RFunc2_t Internal_um
-            ) {
-                return LE_func_t(std::move(Internal_lm), std::move(Internal_um));
-            }
+            ):Internal_lm(std::move(Internal_lm)),
+              Internal_um(std::move(Internal_um)){}
+
             SERIALIZATOR_FUNCTION(
                 PROPERTY_NAMES("i_lm", "i_um"),
                 PROPERTIES(Internal_lm, Internal_um)
             )
             DESERIALIZATOR_FUNCTION(
-                constructor,
+                LE_func_t,
                 PROPERTY_NAMES("i_lm", "i_um"),
                 PROPERTY_TYPES(Internal_lm, Internal_um)
             )
@@ -302,6 +302,37 @@ namespace evdm{
                     return Phi[i] - r*r*Q[i]/2;
                 },Phi.Grid.size());
                 size_t i = grob::find_last_index(FuncArray,e,std::greater<>{});
+                auto r0 = Phi.Grid[i];
+                auto r1 = Phi.Grid[i+1];
+                auto f0 = FuncArray[i] - e;
+                auto f1 = FuncArray[i+1] - e;
+                auto r = ssqrt((r1*r1*f0-r0*r0*f1)/(f0-f1));
+                return {r*r*(Phi(r)-e),r};
+            }
+        }
+
+        /// @brief Lmax_squared(e) and rm(e) assuming trajectory intersect body
+        /// @param e positive dimentionless energy
+        /// @return pair(Lmax^2(e),rm(e)), where rm(e) --- where Lm(e) reaches 
+        /// as Lm(e) = argmax(r)(rv_t)
+        inline std::pair<T,T> maxL2(T e,size_t i0_hint,size_t i1_hint)const{
+            if(e <= 0.5){
+                return {1 - e,1};
+            }
+            else {
+                auto FuncArray = 
+                grob::as_container([&](size_t i){
+                    //want to get F'(u) = phi(r) - r^2/2Q(r)
+                    auto r = Phi.Grid[i];
+                    return Phi[i] - r*r*Q[i]/2;
+                },Phi.Grid.size());
+                if(FuncArray[i1_hint] > 0) [[unlikely]]{
+                    i1_hint = Phi.Grid.size()-1;
+                }
+                if(FuncArray[i0_hint] <0){
+                    i0_hint = 0;
+                }
+                size_t i = grob::find_index(FuncArray,e,i0_hint,i1_hint,std::greater<>{});
                 auto r0 = Phi.Grid[i];
                 auto r1 = Phi.Grid[i+1];
                 auto f0 = FuncArray[i] - e;
@@ -447,11 +478,10 @@ namespace evdm{
             return {ssqrt(avar-msqrt),ssqrt(avar+msqrt)};
         }
 
-        inline std::pair<T,T> find_rmin_rmax(T const& e,T const& L2,LE_func_t const &LE,
+        inline std::pair<T,T> find_rmin_rmax(T const& e,T const& L2,T rm,
         size_t imin0_g = 0,size_t imin1_g = std::numeric_limits<size_t>::max(),
         size_t imax0_g = 0,size_t imax1_g = std::numeric_limits<size_t>::max())const{
             //more e -> less rm -> less im
-            auto rm = LE.rm(e);
             size_t im = Phi.Grid.pos(rm);
             auto F = [&](size_t i){
                 auto r = Phi.Grid[i];
@@ -482,6 +512,14 @@ namespace evdm{
                 //auto mF2 = [&](T r){return (3*Rho(r)+Q(r))/8;};
                 return find_close_rmin_rmax(e,L2,im);
             }
+        }
+
+        inline std::pair<T,T> find_rmin_rmax(T const& e,T const& L2,LE_func_t const &LE,
+        size_t imin0_g = 0,size_t imin1_g = std::numeric_limits<size_t>::max(),
+        size_t imax0_g = 0,size_t imax1_g = std::numeric_limits<size_t>::max())const{
+            //more e -> less rm -> less im
+            T rm = LE.rm(e);
+            return find_rmin_rmax(e,L2,rm,imin0_g,imin1_g,imax0_g,imax1_g);
         }
 
         /// @brief returns i0, i1, so that r[i0] <= rmin <= rmax <= r[i1]

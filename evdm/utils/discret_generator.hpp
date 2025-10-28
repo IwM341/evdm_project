@@ -66,6 +66,9 @@ namespace evdm {
         template <typename iter_t>
         VectorGenerator(iter_t m_begin, iter_t m_end) {
             m_size = (size_t)(m_end - m_begin);
+            if(m_size == 0){
+                throw std::runtime_error("VectorGenerator: size == 0");
+            }
             size_t count_nonzeros = std::count_if(
                 m_begin, m_end, [](auto i) { return i > 0; }
             );
@@ -90,7 +93,7 @@ namespace evdm {
                 indicies.push_back(p.second);
                 xi_values.push_back(p.first);
             }
-            IndexGenBigHelper::PrepareValues(xi_values.begin(), xi_values.end(), false);
+                IndexGenBigHelper::PrepareValues(xi_values.begin(), xi_values.end(), false);
         }
         inline size_t gen(Vt xi)const {
             return indicies[IndexGenBigHelper::gen(xi_values.begin(), xi_values.end(), xi)];
@@ -180,21 +183,28 @@ namespace evdm {
 
         std::vector<size_t> shift_data;
         std::vector<Vt> probabilities; // size = N
-
+        std::vector<Vt> EvapProbs; // size = N
         size_t m_size;
 
         inline size_t size() const {
             return m_size;
         }
 
-        template <typename Matrix_t>
-        MarkovProcess(Matrix_t const& m_mat) {
+        template <typename Matrix_t,typename Evap_t = bool>
+        MarkovProcess(Matrix_t const& m_mat, Evap_t const & Evap = false) {
             size_t N = m_mat.cols();
             m_size = N;
             if (m_mat.cols() != m_mat.rows()) {
                 throw std::runtime_error("MarkovProcessDens: cols != rows");
             }
             probabilities.resize(N);
+            EvapProbs.resize(N,0);
+            if constexpr (!std::is_same_v< Evap_t, bool>) {
+                for (size_t i = 0; i < Evap.size();++i) {
+                    EvapProbs[i] = Evap[i];
+                }
+            }
+            
             shift_data.resize(N + 1);
             shift_data[0] = 0;
             for (size_t i = 0; i < N; ++i) {
@@ -230,9 +240,18 @@ namespace evdm {
             }
         }
 
-        std::pair<size_t, Vt> make_step(size_t i0, Vt maxT, Vt xi1, Vt xi2)const {
-            Vt dT = -std::log(xi2) / probabilities[i0];
+        std::pair<size_t, Vt> make_step(
+                size_t i0, Vt maxT, Vt xi1, Vt xi2,Vt xi3 = 0
+            )const {
+            if (i0 >= probabilities.size()) {
+                return { i0,0 };
+            }
+            Vt full_prob = (probabilities[i0] + EvapProbs[i0]);
+            Vt dT = -std::log(xi2) / (probabilities[i0]+EvapProbs[i0]);
             if (dT < maxT) {
+                if (xi3 * full_prob >= probabilities[i0]) {
+                    return { probabilities.size(),0 };
+                }
                 size_t m_index_begin = shift_data[i0];
                 size_t m_index_end = shift_data[i0 + 1];
                 if (m_index_end == m_index_begin) {
@@ -255,7 +274,7 @@ namespace evdm {
         size_t evolute(size_t i0, Vt maxT, size_t max_steps, Gen_t& G)const {
             while (max_steps) {
                 if (maxT > 0) {
-                    auto [i1, dT] = make_step(i0, maxT, G(), G());
+                    auto [i1, dT] = make_step(i0, maxT, G(), G(),G());
                     maxT -= dT;
                     //dbg(i1,i0) += 1;
                     //dbg1(i1,i0) += dT;

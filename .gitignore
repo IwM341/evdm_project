@@ -1,5 +1,6 @@
 .vscode/
 build/
+conan_files/
 performance_tests/
 work_test/
 out/
@@ -13,3 +14,4 @@ evdm/GPUCache
 *.lib
 *.so
 *.a
+CMake*.json

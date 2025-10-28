@@ -1,9 +1,12 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.23)
 
-set(CMAKE_CXX_STANDARD 23 CACHE STRING "C++ version selection")
+set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ version selection")
+
 
 
 project(evdm_python_mudule LANGUAGES CXX VERSION 2.0.0)
+
+#include("build/build/generators/conan_toolchain.cmake")
 
 option(GEN_R_NO_POW "in capture r generator, use r = g() instead g()^p" OFF)
 if(${GEN_R_NO_POW})
@@ -112,8 +115,9 @@ endif()
 find_package(Grob)
 if(NOT Grob_FOUND)
     message("Grob not found, download from git")
-    CPMAddPackage("gh:IwM341/GridObject@1.0.3")
+    CPMAddPackage("gh:IwM341/GridObject@1.1.3")
 endif()
+
 
 
 add_library(pyevdm MODULE ${SOURCES} )
@@ -121,6 +125,10 @@ set_property(TARGET pyevdm PROPERTY CXX_STANDARD 20)
 
 target_link_libraries(pyevdm pybind11::module)
 target_link_libraries(pyevdm Eigen3::Eigen)
+
+
+
+message("boost dir ${Boost_INCLUDE_DIR}")
 
 if(OPENMP)
     message("use openmp")
@@ -133,7 +141,6 @@ endif()
 target_include_directories(pyevdm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 ## grob lib, will be downloaded with cpm_cmake
-#set(GROB_INCLUDE_DIR "D:/Tmp/GridObject_1/include")
 #target_include_directories(pyevdm PRIVATE ${GROB_INCLUDE_DIR})
 
 target_link_libraries(pyevdm Grob::grob)
