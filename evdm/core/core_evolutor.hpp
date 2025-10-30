@@ -159,7 +159,7 @@ namespace evdm {
 		constexpr static T m_factor = 1.2;
 		constexpr static T m_factor_inv = 1/m_factor;
 		constexpr static size_t size = 48;
-
+		constexpr static T min_value = 1e-37;
 		std::vector<T> Majorants;
 		T full_prob;
 		T u_tres;
@@ -468,10 +468,10 @@ namespace evdm {
 				size_t rv_index =  m_scatter_rv.gen_index(G());
 				T majorant = m_scatter_rv.Majorants[rv_index];
 				auto [xi0,xi1] = m_scatter_rv.box(rv_index);
-				T xi = 1e-37 + ((xi0) + G()*(xi1 - xi0));
+				T xi = m_scatter_rv.min_value + ((xi0) + G()*(xi1 - xi0));
 				T s = std::log(xi);
 				T u_in = (s + u_tresh);
-				T v1 = std::sqrt(2*u_inv1_temp_sq);
+				T v1 = std::sqrt(2*u_in*v1_temp_sq);
 				
 				scatter_pre_result<T> m_s = 
 					gen_scatter(G(),G(),v,v1,u_in,v2_delta);
@@ -677,6 +677,59 @@ namespace evdm {
 				}
 				init[i] = tmp_time;
 			}
+		}
+
+		private:
+		ScatterRVExpInfo_t<T> genRVinfo(
+			size_t ptype_in, size_t ptype_out,T r,T v,T n_r, ElementInfo_t const & El,size_t Nmk)
+		{
+			T mu_chi = ff.mX*(1/(ff.mN+ff.mX));
+			T mu_i = ff.mN*(1/(ff.mN+ff.mX));
+			T Mu_chi_i = ff.mN*mu_chi;
+			T Delta_M_chi = ff.dmX;
+			T v2_delta = - 2*ff.dmX/Mu_chi_i;
+			T vesc = B.Vesc;
+
+			T v2 = v*v;
+			T v1_temp_sq = B.Temp(r)/ff.mN/(vesc*vesc);
+			T v1_tres = v2_delta > v2 ? std::sqrt(v2_delta) - v : T(0);
+			T u_tresh = v2_delta > 0 ? (v1_tres*v1_tres)/(2*v1_temp_sq) : T(0);
+
+			using RVPi = ScatterRVExpInfo_t<T>;
+			T sum = 0;
+			std::vector<T> max_ffs[RVPi::size];
+			for (int i=0;i<RVPi::size){
+				auto [xiu_0,xiu_1] = RVPi::box(i);
+				T max_ff = 0;
+				for(int _k : std::iota(Nmk)){
+					T xi = RVPi::min_value+(xiu_0 + (xiu_1-xiu_0)*G());
+					T s = std::log(xi);
+					T u_in = (s + u_tresh);
+					T v1 = std::sqrt(2*u_in*v1_temp_sq);
+					scatter_pre_result<T> m_s = 
+						gen_scatter(G(),G(),v,v1,u_in,v2_delta);
+				
+					T Vu_in2 = v*v+v1*v1+2*v*v1*m_s.cos_theta_in;
+					T Vu_in = std::sqrt(Vu_in2);
+					T Vu_out = std::sqrt(downbound(Vu_in2 + v2_delta,0));
+					
+					T m_factor = get_ff_out(
+						Vu_in,Vu_out,Mu_chi_i,Delta_M_chi,vesc,m_s.cos_theta_out,ff.ff);
+					T from_factor = m_factor*m_s.gen_pre_form_factor;
+					max_ff = std::max(max_ff,from_factor);
+					sum += from_factor*n_r;
+				}
+				max_ffs[i] = max_ff;
+			}
+			return ScatterRVExpInfo_t<T>(std::move(max_ffs),sum/Nmk,u_tresh);
+		}
+
+		template <typename Func_t>
+		ScatterInfoTheta<T> genTrajInfo(T rmin,T rmax,Func_t tau_theta,QT_RV_t rv_probs,size_t max_steps){
+			std::list<std::pair<T,T>,PoolAllocator<T>> m_points(PoolAllocator<T>(max_steps));
+
+			T _1 = 1;
+
 		}
 	};
 

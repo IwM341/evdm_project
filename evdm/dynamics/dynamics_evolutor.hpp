@@ -14,7 +14,7 @@
 #include "../utils/discret_generator.hpp"
 #include <list>
 #include <algorithm>
-
+#include "../utils/pool_allocator.hpp"
 namespace evdm {
 
     template <typename ReducerFunc_t,typename Arg0,typename Arg1>
@@ -49,6 +49,7 @@ namespace evdm {
     
 
     struct ElementInfo_t {
+		size_t A,Z;
 		float mN;
 		float mX;
 		float dmX;
@@ -62,25 +63,6 @@ namespace evdm {
 	){
 		return impl.construct(ptype_in,ptype_out);
 	}
-
-	template <typename T>
-	struct ElementScatterPreInfo {
-		float M, dM;
-		T e, l;
-		ElementInfo_t* m_element;
-		//theta param from [0:1], probability density, std/sqrt(N)
-		std::list<std::pair<T, float,float>> m_prob;
-	};
-
-	template <typename T>
-	struct ElementScatterPreInfo {
-		float M, dM;
-		T e, l,rmin,rmax;
-		ElementInfo_t* m_element;
-		T theta_max;
-		//theta param from [0:1], probability density
-		std::list<std::pair<T, T>> m_prob;
-	};
 
 	template <typename T>
 	using VecFunc_t = grob::GridFunction<
@@ -112,7 +94,7 @@ namespace evdm {
 		ScatterInfoTheta(){}
 
 		template <typename Allocator>
-		ScatterInfoTheta(std::list<std::pair<T, T>,Allocator> & m_prob)
+		ScatterInfoTheta(std::list<std::pair<T, T>,Allocator>  m_prob)
 		{
 			{
 				//delete intervals with zero probability
@@ -204,7 +186,8 @@ namespace evdm {
 		std::vector<T> ProbsElements;
 		
 		///indexes: i0_lmax,i1_lmax,i0_rmin,i1_rmin,i0_rmax,i1_rmax
-		std::tuple<size_t,size_t,size_t,size_t,size_t,size_t> indexes;
+		typedef std::tuple<size_t,size_t,size_t,size_t,size_t,size_t> indexes_t;
+		indexes_t indexes;
 
 		inline constexpr size_t i0_lmax() const{
 			return std::get<0>(indexes);
@@ -226,8 +209,12 @@ namespace evdm {
 		}
 		
 		ScatterInfoElements(){}
-		ScatterInfoElements(std::vector<ScatterInfoTheta<T>> ThetaTrajs):
-			ThetaTrajs(std::move(ThetaTrajs))
+		ScatterInfoElements(
+			std::vector<ScatterInfoTheta<T>> ThetaTrajs,
+			indexes_t indexes
+		):
+			ThetaTrajs(std::move(ThetaTrajs)),
+			indexes(indexes)
 		{
 			full_prob = std::accumulate(ThetaTrajs.begin(), ThetaTrajs.end(),T(0),
 				[](const auto& x, const auto& y) {return x + y.full_prob; });

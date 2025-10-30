@@ -244,7 +244,7 @@ namespace evdm {
                 size_t i0, Vt maxT, Vt xi1, Vt xi2,Vt xi3 = 0
             )const {
             if (i0 >= probabilities.size()) {
-                return { i0,0 };
+                return { i0,maxT };
             }
             Vt full_prob = (probabilities[i0] + EvapProbs[i0]);
             Vt dT = -std::log(xi2) / (probabilities[i0]+EvapProbs[i0]);
@@ -311,8 +311,11 @@ namespace evdm {
 
             size_t i0 = Initials.gen(G());
             int i1 = MP.evolute(i0, maxT, maxStep, G);
-            #pragma omp atomic
-            ret_data[i1] += 1;
+            if (i1 < MP.size()) {
+                #pragma omp atomic
+                ret_data[i1] += 1;
+            }
+            
         }
         return Ret.cast<Vt>() * (1 / (Vt)Ntraj);
     }
