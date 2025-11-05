@@ -87,6 +87,7 @@ namespace evdm {
 			return (2*x)/std::log((T(1) + x) / (T(1) - x));
 		}
 	}
+
 	template <typename T>
 	struct ScatterInfoTheta {
 		T full_prob;

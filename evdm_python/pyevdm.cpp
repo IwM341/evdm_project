@@ -8,7 +8,6 @@
 #include "annihilation.hpp"
 #include "pygridproj.hpp"
 //#include "pymarkov.hpp"
-#include <boost/math/special_functions/gamma.hpp>
 namespace py = pybind11;
 
 void PyMarkov_add_to_python_module(pybind11::module& m);

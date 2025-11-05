@@ -7,9 +7,110 @@
       "inheritEnvironments": [ "msvc_x64_x64" ],
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
+      "ctestCommandArgs": "",
+      "variables": [
+        {
+          "name": "pybind11_DIR",
+          "value": "",
+          "type": "PATH"
+        },
+        {
+          "name": "BODY_MODEL_USE_DOUBLE",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "GRID_EL_USE_DOUBLE",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "CMAKE_CXX_STANDARD",
+          "value": "17",
+          "type": "STRING"
+        },
+        {
+          "name": "BUILD_TESTS",
+          "value": "True",
+          "type": "BOOL"
+        }
+      ]
+    },
+    {
+      "name": "x64-Release",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
       "cmakeCommandArgs": "",
       "buildCommandArgs": "",
-      "ctestCommandArgs": ""
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "Eigen3_DIR",
+          "value": "",
+          "type": "PATH"
+        },
+        {
+          "name": "pybind11_DIR",
+          "value": "",
+          "type": "PATH"
+        },
+        {
+          "name": "OPENMP",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_TESTS",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "SCATTER_METHOD_USE_NOTHERM",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "SCATTER_METHOD_USE_SOFT_TRESH",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "USE_SPARSE",
+          "value": "True",
+          "type": "BOOL"
+        }
+      ]
+    },
+    {
+      "name": "x64-Release-2",
+      "generator": "Ninja",
+      "configurationType": "RelWithDebInfo",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "GRID_EL_USE_CVV",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "DISTRIB_USE_DOUBLE",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "GEN_R_NO_POW",
+          "value": "False",
+          "type": "BOOL"
+        }
+      ]
     }
   ]
 }

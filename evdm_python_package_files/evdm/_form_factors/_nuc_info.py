@@ -1,4 +1,14 @@
 def _get_spin(Z,A):
+
+    specials = {
+        (92,235):7/2,
+        (13,27):5/2,
+        (11,23):3/2,
+        (79,197):3/2
+    }
+    if (Z,A) in specials:
+        return specials[(Z,A)]
+
     if(A%4 == 0):
         return 0
     elif(A%2 == 0):
@@ -7,15 +17,8 @@ def _get_spin(Z,A):
         else:
             return 0
     else:
-        if(A == 1):
-            return 1/2
-        if(A == 3):
-            return 1/2
-        if(A == 23):
-            return 3/2
-        if(A == 27):
-            return 5/2
-    raise Exception(f'unsupported element with A = {A}')
+        return 1/2
+    #raise Exception(f'unsupported element with A = {A}')
 Mindeleev_table = {
         0:'NN',
         1:'H',
@@ -32,7 +35,13 @@ Mindeleev_table = {
         18:'Ar',
         20: 'Ca', 
         26 : 'Fe',
-        28 : 'Ni' 
+        28 : 'Ni',
+        90 : 'Th',
+        82 : 'Pb',
+        92 : 'U',
+        81 : 'Ti',
+        197 : 'Au'
+
 }
 def _mindeleev_get_name(Z):
     try:

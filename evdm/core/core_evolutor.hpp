@@ -725,11 +725,88 @@ namespace evdm {
 		}
 
 		template <typename Func_t>
-		ScatterInfoTheta<T> genTrajInfo(T rmin,T rmax,Func_t tau_theta,QT_RV_t rv_probs,size_t max_steps){
-			std::list<std::pair<T,T>,PoolAllocator<T>> m_points(PoolAllocator<T>(max_steps));
+		ScatterInfoTheta<T> genTrajProbs(
+			T e, T l, T rmin,T rmax,T theta_max,T Tin,T Tout,QT_RV_t<T> const & rv_probs,
+			size_t max_steps,size_t max_lvl,T interpol_accept,
+		){
+			struct PDF_t{
+				T th;
+				T p;
+				//T max_error=0;
+				//T total=0;
+			};
+			std::list<PDF_t,PoolAllocator<T> > 
+				m_points(PoolAllocator<T>(max_steps));
 
 			T _1 = 1;
 
+			T dP_dth = [&](auto theta_undim){
+				auto [tau, dtau_dth] = tau_theta(theta);
+				T theta_full = theta_undim*theta_max;
+				T ct = std::cos(theta_full);
+				T st = std::sin(theta_full);
+				
+				// Check that rmax > 1 in outer trajectories?
+				T r = sqrt(powint(rmin*ct)+powint(rmax*st)); 
+				T dtau_dth = std::sqrt(B.S(r,rmin,rmax));//S or 1/S?
+				T v = ssqrt(e - B.Phi(r));
+				T vmax = ssqrt(B.Phi(r));
+				if(vmax == 0){
+					return 0;
+				}
+				auto const & N = 
+					rv_probs.find_node(r,v/vmax);
+				auto [P00,P01,P10,P11] = N.values_view([](auto const & x){return x.full_prob;});
+				auto [alph,bth]= N.coeffs(r,v/vmax);
+				
+				return dtau_dth*interpolate_log(
+					interpolate_log(P00,P10,alph),
+					interpolate_log(P01,P11,alph),
+					bth
+				);
+			}
+
+			m_points.push_back({0,dP_dth(0)});
+			m_points.push_back({_1,dP_dth(_1)});
+
+			T FullProbLow = m_points.back().p * 1;
+
+			T PFD_max = m_points.front().p;
+
+			if(max_steps < 5){
+				throw std::runtime_error("genTrajProbs: max_steps < 4");
+			}
+			auto intr_log(PDF_t P0,PDF_t P1){
+				return interpolate_log(P0.p,P1.p,T(0.5));
+			};
+			auto intr_lin(PDF_t P0,PDF_t P1){
+				return (P0.p + P1.p)/2;
+			};
+			
+			T m_zero = 1e-9*m_points.front().second;
+
+			max_steps -= 5;
+			
+			for(auto it = m_points.begin();it != std::prev(m_points.end());++it){
+				T tmp = it->p;
+				T nxt = std::next(it)->p;
+				if( nxt < tmp/2){
+					m_points.
+				}
+			}
+
+			//first step: minimize TV:
+			while (max_steps >0)
+			{
+				for(auto it = m_points.begin();it != std::prev(m_points.end());++it){
+					//
+					m_points.insert(it,);
+				}
+			}
+			
+			
+
+			
 		}
 	};
 

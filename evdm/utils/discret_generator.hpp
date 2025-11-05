@@ -250,7 +250,7 @@ namespace evdm {
             Vt dT = -std::log(xi2) / (probabilities[i0]+EvapProbs[i0]);
             if (dT < maxT) {
                 if (xi3 * full_prob >= probabilities[i0]) {
-                    return { probabilities.size(),0 };
+                    return { probabilities.size(),maxT };
                 }
                 size_t m_index_begin = shift_data[i0];
                 size_t m_index_end = shift_data[i0 + 1];

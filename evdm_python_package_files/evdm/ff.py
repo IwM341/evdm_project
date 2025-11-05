@@ -62,7 +62,12 @@ class Nucleus:
         self.A = A
         self.spin = _nuc_info._get_spin(Z,A)
         self.mass = A*0.938
-        self.factors = _ff_bind.FormFactors[self.name][self.A]
+        try:
+            self.factors = _ff_bind.FormFactors[self.name][self.A]
+        except:
+            print("Warning: element {(Z,name,A)} hasn't form factors")
+            self.factors = None
+
         if (A == 1):
             self.b = 1e-4
         else:
@@ -95,79 +100,6 @@ MU_NX = M_X*M_N/(M_X+M_N)
 """
 symbol of WIMP nucleus reduced mass
 """
-
-class ScatterModel:
-    """
-    class with info of scattering model with wimp+nucleus,
-    contains Wimp in - out parametrs
-    
-    """
-    def __init__(self,
-            wimp_pars: dm_m.WimpScatterParams,
-            nucleus: Nucleus,
-            operator,
-            operator_norm,
-            norm_dv
-        ):
-        """
-        wimp_pars: instance of class WimpScatterParams\n
-        nucleus: instance of class Nucleus, contain nucleus information\n
-        operator: a linear composition of O_i with coeffs.\n
-        operator_norm: same as operator, but used to normilize\n 
-        cross section to Hydrogen (if None, then same as operator)\n
-        norm_dv: delta velocity in scatter process with hydrogen to normalize.\n
-        """
-        if(operator_norm == None):
-            operator_norm = operator
-        self.wimp = wimp_pars
-        self.nucleus = nucleus
-        self.operator = operator
-        self.norm_op = operator_norm
-
-        _H : Nucleus = Nucleus.Hydrogen
-        
-        sympyficate = lambda x: x if(isinstance(x,(sympy.Expr))) else x.symbol
-
-        m_mat_el = _symv.GetMatrixElement(sympyficate(operator),nucleus.factors)
-        m_mat_el_h = _symv.GetMatrixElement(sympyficate(operator_norm),_H.factors)
-        self.matel = m_mat_el
-        self.norm_matel = m_mat_el_h
-
-        
-
-        normd_arrays = _symv.FormFactorArrays(m_mat_el,
-                m_mat_el_h,_H.b,nucleus.b,
-                wimp_pars.mass,_H.mass,nucleus.mass,
-                0,wimp_pars.delta,wimp_pars.spin,
-                nucleus.spin,norm_dv
-            )
-        
-        if(len(normd_arrays)== 3 and len(normd_arrays[2]) == 1 and normd_arrays[2][0] ==0):
-            self.Zero = True
-        else:
-            self.Zero = False
-        self.coeffs = normd_arrays
-    def as_func(self):
-        def eval_poly(is_inv,Coeffs,y):
-            factor = 1
-            if(is_inv):
-                factor = 1/y
-            sum = 0
-            for c in Coeffs:
-                sum = sum + factor*c
-                factor *= y
-            return math.exp(-2*y)*sum
-        return lambda y: eval_poly(self.coeffs[1],self.coeffs[2],y)
-    
-    def __repr__(self):
-        return f'Scatter({self.wimp} + {self.nucleus}, op = {self.operator})'
-    def __str__(self):
-        return self.__repr__()
-    def str_char(self):
-        return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
-    def factor(self):
-        return _evdm.qexp_factor(*self.coeffs)
-        
 class ScatterModel_SimpleFF:
     def __init__(self,
             wimp_pars: dm_m.WimpScatterParams,
@@ -304,6 +236,85 @@ class ScatterModel_SimpleFF:
         engine.run_static_constructors()
         return mod
     
+class ScatterModel:
+    """
+    class with info of scattering model with wimp+nucleus,
+    contains Wimp in - out parametrs
+    
+    """
+    def __init__(self,
+            wimp_pars: dm_m.WimpScatterParams,
+            nucleus: Nucleus,
+            operator,
+            operator_norm,
+            norm_dv
+        ):
+        """
+        wimp_pars: instance of class WimpScatterParams\n
+        nucleus: instance of class Nucleus, contain nucleus information\n
+        operator: a linear composition of O_i with coeffs.\n
+        operator_norm: same as operator, but used to normilize\n 
+        cross section to Hydrogen (if None, then same as operator)\n
+        norm_dv: delta velocity in scatter process with hydrogen to normalize.\n
+        """
+        if(not nucleus.factors):
+            print("Warning: for element {nucleus} no form factors. use legacy helm form factors")
+            self.helm_legacy = ScatterModel_SimpleFF(wimp_pars,nucleus)
+            self.factor = lambda: self.helm_legacy.factor()
+            return
+
+        if(operator_norm == None):
+            operator_norm = operator
+        self.wimp = wimp_pars
+        self.nucleus = nucleus
+        self.operator = operator
+        self.norm_op = operator_norm
+
+        _H : Nucleus = Nucleus.Hydrogen
+        
+        sympyficate = lambda x: x if(isinstance(x,(sympy.Expr))) else x.symbol
+
+        m_mat_el = _symv.GetMatrixElement(sympyficate(operator),nucleus.factors)
+        m_mat_el_h = _symv.GetMatrixElement(sympyficate(operator_norm),_H.factors)
+        self.matel = m_mat_el
+        self.norm_matel = m_mat_el_h
+
+        
+
+        normd_arrays = _symv.FormFactorArrays(m_mat_el,
+                m_mat_el_h,_H.b,nucleus.b,
+                wimp_pars.mass,_H.mass,nucleus.mass,
+                0,wimp_pars.delta,wimp_pars.spin,
+                nucleus.spin,norm_dv
+            )
+        
+        if(len(normd_arrays)== 3 and len(normd_arrays[2]) == 1 and normd_arrays[2][0] ==0):
+            self.Zero = True
+        else:
+            self.Zero = False
+        self.coeffs = normd_arrays
+    def as_func(self):
+        def eval_poly(is_inv,Coeffs,y):
+            factor = 1
+            if(is_inv):
+                factor = 1/y
+            sum = 0
+            for c in Coeffs:
+                sum = sum + factor*c
+                factor *= y
+            return math.exp(-2*y)*sum
+        return lambda y: eval_poly(self.coeffs[1],self.coeffs[2],y)
+    
+    def __repr__(self):
+        return f'Scatter({self.wimp} + {self.nucleus}, op = {self.operator})'
+    def __str__(self):
+        return self.__repr__()
+    def str_char(self):
+        return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
+    def factor(self):
+        return _evdm.qexp_factor(*self.coeffs)
+        
+
 
     
 class ScatterModel_TestFF:

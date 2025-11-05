@@ -167,6 +167,7 @@ message(PROJECT_VERSION = ${PROJECT_VERSION})
 configure_file(${PYMODULE_SRC_DIR}/pyproject.toml.in ${PYMODULE_DIR}/pyproject.toml)
 
 set_target_properties(pyevdm PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${PYMODULE_DIR}/evdm/_cpp_lib
     LIBRARY_OUTPUT_DIRECTORY ${PYMODULE_DIR}/evdm/_cpp_lib
 )
 
