@@ -257,11 +257,7 @@ class ScatterModel:
         cross section to Hydrogen (if None, then same as operator)\n
         norm_dv: delta velocity in scatter process with hydrogen to normalize.\n
         """
-        if(not nucleus.factors):
-            print("Warning: for element {nucleus} no form factors. use legacy helm form factors")
-            self.helm_legacy = ScatterModel_SimpleFF(wimp_pars,nucleus)
-            self.factor = lambda: self.helm_legacy.factor()
-            return
+        
 
         if(operator_norm == None):
             operator_norm = operator
@@ -270,6 +266,11 @@ class ScatterModel:
         self.operator = operator
         self.norm_op = operator_norm
 
+        if(not nucleus.factors):
+            print("Warning: for element {nucleus} no form factors. use legacy helm form factors")
+            self.helm_legacy = ScatterModel_SimpleFF(wimp_pars,nucleus)
+            self.factor = lambda: self.helm_legacy.factor()
+            return
         _H : Nucleus = Nucleus.Hydrogen
         
         sympyficate = lambda x: x if(isinstance(x,(sympy.Expr))) else x.symbol
