@@ -134,7 +134,7 @@ class ScatterModel_SimpleFF:
             return bf*bf*cns_fac
         self.py_func = ScatterFactor
 
-        llvm.initialize()
+        #llvm.initialize()
         llvm.initialize_native_target()
         llvm.initialize_native_asmprinter()
         llvm_ir_str = ScatterModel_SimpleFF._src_llvm_ir
@@ -328,7 +328,7 @@ class ScatterModel_TestFF:
         self.wimp = wimp_pars
         self.nucleus = nucleus
         self.Zero = False
-        llvm.initialize()
+        #llvm.initialize()
         llvm.initialize_native_target()
         llvm.initialize_native_asmprinter()
         llvm_ir_str = ScatterModel_TestFF._src_llvm_ir
