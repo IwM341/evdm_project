@@ -104,7 +104,7 @@ def CaptureCalc(capt_vector,scat_mod : ff.ScatterModel,
     seed : int
         for generator
     """
-    if(not scat_mod.Zero):
+    if(not getattr(scatter_model,'Zero',False)):
         wimp = scat_mod.wimp
         nuc = scat_mod.nucleus
         sc_event = ScatterEvent(n_dense,scat_mod.factor(),scat_mod.str_char())
@@ -150,7 +150,7 @@ def ScatterCalc(sc_matrix,scatter_model : ff.ScatterModel,n_dense,
     bar : any
         optional progress bar update function.
     """
-    if(not scatter_model.Zero):
+    if(not getattr(scatter_model,'Zero',False)):
         wimp = scatter_model.wimp
         nuc = scatter_model.nucleus
         sc_event = ScatterEvent(n_dense,scatter_model.factor(),scatter_model.str_char())

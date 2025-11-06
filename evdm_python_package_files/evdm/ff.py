@@ -288,7 +288,9 @@ class ScatterModel:
                 nucleus.spin,norm_dv
             )
         
+        #self.Zero indicates that all coeffs are zero
         if(len(normd_arrays)== 3 and len(normd_arrays[2]) == 1 and normd_arrays[2][0] ==0):
+            print("Warning: form factor of {nucleus} is zero")
             self.Zero = True
         else:
             self.Zero = False
