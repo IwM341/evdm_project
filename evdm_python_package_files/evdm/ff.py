@@ -65,7 +65,7 @@ class Nucleus:
         try:
             self.factors = _ff_bind.FormFactors[self.name][self.A]
         except:
-            print("Warning: element {(Z,name,A)} hasn't form factors")
+            print(f"Warning: element {(Z,name,A)} hasn't form factors")
             self.factors = None
 
         if (A == 1):
@@ -267,7 +267,7 @@ class ScatterModel:
         self.norm_op = operator_norm
 
         if(not nucleus.factors):
-            print("Warning: for element {nucleus} no form factors. use legacy helm form factors")
+            print(f"Warning: for element {nucleus} no form factors. use legacy helm form factors")
             self.helm_legacy = ScatterModel_SimpleFF(wimp_pars,nucleus)
             self.factor = lambda: self.helm_legacy.factor()
             return
@@ -291,7 +291,7 @@ class ScatterModel:
         
         #self.Zero indicates that all coeffs are zero
         if(len(normd_arrays)== 3 and len(normd_arrays[2]) == 1 and normd_arrays[2][0] ==0):
-            print("Warning: form factor of {nucleus} is zero")
+            print(f"Warning: form factor of {nucleus} is zero")
             self.Zero = True
         else:
             self.Zero = False
