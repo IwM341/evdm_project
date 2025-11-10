@@ -1,5 +1,4 @@
-#ifndef DEBUGDEF_H
-#define DEBUGDEF_H
+#pragma once
 
 #include <string>
 #include <iostream>
@@ -14,20 +13,16 @@
 #include <regex>
 #include <mutex>
 #include <random>
+#include <chrono>
+#include <span>
 
-#ifndef __GNUC__
-#define __PRETTY_FUNCTION__ "__PRETTY_FUNCTION__ macro is not supported"
+#ifdef _MSC_VER
+#define __PRETTY_FUNCTION__ __FUNCSIG__
 #endif
 
-template <typename U,typename V>
-std::ostream & operator << (std::ostream & os, const std::pair<U,V> & P){
-    os << "pair(" << P.first << ", " << P.second << ")";
-    return os;
-}
 
-/// @brief struct for printing numbers
-/// use: auto format = _ff(precision,is_exponental)
-/// then cout << format*4 << endl;
+
+
 struct _ff{
     struct _format_args{
         size_t prec;
@@ -74,31 +69,35 @@ namespace debugdefs{
 
 
 
-
     template <typename T>
+    concept Printable = requires (T const & t,std::ostream & os){ {os<<t};};
+    template <Printable T>
     std::string to_debug_string(const T &x){
         std::ostringstream os;
         os <<  x;
         return os.str();
     }
 
-    template <typename T,size_t N>
-    std::string to_debug_string(const std::array<T,N> &x){
+    template <typename T>
+    concept VectorSimilar = requires(T const& x){
+        {x.size()};
+        {x[size_t{}]};
+    };
+
+    template <VectorSimilar T>
+    std::string to_debug_string_iter(T const & x){
         std::ostringstream os;
         os << "array[";
-        if(N >= 1)
+        if(x.size() >= 1)
             os <<  x[0];
-        for(size_t i=1;i<N;++i){
-            os << ", " << x[i];
+        for(size_t i=1;i<x.size();++i){
+            os << ", " << to_debug_string(x[i]);
         }
         os << "]";
         return os.str();
     }
 
-    template<typename T, typename U>
-    std::string to_debug_string(const std::pair<T,U> &x){
-        return "{" + to_debug_string(x.first)+", "+to_debug_string(x.second) + "}";
-    }
+
 
     template <typename Tuple,int remain>
     struct __tuple_elements_string_list{
@@ -117,7 +116,7 @@ namespace debugdefs{
     };
 
     template<typename...Args>
-    std::string to_debug_string(const std::tuple<Args...> &Tp){
+    std::string to_debug_string_tuple(const std::tuple<Args...> &Tp){
         return "(" +
                 __tuple_elements_string_list<
                         std::tuple<Args...>,
@@ -125,71 +124,114 @@ namespace debugdefs{
                     >::get_list(Tp,", ") + ")";
     }
 };
+
+template <typename U,typename V>
+std::ostream & operator << (std::ostream & os, const std::pair<U,V> & P){
+    os << "pair(" << P.first << ", " << P.second << ")";
+    return os;
+}
+
+template <typename...U>
+std::ostream & operator << (std::ostream & os, const std::tuple<U...> & TP){
+    os << debugdefs::to_debug_string_tuple(TP);
+    return os;
+}
+
+template <typename T,typename...Args>
+std::ostream & operator << (std::ostream & os,std::vector<T,Args...> const & V){
+    return os << debugdefs::to_debug_string_iter(V);
+} 
+template <typename T,std::size_t N>
+std::ostream & operator << (std::ostream & os,std::span<T,N> const & V){
+    return os << debugdefs::to_debug_string_iter(V);
+} 
+
+template <typename T,size_t N>
+std::ostream & operator << (std::ostream & os,std::array<T, N> const & V){
+    return os << debugdefs::to_debug_string_iter(V);
+} 
 #define SVAR(x) (std::string(#x) + std::string(" = ") + debugdefs::to_debug_string(x))
-#define PVAR(x) print(SVAR(x))
+#define PVAR(x) println(SVAR(x))
+
+#ifndef _NDEBUG
+#define DEBUG(x) println(SVAR(x))
+#else
+#define DEBUG(x)
+#endif
+
+
+#ifdef _VERBOSE
+#ifndef _NDEBUG
+#define DEBUG1(x) println(SVAR(x))
+#endif
+#else
+#define DEBUG1(x)
+#endif
+
 
 #define PDEL() (std::cout << "-----------------------------------------------" <<std::endl)
 #define SCOMPARE(x,y) (SVAR(x) + " vs " + SVAR(y))
 #define COMPARE(x,y) std::cout << SCOMPARE(x,y) <<std::endl;
 
-#define _P std::make_pair
-#define _T std::make_tuple
-
 template <typename T>
-std::string TypeString(){
+inline std::string TypeString(){
     std::string fname = __PRETTY_FUNCTION__ ;
-    return fname.substr(35,fname.size()-84);
+    return fname.substr(35,fname.size() - 49-34);
+}
+template <typename T>
+inline std::string TypeString(T &&x){
+    return TypeString<std::decay_t<T>>();
 }
 #define TypeToString(type) TypeString<type>()
 
 template <typename EnumClass>
 struct EnNameStr{
 	template <EnumClass em>
-	static std::string _str(){
+    inline static std::string _str(){
 		std::string enum_name = __PRETTY_FUNCTION__ ;
 		return  enum_name.substr(69,enum_name.size()-135);
 	}
 };
 #define ValueToString(V) EnNameStr<decltype(V)>::_str<V>()
 
-void print(){
+inline void println(){
     std::cout <<std::endl;
 }
 template <typename T>
-void print(T data){
-    std::cout << debugdefs::to_debug_string(data) <<std::endl;
+inline void println(T &&data){
+    std::cout << data <<std::endl;
 }
 
 template <typename ...Args, typename T>
-void print(T data,Args...args){
-    std::cout << debugdefs::to_debug_string(data);
-    print(args...);
+inline void println(T &&data,Args&&...args){
+    std::cout << data;
+    println(args...);
 }
 
 template <typename Delimtype,typename T>
-void printd(Delimtype delim,T data){
+inline void printd(Delimtype delim,T data){
     std::cout << data <<std::endl;
 }
 
 template <typename Delimtype,typename ...Args, typename T>
-void printd(Delimtype delim,T data,Args...args){
+inline void printd(Delimtype delim,T data,Args...args){
     std::cout << data << delim;
     printd(delim,args...);
 }
 
 
-std::string make_path(const std::string & str){
+inline std::string make_path(const std::string & str){
 	return std::string("\"") + std::regex_replace(str, std::regex("\\\\"), "\\\\") + "\"";
 }
 
 
-double rnd(){
+inline double rnd(){
     static std::random_device __rd;
     static std::mt19937 gen(__rd());
     static std::uniform_real_distribution<> dis;
     return dis(gen);
 }
-float rndf(){
+inline float rndf(){
     static std::random_device __rd;
     static std::mt19937 gen(__rd());
     static std::uniform_real_distribution<float> dis;
@@ -198,41 +240,30 @@ float rndf(){
 
 
 template <typename T>
-T norm1(T const &x, T const & y){
+inline T norm1(T const &x, T const & y){
     return std::abs( (x-y)/(x+y));
 }
 template <typename T>
-T norm2(T const &x, T const & y){
+inline T norm2(T const &x, T const & y){
     return std::abs( (x*x-y*y)/(x*x+y*y));
 }
 
-//plot with lines
-// gp << "plot" << gp.file1d(...) << "with lines"
-template <typename GridFunc_t>
-auto make_cols(GridFunc_t const & V){
-    std::vector<std::decay_t<decltype(V.Grid[0])>> X(V.size());
-    for(size_t i=0;i<V.size();++i){
-        X[i] = V.Grid[i];
-    }
-    return std::make_pair(std::move(X),V.Values);
+auto time_now(){
+    return std::chrono::high_resolution_clock::now();
 }
 
-
-//plot with boxes
-// gp << "plot" << gp.file1d(...) << "with boxes"
-template <typename Histogramm_t>
-auto make_cols_h(Histogramm_t const & H){
-    auto const & _Grid = H.Grid.unhisto();
-    std::vector<double> Grid(_Grid.begin(),_Grid.end());
-    Grid.resize(Grid.size()-1);
-    for(size_t i=0;i<_Grid.size()-1;++i){
-        Grid[i] = (_Grid[i]+_Grid[i+1])/2;
-    }
-    return std::make_pair(std::move(Grid),H.Values);
+template <typename T>
+auto time_count_micros(T start,T stop){
+    return std::chrono::duration<double, std::micro>(stop - start).count();
 }
-
+template <typename T>
+auto time_count_millis(T start,T stop){
+    return std::chrono::duration<double, std::milli>(stop - start).count();
+}
+template <typename T>
+auto time_count_sec(T start,T stop){
+    return std::chrono::duration<double>(stop - start).count();
+}
 
 
 #define debug_return(expr) PVAR((expr)); return expr;
-
-#endif

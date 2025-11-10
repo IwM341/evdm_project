@@ -104,7 +104,7 @@ def CaptureCalc(capt_vector,scat_mod : ff.ScatterModel,
     seed : int
         for generator
     """
-    if(not getattr(scatter_model,'Zero',False)):
+    if(not getattr(scat_mod,'Zero',False)):
         wimp = scat_mod.wimp
         nuc = scat_mod.nucleus
         sc_event = ScatterEvent(n_dense,scat_mod.factor(),scat_mod.str_char())

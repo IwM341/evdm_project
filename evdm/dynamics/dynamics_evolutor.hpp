@@ -24,36 +24,36 @@ namespace evdm {
 
     template <typename ReducerFunc_t,typename Arg0,typename...Args>
     inline constexpr auto arg_reducer(ReducerFunc_t && reducer,Arg0 const & arg0,Args const&... args){
-        return arg_reducer(arg0,arg_reducer(args...));
+        return arg_reducer(reducer,arg0,arg_reducer(reducer,args...));
     }
     
     template <typename Tuple_t>
     auto tuple_min( Tuple_t const& _Tp){
         return std::apply([](auto const&... args){
             return arg_reducer([](auto const & a,auto const & b){return std::min(a,b);},args...);
-        },std::forward<Tuple_t>(_Tp));
+        },_Tp);
     }
     template <typename Tuple_t>
     auto tuple_max( Tuple_t const& _Tp){
         return std::apply([](auto const&... args){
             return arg_reducer([](auto const & a,auto const & b){return std::max(a,b);},args...);
-        },std::forward<Tuple_t>(_Tp));
+        },_Tp);
     }
     template <typename Tuple_t>
     auto tuple_sum( Tuple_t const& _Tp){
         return std::apply([](auto const&... args){
             return arg_reducer([](auto const & a,auto const & b){return a+b;},args...);
-        },std::forward<Tuple_t>(_Tp));
+        },_Tp);
     }
 
     
-
+    /// @brief struct with form factor and kinematics
     struct ElementInfo_t {
 		size_t A,Z;
 		float mN;
 		float mX;
 		float dmX;
-		const FormFactor_t ff;
+		FormFactor_t ff;
 	};
 
 	template <typename FormFactorConstructor_impl>
@@ -88,6 +88,7 @@ namespace evdm {
 		}
 	}
 
+	/// @brief struct to sample theta from random value 
 	template <typename T>
 	struct ScatterInfoTheta {
 		T full_prob;
@@ -95,8 +96,9 @@ namespace evdm {
 		ScatterInfoTheta(){}
 
 		template <typename Allocator>
-		ScatterInfoTheta(std::list<std::pair<T, T>,Allocator>  m_prob)
+		ScatterInfoTheta(std::list<grob::point<T, T>,Allocator>  m_prob)
 		{
+			using namespace grob::literals;
 			{
 				//delete intervals with zero probability
 				auto AvP= [](auto p0,auto p1){
@@ -118,14 +120,15 @@ namespace evdm {
 				{
 					T p_sum = 0;
 					auto it = m_prob.begin();
-					T p0 = it->second;
-					T x0 = it->second;
-					it->second = 0;
+					grob::Point<T,T> &_it = *it;
+					T p0 = _it[0_c];
+					T x0 = _it[1_c];
+					_it[0_c] = 0;
 					++it;
 					for (; it != m_prob.end();++it) {
 						auto [x1,p1] = *it;
 						p_sum += AvP(p0,p1)*(x1-x0);
-						it->second = p_sum;
+						it[1_c] = p_sum;
 						p0 = p1;
 						x0 = x1;
 					}
@@ -136,7 +139,7 @@ namespace evdm {
 					for(auto & [X,CDF] : m_prob){
 						CDF *= (1/p_sum);
 					}
-					m_prob.back().second = 1;
+					m_prob.back()[1_c] = 1;
 				}
 				
 				//remove duplicates
@@ -146,8 +149,8 @@ namespace evdm {
 						auto next = it;
 						++next;
 						
-						if (next != probs.end() && it->second == next->second) {
-							probs.erase(next);
+						if (next != m_prob.end() && it->second == next->second) {
+							m_prob.erase(next);
 						} else {
 							++it;
 						}
@@ -178,6 +181,8 @@ namespace evdm {
 
 	};
 
+	/// @brief struct with info: to sample the element toscatter + 
+	/// trajectory distribution for each element 
 	template <typename T>
 	struct ScatterInfoElements {
 		T full_prob;

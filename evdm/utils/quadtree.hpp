@@ -46,7 +46,7 @@ namespace evdm {
 
 	struct Nothing_t{
 		template <typename Serializer_t>
-		void Serialize(Serializer_t && ser) const{
+		auto Serialize(Serializer_t && ser) const{
 			return grob::Serialize(false,ser);
 		}
 		template <typename Object_t,typename Deserializer_t>
@@ -105,8 +105,7 @@ namespace evdm {
 			inline size_t level()const {
 				return _level;
 			}
-			U & 
-			inline bool is_leaf()const {
+			inline bool is_leaf() const{
 				return _is_leaf;
 			}
 			inline Node& child(size_t i) {
@@ -143,8 +142,8 @@ namespace evdm {
 			inline std::tuple<const T&,const T&,const T&,const T&> values()const {
 				return {*corner_values[0],*corner_values[1],*corner_values[2],*corner_values[3]};
 			}
-			template <typename U>
-			using tuple4 = std::tuple<U,U,U,U>; 
+			template <typename U1>
+			using tuple4 = std::tuple<U1,U1,U1,U1>; 
 
 			template <typename ForEachFunc_t>
 			inline tuple4<std::invoke_result_t<ForEachFunc_t,const T&>> 
@@ -690,11 +689,11 @@ namespace evdm {
 			//                 level  xcoord ycoord
 			std::vector<NodeCoord> LeafCoords;
 			LeafCoords.reserve(leaf_count);
-			std::vector<std::reference_wrapper<U>> ValuesU;
+			std::vector<std::reference_wrapper<const U>> ValuesU;
 			ValuesU.reserve(node_count);
 
 			for( const Node & N: as_node_container() ){
-				ValuesU.push_back( N.value() );
+				ValuesU.push_back( N.uvalue());
 			}
 			
 			for (const Node & N: *this ){
@@ -705,7 +704,7 @@ namespace evdm {
 			std::vector<
 				std::pair<
 					u64_t, // key
-					std::reference_wrapper<T> // value
+					std::reference_wrapper<const T> // value
 				>
 			> Values;
 
@@ -722,7 +721,7 @@ namespace evdm {
 				grob::make_vector(
 					grob::Serialize(std::make_tuple(X0,X1,Y0,Y1),S),
 					grob::Serialize(std::move(LeafCoords),S),
-					grob::Serialize(std::move(Values),S)
+					grob::Serialize(std::move(Values),S),
 					grob::Serialize(std::move(ValuesU),S)
 				)
 			);

@@ -536,7 +536,7 @@ namespace evdm{
 
             auto u_av = (u0 + u1) / 2;
             auto u_d = (u0 - u1) / 2;
-            T theta_max = std::numbers::pi;
+            T theta_max = std::numbers::pi_v<T>;
             if (u1 > 1) {
                 auto pot_cos = (1 - u_av) / u_d;
                 theta_max = std::acos(
