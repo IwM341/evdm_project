@@ -5,6 +5,8 @@
 #include <memory>
 #include <cmath>
 #include <array>
+#include <ranges>
+
 namespace evdm {
 	namespace detail{
 		typedef uint_least64_t u64_t;
@@ -55,122 +57,130 @@ namespace evdm {
 		}
 	};
 
+	template <typename Fp_t,typename T,typename U>
+	class QuadtreeNode{
+	private:
+		typedef uint_least64_t u64_t;
+		//(0,0)=(left down) (0,1)=(left up), (1,0) = (right down), (1,1) = (right up)
+		std::array<std::unique_ptr<QuadtreeNode>, 4> children = { nullptr,nullptr,nullptr,nullptr }; // NW, NE, SW, SE
+		QuadtreeNode* _parent = nullptr;
+		u64_t _level = 0;
+		u64_t cx0, cx1, cy0, cy1;
+		Fp_t _x0, _x1, _y0, _y1;
+		U m_value;
+		std::array<std::shared_ptr<T>, 4> corner_values; // NW, NE, SW, SE corners
+		bool _is_leaf;
+
+		template <typename Fp1_t,typename T1,typename U1,size_t maxlevel>
+		friend struct Quadtree;
+		QuadtreeNode(
+			u64_t cx0, u64_t cx1, u64_t cy0, u64_t cy1,
+			Fp_t _x0, Fp_t _x1, Fp_t , Fp_t _y1,
+			QuadtreeNode* m_parent = nullptr, u64_t m_level = 0)
+			: cx0(cx0), cx1(cx1), cy0(cy0), cy1(cy1),
+			_x0(_x0), _x1(_x1),
+			_y0(_y0), _y1(_y1),
+			_parent(m_parent), _level(m_level), _is_leaf(true) {}
+
+
+	public:
+
+		inline U & uvalue(){
+			return m_value;
+		}
+		inline U const& uvalue()const {
+			return m_value;
+		}
+
+#define DECLARE_CONST_PROPERTY(Type,prop) \
+	inline Type prop() const {return _##prop;}
+		DECLARE_CONST_PROPERTY(Fp_t, x0)
+			DECLARE_CONST_PROPERTY(Fp_t, x1)
+			DECLARE_CONST_PROPERTY(Fp_t, y0)
+			DECLARE_CONST_PROPERTY(Fp_t, y1)
+#undef DECLARE_CONST_PROPERTY
+		inline grob::Point<grob::Rect<Fp_t>,grob::Rect<Fp_t>> 
+			rect() const{
+				return { {_x0,_x1},{_y0,_y1}};
+			}
+		inline size_t level()const {
+			return _level;
+		}
+		inline bool is_leaf() const{
+			return _is_leaf;
+		}
+		inline QuadtreeNode& child(size_t i) {
+			if (_is_leaf) {
+				throw std::runtime_error("leaf has no child");
+			}
+			return *children[i];
+		}
+		inline QuadtreeNode const& child(size_t i)const {
+			if (_is_leaf) {
+				throw std::runtime_error("leaf has no child");
+			}
+			return *children[i];
+		}
+
+		inline QuadtreeNode& parent() {
+			if (_parent == nullptr) {
+				throw std::runtime_error("root has no parent");
+			}
+			return *_parent;
+		}
+		inline QuadtreeNode* parentp() {
+			return _parent;
+		}
+		inline const QuadtreeNode* parentp()const {
+			return _parent;
+		}
+		inline bool contain(Fp_t x, Fp_t y)const {
+			return _x0 <= x && x <= _x1 && _y0 <= y && y <= _y1;
+		}
+		inline std::pair<Fp_t, Fp_t> coeffs(Fp_t x, Fp_t y)const {
+			return { (x1() - x) / (x1() - x0()),(y1() - y) / (y1() - y0()) };
+		}
+		inline std::tuple<const T&,const T&,const T&,const T&> values()const {
+			return {*corner_values[0],*corner_values[1],*corner_values[2],*corner_values[3]};
+		}
+		template <typename U1>
+		using tuple4 = std::tuple<U1,U1,U1,U1>; 
+
+		template <typename ForEachFunc_t>
+		inline tuple4<std::invoke_result_t<ForEachFunc_t,const T&>> 
+			values_view(ForEachFunc_t && F)const {
+			return {
+				F(*corner_values[0]),
+				F(*corner_values[1]),
+				F(*corner_values[2]),
+				F(*corner_values[3])
+			};
+		}
+		inline const T& operator ()(size_t i) const {
+			return *corner_values[i];
+		}
+		inline T& operator ()(size_t i) {
+			return *corner_values[i];
+		}
+		inline const T& operator ()(size_t i, size_t j) const {
+			return *corner_values[2 * i + j];
+		}
+		inline T& operator ()(size_t i, size_t j) {
+			return *corner_values[2 * i + j];
+		}
+		std::array<u64_t,4> coords()const{
+			return {cx0,cx1,cy0,cy1};
+		}
+	};
+
+
 	template<typename Fp_t, typename T,typename U = Nothing_t, size_t max_lvl = 30>
 	struct Quadtree {
 		typedef uint_least64_t u64_t;
 		using value_type = T;
 		using coord_type =  Fp_t;
-		struct Node {
-		private:
-			//(0,0)=(left down) (0,1)=(left up), (1,0) = (right down), (1,1) = (right up)
-			std::array<std::unique_ptr<Node>, 4> children = { nullptr,nullptr,nullptr,nullptr }; // NW, NE, SW, SE
-			Node* _parent = nullptr;
-			u64_t _level = 0;
-			u64_t cx0, cx1, cy0, cy1;
-			Fp_t _x0, _x1, _y0, _y1;
-			U m_value;
-			std::array<std::shared_ptr<T>, 4> corner_values; // NW, NE, SW, SE corners
-			bool _is_leaf;
+		using Node = QuadtreeNode<Fp_t,T,U>;
 
-			friend struct Quadtree;
-			Node(
-				u64_t cx0, u64_t cx1, u64_t cy0, u64_t cy1,
-				Quadtree& m_tree, Node* m_parent = nullptr, u64_t m_level = 0)
-				: cx0(cx0), cx1(cx1), cy0(cy0), cy1(cy1),
-				_x0(m_tree.x_val(cx0)), _x1(m_tree.x_val(cx1)),
-				_y0(m_tree.y_val(cy0)), _y1(m_tree.y_val(cy1)),
-				_parent(m_parent), _level(m_level), _is_leaf(true) {}
-
-
-		public:
-
-			inline U & uvalue(){
-				return m_value;
-			}
-			inline U const& uvalue()const {
-				return m_value;
-			}
-
-#define DECLARE_CONST_PROPERTY(Type,prop) \
-		inline Type prop() const {return _##prop;}
-			DECLARE_CONST_PROPERTY(Fp_t, x0)
-				DECLARE_CONST_PROPERTY(Fp_t, x1)
-				DECLARE_CONST_PROPERTY(Fp_t, y0)
-				DECLARE_CONST_PROPERTY(Fp_t, y1)
-#undef DECLARE_CONST_PROPERTY
-            inline grob::Point<grob::Rect<Fp_t>,grob::Rect<Fp_t>> 
-                rect() const{
-                    return { {_x0,_x1},{_y0,_y1}};
-                }
-			inline size_t level()const {
-				return _level;
-			}
-			inline bool is_leaf() const{
-				return _is_leaf;
-			}
-			inline Node& child(size_t i) {
-				if (_is_leaf) {
-					throw std::runtime_error("leaf has no child");
-				}
-				return *children[i];
-			}
-			inline Node const& child(size_t i)const {
-				if (_is_leaf) {
-					throw std::runtime_error("leaf has no child");
-				}
-				return *children[i];
-			}
-
-			inline Node& parent() {
-				if (_parent == nullptr) {
-					throw std::runtime_error("root has no parent");
-				}
-				return *_parent;
-			}
-			inline Node* parentp() {
-				return _parent;
-			}
-			inline const Node* parentp()const {
-				return _parent;
-			}
-			inline bool contain(Fp_t x, Fp_t y)const {
-				return _x0 <= x && x <= _x1 && _y0 <= y && y <= _y1;
-			}
-			inline std::pair<Fp_t, Fp_t> coeffs(Fp_t x, Fp_t y)const {
-				return { (x1() - x) / (x1() - x0()),(y1() - y) / (y1() - y0()) };
-			}
-			inline std::tuple<const T&,const T&,const T&,const T&> values()const {
-				return {*corner_values[0],*corner_values[1],*corner_values[2],*corner_values[3]};
-			}
-			template <typename U1>
-			using tuple4 = std::tuple<U1,U1,U1,U1>; 
-
-			template <typename ForEachFunc_t>
-			inline tuple4<std::invoke_result_t<ForEachFunc_t,const T&>> 
-				values_view(ForEachFunc_t && F)const {
-				return {
-					F(*corner_values[0]),
-					F(*corner_values[1]),
-					F(*corner_values[2]),
-					F(*corner_values[3])
-				};
-			}
-			inline const T& operator ()(size_t i) const {
-				return *corner_values[i];
-			}
-			inline T& operator ()(size_t i) {
-				return *corner_values[i];
-			}
-			inline const T& operator ()(size_t i, size_t j) const {
-				return *corner_values[2 * i + j];
-			}
-			inline T& operator ()(size_t i, size_t j) {
-				return *corner_values[2 * i + j];
-			}
-			std::array<u64_t,4> coords()const{
-				return {cx0,cx1,cy0,cy1};
-			}
-		};
 
 		std::unique_ptr<Node> m_root;
 		typedef std::map<u64_t, std::shared_ptr<T>> PointValues_t;
@@ -264,7 +274,7 @@ namespace evdm {
 		}
 
 		void inherit_existing_values(Node& node) {
-			auto ExistingGetter = [cx = node.cx0,cy = node.cy0]()->T{
+			auto ExistingGetter = [cx = node.cx0,cy = node.cy0]()->T {
 				std::ostringstream Err;
 				Err << "corner value not found for node (";
 				Err << cx << ", " << cy << ")";
@@ -297,7 +307,11 @@ namespace evdm {
 			Node* parent = nullptr, int level = 0)
 		{
 			
-			return std::make_unique<Node>(Node(x0, x1, y0, y1, *this, parent, level));
+			return std::make_unique<Node>(
+				Node(
+					x0, x1, y0, y1,
+					x_val(x0),x_val(x1),y_val(y0),y_val(y1),
+					parent, level));
 		}
 
 		const Quadtree& cthis()const {
@@ -458,6 +472,39 @@ namespace evdm {
 		{
 			point_registry.merge(PointValues_t(m_values.begin(),m_values.end()));
 			inherit_existing_values_recursive(root());
+		}
+
+		/// @brief refine nodes
+		/// @param r_cond if r_cond(node) == true node will be refined
+		/// @param value_provider gives from vector<pair(x_i,y_i)> vector<std::shared_ptr<T>>
+		/// @return number of new nodes
+		template <typename RefineCondition_t, typename XYFuncVectorization_t>
+		size_t refine_vectorized(RefineCondition_t r_cond, XYFuncVectorization_t && value_provider,
+			size_t m_level = 1,size_t max_new_nodes = std::numeric_limits<size_t>::max()){
+			size_t new_nodes = 0;
+			for (Node & N : *this){
+				size_t delta = (1<<m_level) - 1;
+				if(max_new_nodes >= delta && r_cond(N)){
+					refine_unsave(N,m_level);
+					max_new_nodes -=delta;
+					new_nodes += delta;
+				}
+			}
+			auto missings_tp = get_missing_values_unsafe();
+			auto as_pair = missings_tp | std::ranges::views::transform(
+				[](auto const & tp) -> std::pair<Fp_t,Fp_t> {return {std::get<1>(tp),std::get<2>(tp)};}
+			);
+			std::vector<std::pair<Fp_t,Fp_t>> missings(as_pair.begin(),as_pair.end());
+			std::vector<std::shared_ptr<T>> Values = value_provider(missings);
+			if( missings.size() != missings.size()) {
+				throw std::runtime_error("Quadtree::refine_vectorized : missings.size() != missings.size()");
+			}
+			std::vector< std::pair<u64_t,std::shared_ptr<T>> > m_values(missings.size());
+			for(size_t i=0;i<m_values.size();++i){
+				m_values[i] = {std::get<0>(missings_tp[i]),std::move(Values[i])};
+			}
+			insert_missing_values(m_values);
+			return new_nodes;
 		}
 
 		// Быстрый поиск узла содержащего точку

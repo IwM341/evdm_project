@@ -89,7 +89,7 @@ namespace evdm {
 	}
 
 
-	template <typename T,typename FF_t>
+	template <typename T>
 	inline T get_ff_out(
 		T Vu_in,T Vu_out,T mu,T delta,T VescMin,T cos_theta_out,
 		FormFactor_t const & FF){
@@ -212,7 +212,7 @@ namespace evdm {
 		{
 			interval_samples.resize(std::distance(majorant_begin,majorant_end));
 
-			if( majorant_end - majorant_begin != size){
+			if( std::distance(majorant_begin, majorant_end) != size){
 				throw std::runtime_error("majorant_end - majorant_begin != size");
 			}
 			interval_samples[0] = (*majorant_begin)*box(0).volume();
@@ -253,7 +253,7 @@ namespace evdm {
 	/// @brief vector of qt for each element
 	template <typename T>
 	using ElementsRVQuadTree = 
-		std::vector<QT_RV_t<T>> QTs_per_element;
+		std::vector<QT_RV_t<T>> ; //QTs_per_element
 	
 	/// @brief state: ptype,e,l 
 	template <typename T>
@@ -491,7 +491,7 @@ namespace evdm {
 				T Vu_out = std::sqrt(downbound(Vu_in2 + v2_delta,0));
 				
 				T m_factor = get_ff_out(
-					Vu_in,Vu_out,Mu_chi_i,Delta_M_chi,vesc,m_s.cos_theta_out,ff.ff);
+					Vu_in,Vu_out,Mu_chi_i,Delta_M_chi,vesc,m_s.cos_theta_out,ff.ff.sf);
 				
 				T from_factor = m_factor*m_s.gen_pre_form_factor;
 
@@ -642,20 +642,77 @@ namespace evdm {
 			FFC_impl_t FFC_impl
 		):B(std::move(B)),ScatterInfoEL(ptypes,std::move(FFC_impl))
 		{}
+
+		template <typename Gen_t>
 		void AddProcess(
 			size_t ptype_in,size_t ptype_out,
-			size_t initial_rv_level, size_t max_rv_level,size_t max_rv_size,
-			size_t initial_el_level, size_t max_el_level,size_t max_el_size
+			size_t initial_rv_level, size_t max_rv_level,size_t max_rv_size, T rv_cmp_accept,
+			size_t initial_el_level, size_t max_el_level,size_t max_el_size,T el_cmp_accept,
+			size_t ThetaMaxSteps,
+			T zeroProb, Gen_t G, size_t Nmk
 			){
-			// TODO 1) for each element fill RV info quadtree
-			// critrium to split: 
-			//		bad interpolation of probs
-			//		big difference in treshold
-			//		big difference in majorants
-			// 2) using RV info fill elinfo quadtree
-			//	critrium to split: 
-			//		bad interpolation of probs for any element
-			//ScatterInfoEL.addQT(ptype_in,ptype_out,);
+				std::vector<ElementInfo_t> m_elements = make_element_info(
+					ScatterInfoEL.FFC_impl,ptype_in,ptype_out
+				);
+				ElementsRVQuadTree<T> m_qt;
+				m_qt.reserve(m_elements.size());
+				
+				for(size_t i=0;i<m_elements.size();++i){
+					const auto & m_el = m_elements[i];
+					auto rv_qt_filler = [&](T r,T v_undim)->ScatterRVExpInfo_t<T> {
+						auto vmax = std::sqrt(B.Phi(r));
+						return genRVinfo(ptype_in,ptype_out,r,vmax*v_undim,m_el.ff.n_e(r),m_el,G,Nmk);
+					};
+					m_qt.push_back( 
+						make_rv_tree (
+							rv_qt_filler,initial_rv_level,max_rv_level,max_rv_size,
+							zeroProb/m_elements.size(),rv_cmp_accept
+						)
+					);
+				}
+
+				// 2) using RV info fill elinfo quadtree
+				//	critrium to split: 
+				//		bad interpolation of probs for any element
+				using EL_QT_t = Quadtree<T,ScatterInfoElements<T>>;
+				auto el_filler = [&](T e,T l)->ScatterInfoElements<T> {
+					auto const & m_r_grid = B.Rho.Grid;
+					auto [L2,rme] = B.maxL2(-e);
+					auto get_poses = [&m_r_grid](T r)->std::pair<size_t,size_t> {
+						size_t i = m_r_grid.pos(r);
+						return {i, std::min(i+1,m_r_grid.size()-1)};
+					};
+					auto [il_min,il_max] = get_poses(rme);
+					auto [rmin,rmax] = B.find_rmin_rmax(-e,L2*l*l,rme);
+					auto [i0_rmin,i1_rmin] = get_poses(rmin);
+					auto [i0_rmax,i1_rmax] = get_poses(rmax);
+					std::vector<ScatterInfoTheta<T>> m_traj_for_elements;
+					m_traj_for_elements.reserve(m_elements.size());
+					for (size_t i=0;i<m_qt.size();++i){
+						T theta_max = 0;
+						T Tin = 0;
+						T Tout = 0;
+						size_t MaxProbInBin=0;
+						throw std::runtime_error("TODO define: MaxProbInBin,max_steps, thetas");
+						m_traj_for_elements.push_back( 
+							genTrajProbs(
+								e,l,rmin,rmax,theta_max,Tin,Tout,m_qt[i],ThetaMaxSteps,20,MaxProbInBin
+							)
+						);
+					}
+					return ScatterInfoElements<T>(
+						std::move(m_traj_for_elements),
+						std::make_tuple(il_min,il_max,i0_rmin,i1_rmin,i0_rmax,i1_rmax)
+					);
+				};
+			
+			ScatterInfoEL.addQT(
+				ptype_in,ptype_out,
+				make_el_tree(
+					el_filler,-B.Phi[0],
+					initial_el_level,  max_el_level, max_el_size,zeroProb,
+					el_cmp_accept),std::move(m_qt)
+				);
 			throw std::runtime_error("unimplemented");
 		}
 		
@@ -697,17 +754,7 @@ namespace evdm {
 
 		private:
 
-		/// @brief 
-		/// @tparam Gen_t 
-		/// @param ptype_in 
-		/// @param ptype_out 
-		/// @param r 
-		/// @param v 
-		/// @param n_r 
-		/// @param El 
-		/// @param G 
-		/// @param Nmk 
-		/// @return 
+		/// @brief get for particular r and v majorants and prob scatter
 		template <typename Gen_t>
 		ScatterRVExpInfo_t<T> genRVinfo(
 			size_t ptype_in, size_t ptype_out,
@@ -727,7 +774,7 @@ namespace evdm {
 
 			using RVPi = ScatterRVExpInfo_t<T>;
 			T sum = 0;
-			std::vector<T> max_ffs[RVPi::size];
+			std::vector<T> max_ffs(RVPi::size);
 			for (int i=0;i<RVPi::size;++i){
 				auto [xiu_0,xiu_1] = RVPi::box(i);
 				T max_ff = 0;
@@ -744,7 +791,7 @@ namespace evdm {
 					T Vu_out = std::sqrt(downbound(Vu_in2 + v2_delta,0));
 					
 					T m_factor = get_ff_out(
-						Vu_in,Vu_out,Mu_chi_i,Delta_M_chi,vesc,m_s.cos_theta_out,El.ff);
+						Vu_in,Vu_out,Mu_chi_i,Delta_M_chi,vesc,m_s.cos_theta_out,El.ff.sf);
 					T from_factor = m_factor*m_s.gen_pre_form_factor;
 					max_ff = std::max(max_ff,from_factor);
 					sum += from_factor*n_r;
@@ -756,7 +803,6 @@ namespace evdm {
 
 
 
-		template <typename Func_t>
 		ScatterInfoTheta<T> genTrajProbs(
 			T e, T l, T rmin,T rmax,T theta_max,T Tin,T Tout,QT_RV_t<T> const & rv_probs,
 			size_t max_steps,size_t max_lvl,T MaxProbInBin
@@ -768,7 +814,9 @@ namespace evdm {
 
 			T _1 = 1;
 
-			auto tau_theta = [](T)->T {throw std::runtime_error(__LINE__);};
+			auto tau_theta = [](T)->T {
+				throw std::runtime_error(__LINE__);
+			};
 			auto dP_dth = [&](T theta_undim)->T {
 				auto tau = tau_theta(theta_undim);
 				T theta_full = theta_undim*theta_max;
@@ -777,6 +825,9 @@ namespace evdm {
 				
 				// Check that rmax > 1 in outer trajectories?
 				T r = sqrt(powint(rmin*ct,2)+powint(rmax*st,2)); 
+				if(r>=1){
+					return 0;
+				}
 				T dtau_dth = std::sqrt(B.S(r,rmin,rmax));//S or 1/S?
 				T v = ssqrt(e - B.Phi(r));
 				T vmax = ssqrt(B.Phi(r));
@@ -812,7 +863,7 @@ namespace evdm {
 				return (P0[1_c] + P1[1_c])/2;
 			};
 			
-			auto new_point = [](PDF_t P0,PDF_t P1)->PDF_t {
+			auto new_point = [&dP_dth](PDF_t P0,PDF_t P1)->PDF_t {
 				T x = (P0[0_c]+P0[1_c])/2;
 				return PDF_t(x,dP_dth(x));
 			};
@@ -846,7 +897,7 @@ namespace evdm {
 							m_points.insert(it,ph);
 							FullProbLow += (ph[1_c] - nxt[1_c])*h/2;
 						} else {
-							return m_points;
+							ScatterInfoTheta<T>(std::move(m_points));
 						}
 					} else{
 						prob_in_it_is_too_big = false;
@@ -854,7 +905,178 @@ namespace evdm {
 				}
 				//m_points.insert()
 			}
-			return m_points;
+			return ScatterInfoTheta<T>(std::move(m_points));
+		}
+
+		public:
+
+		template <typename ValueGetter_t>
+		QT_RV_t<T> make_rv_tree(
+			ValueGetter_t && value_getter,
+			size_t initial_level, size_t max_level, size_t max_bins,
+			T zeroProb, T cmp_accept
+		) const{
+			// TODO 1) for each element fill RV info quadtree
+			// critrium to split: 
+			//		bad interpolation of probs
+			//		big difference in treshold
+			//		big difference in majorants
+			auto GetProb = [](ScatterRVExpInfo_t<T> const & x){
+				
+				return x.full_prob;
+			};
+			auto comparator = [](
+				ScatterRVExpInfo_t<T> const & R1,
+				ScatterRVExpInfo_t<T> const & R2) ->T
+			{
+				auto get_delta = [](T x,T y){
+					if(y>x){
+						std::swap(x,y);
+					}
+					return ( x > 0 ? y/x : T(1e10) ) - 1;
+				};
+				
+				T delta_fp = get_delta(R1.full_prob,R2.full_prob);
+				return delta_fp;
+			};
+			QT_RV_t<T> m_tree =  make_quadtree<ScatterRVExpInfo_t<T>,ScatterRVExp<T>>(
+				value_getter,0,1,0,1,initial_level,max_level,
+				max_bins,zeroProb,GetProb,comparator,cmp_accept
+			);
+			typedef  QuadtreeNode<T,ScatterRVExpInfo_t<T>,ScatterRVExp<T>> Node_t;
+			for(Node_t & nd : m_tree){
+				auto const & [I1,I2,I3,I4] = nd.values();
+				auto majorants_view = grob::as_container(
+					[&I1,&I2,&I3,&I4](size_t i){
+						return std::max(
+							std::max(I1.Majorants[i],I2.Majorants[i]),
+							std::max(I2.Majorants[i],I3.Majorants[i])
+						);
+					},I1.Majorants.size()
+				);
+				nd.uvalue() = ScatterRVExp<T>(majorants_view.begin(),majorants_view.end());
+			}
+			return m_tree;
+		}
+
+		template <typename ValueGetter>
+		static Quadtree<T,ScatterInfoElements<T>> make_el_tree(
+			ValueGetter &&Fel,T Emin, 
+			size_t initial_level, size_t max_level, size_t max_bins,
+			T zeroProb, T cmp_accept
+		){
+			auto FuncGetProb = [](ScatterInfoElements<T> const & x){
+				return x.full_prob;
+			};
+			auto cmp = [zeroProb](ScatterInfoElements<T> const & x,
+				ScatterInfoElements<T> const & y)->T 
+			{
+				auto get_delta = [](T x,T y){
+					if(y>x){
+						std::swap(x,y);
+					}
+					return ( x > 0 ? y/x : T(1e10) ) - 1;
+				};
+				T delta_fp = get_delta(x.full_prob,x.full_prob);
+				T max_delta = delta_fp;
+				for(size_t i=0;i<x.ThetaTrajs.size();++i){
+					ScatterInfoTheta<T> const& _x =x.ThetaTrajs[i];
+					ScatterInfoTheta<T> const& _y =y.ThetaTrajs[i];
+					if(_x.full_prob > zeroProb ||  _y.full_prob > zeroProb){
+						max_delta = std::max(max_delta,get_delta(_x.full_prob,_y.full_prob));
+					} 
+				}
+
+				return max_delta;
+			};
+			return make_quadtree<ScatterInfoElements<T>,evdm::Nothing_t>(
+				Fel, Emin,0,0,1,initial_level,max_level,max_bins,zeroProb,
+				FuncGetProb,cmp,cmp_accept
+			);
+		}
+		
+		template <typename Val_t,typename UV_t,
+			typename ValueGetter_t, //e,l -> Val_t
+			typename ProbGetter, //Val_t & -> probability
+			typename RelComparator > // (Val_t, Val_t) -> some relative difference
+		static Quadtree<T,Val_t,UV_t> make_quadtree(
+			ValueGetter_t && F,T x0,T x1,T y0,T y1,
+			size_t initial_level, size_t max_lvl,size_t max_size,
+			T zeroProb, ProbGetter && FuncGetProb, RelComparator && cmp, 
+			T cmp_accept
+		){
+			
+			using Node_t = QuadtreeNode<T,Val_t,UV_t>;
+			Quadtree<T,Val_t,UV_t> m_tree(F,x0,x1,y0,y1);
+			auto ValueGetterVectorized =[&F](auto const & coords){
+				int N = coords.size();
+				std::vector<std::shared_ptr<Val_t>> ret(N);
+				#pragma omp parallel for
+				for(int i=0;i<N;++i){
+					auto [x,y] = coords[i];
+					ret[i] = std::make_shared<Val_t>(F(x,y));
+				}
+				return ret;
+			};
+			auto always_true_cond = [zeroProb,&FuncGetProb](Node_t const& nd){
+				auto Ptuple = nd.values_view(FuncGetProb);
+				auto Pmax = tuple_max(Ptuple);
+				return Pmax > zeroProb;
+			};
+			auto CMPaccept_condition = [&](T accept_error){ 
+				return [accept_error,zeroProb,max_lvl,&cmp,&FuncGetProb](Node_t const& nd){
+					if(nd.level() > max_lvl){
+						return false;
+					}
+					//auto const & [P0,P1,P2,P3]
+					auto const & [P0,P1,P2,P3] = nd.values();
+					auto Ptuple = nd.values_view(FuncGetProb);
+					auto Pmax = tuple_max(Ptuple);
+					if(Pmax <= zeroProb)
+						return false;
+					auto cond = [&cmp,accept_error](auto const & x,auto const & y){
+						return cmp(x,y) > accept_error;
+					};
+					return cond(P0,P1) || cond(P0,P2) || cond(P0,P3) ||
+						   cond(P1,P2) || cond(P1,P3) || cond(P2,P3);
+				};
+			};
+
+			
+			// refine to initial level
+			size_t remain_size = max_size;
+			remain_size -= 1;
+			for(size_t _i=0; _i<initial_level;++_i){
+				remain_size -= m_tree.refine_vectorized(
+					always_true_cond,ValueGetterVectorized,1,remain_size 
+				);
+			}
+
+			// some funtions
+			auto P_cmp_coarse_condition = CMPaccept_condition(1);
+			auto P_cmp_strict_condition = CMPaccept_condition(cmp_accept);
+			
+			auto apply_condition = [&](auto && m_cond,size_t m_rem_size){
+				size_t new_nodes = 0;
+				size_t delta=1;
+				while(delta){
+					delta = m_tree.refine_vectorized(
+						m_cond,ValueGetterVectorized,1,m_rem_size
+					);
+					new_nodes += delta;
+					m_rem_size-=delta;
+				}
+				return new_nodes;
+			};
+
+			/// Step 1: we should refine most strict condition
+			remain_size -= apply_condition(P_cmp_strict_condition,remain_size/2);
+			/// Step 2:  we should refine less strict condition for prob
+			remain_size -= apply_condition(P_cmp_coarse_condition,remain_size);
+			/// Step 3: if we still have remain_size, we coult try to refine strict
+			remain_size -= apply_condition(P_cmp_strict_condition,remain_size);
+			
+			return m_tree;
 		}
 	};
 

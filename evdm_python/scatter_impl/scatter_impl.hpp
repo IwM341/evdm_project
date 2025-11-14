@@ -61,7 +61,7 @@ struct ScatterImpl_Args {
 	std::tuple<double, double> m_el_measure_pair;
 	double M_DM; double deltaM; double NucleiM;
 	Nmk_vector const& Nmk; size_t Nmk_per_traj;
-	double weight; evdm::progress_omp_function<> ProgFunc;
+	double weight; evdm::ScatterImplExtra extra_args;
 	
 	template <int alg_i>
 	void apply_impl(std::integral_constant<int, alg_i> algol) {
@@ -81,7 +81,7 @@ struct ScatterImpl_Args {
 			evdm::Scatter(std::integral_constant<int, algol>{},
 				m_mat, m_evp, zero_val, ptype_in, ptype_out,
 				sc_event, G, therm_gen, m_el_measure,
-				M_DM, deltaM, NucleiM, Nmk, Nmk_per_traj, weight, ProgFunc
+				M_DM, deltaM, NucleiM, Nmk, Nmk_per_traj, weight, extra_args
 			);
 		}, m_mat.m_matrix);
 		

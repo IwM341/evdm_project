@@ -26,7 +26,7 @@ namespace evdm {
         Gen_vt< Gen_t> mk, Gen_vt< Gen_t> dm, Gen_vt< Gen_t> mi,
         Nmk_vec_t  const &Nmk_v, size_t Nmk_per_traj,
         Gen_vt< Gen_t> weight,
-        progress_omp_function<>& m_progress_func)
+        ScatterImplExtra scimpl_extra)
     {
         auto const& m_body = mMatrix.body();
         auto const& Temp = mMatrix.body().Temp;
@@ -59,7 +59,7 @@ namespace evdm {
                     LEf, _F2, mMatrix.Grid.TrajPools(),
                     m_measure, Phi, Sfunc, Temp,
                     mEvap.body().VescFunc, mEvap.body().Vesc,
-                    Nmk_v, Nmk_per_traj, weight, m_progress_func
+                    Nmk_v, Nmk_per_traj, weight, scimpl_extra
                 );
             }
             else if constexpr (algol == AlgolDiffuse){
@@ -71,7 +71,7 @@ namespace evdm {
                     LEf, _F2, mMatrix.Grid.TrajPools(),
                     m_measure, Phi, Sfunc, Temp,
                     mEvap.body().VescFunc, mEvap.body().Vesc,
-                    Nmk_v, Nmk_per_traj, weight, m_progress_func
+                    Nmk_v, Nmk_per_traj, weight, scimpl_extra
                 );
             }
             else if constexpr (algol == AlgolNaive){
@@ -83,7 +83,7 @@ namespace evdm {
                     LEf, _F2, mMatrix.Grid.TrajPools(),
                     m_measure, Phi, Sfunc, Temp,
                     mEvap.body().VescFunc, mEvap.body().Vesc,
-                    Nmk_v, Nmk_per_traj, weight, m_progress_func
+                    Nmk_v, Nmk_per_traj, weight, scimpl_extra
                 );
             }
             else {

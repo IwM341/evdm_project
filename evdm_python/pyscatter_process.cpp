@@ -61,7 +61,8 @@ void Py_ScatterProcess(
 	if (seed == 0) {
 		seed = std::numeric_limits<size_t>::max();
 	}
-	auto ProgFunc = make_progress_func(update_function);
+	//auto ProgFunc = make_progress_func(update_function);
+	
 	size_t Nmk = 0;
 	Nmk_vector Nmk_var;
 
@@ -100,14 +101,17 @@ void Py_ScatterProcess(
 	};
 	std::tuple < double , double > measure_tp = pyget<std::tuple<double, double>>(
 		std::make_tuple((double)1,(double)2), ExtraArgs, "measure");
-
+	
+	evdm::ScatterImplExtra scimpl_extra;
+	scimpl_extra.cut_el = pyget<bool>(false,ExtraArgs,"cut_el");
+	scimpl_extra.cut_tau = pyget<bool>(false, ExtraArgs, "cut_tau");
 
 	ScatterImpl_Args m_scatter_args{ ScatterAccum,
 	 zero_val,ptype_in, ptype_out, seed,
 	sc_event,  ThermGenVar,
 	measure_tp, M_DM, deltaM, NucleiM,
 	Nmk_var, Nmk_per_traj,
-	weight,  ProgFunc };
+	weight,  scimpl_extra };
 	
 	{
 		pybind11::gil_scoped_release m_unlock;
@@ -156,7 +160,8 @@ void add_pyscatter_to_python_module(pybind11::module_& m)
 		"zero : float\n\t if matrix element Sij < zero, then it assumed to be zero"
 		"Nmk_traj: int\n\tnumber of monte-carle steps on each trajectory.\n"
 		"weight : float\n\t[optional] scale factor, default - 1.\n"
-		"bar : object\n\t[optional] progress bar update function.",
+		"cut_el : bool\n\t[optional] cut el bin optimization.\n",
+		"cut_tau : bool\n\t[optional] cut tau optimization.",
 		py::arg("matrix"),
 		py::arg("ptype_in"),
 		py::arg("ptype_out"),

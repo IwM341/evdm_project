@@ -371,6 +371,13 @@ namespace evdm {
 		return critical_value(Tau_t(0), Tau_t(1), reaction_goes, true);
 	}
 
+	
+	struct ScatterImplExtra{
+		bool cut_el = false;
+		bool cut_tau = false;
+		size_t cut_factor = 8;
+	};
+
 	template <
 		typename Grid_vt,
 		typename Mat_vt,
@@ -416,16 +423,14 @@ namespace evdm {
 		Nmk_Vec_t const & Nmk_v,
 		size_t Nmk_per_traj,
 		Gen_vt<Gen_t> weight,
-		progress_omp_function<>& m_progress_func
+		ScatterImplExtra extra_params = {}
 	) {
 		typedef Grid_vt Traj_t;
 
 		
 		const size_t N_in = EvapDistrib.Grid.size();
 		auto&& grid = EvapDistrib.Grid;
-		progress_omp_bar<> m_bar(
-			m_progress_func, N_in, std::max((int)(N_in / 1000), 1)
-		);
+		
 		auto m_cm = mk * mi / (mk + mi);
 
 		auto deltaE_div_m_cm = 2 * dm / m_cm;
@@ -453,8 +458,14 @@ namespace evdm {
 				el_trajpool, LEf, _F2_value);
 			auto ToutFunc = make_bin_traj_pool_Tout_func(
 				el_trajpool, LEf);
-
-			el_bin = PrepairBin(el_bin, mk, mi, deltaE_div_m_cm, Phi, TempR, TinFunc, LEf);
+			
+			Traj_t bin_cut_factor = 1;
+			if(extra_params.cut_el){
+				Traj_t old_mes = m_mes(el_bin);
+				el_bin = PrepairBin(el_bin, mk, mi, deltaE_div_m_cm, Phi, TempR, TinFunc, LEf);
+				Traj_t new_mes = m_mes(el_bin);
+				bin_cut_factor = new_mes/old_mes;
+			}
 
 			auto m_bin_el_gen = m_mes.get_gen(el_bin);
 
@@ -484,14 +495,14 @@ namespace evdm {
 				auto Tin_Teheta = TinFunc.tin_theta(e, l);
 
 
-				Traj_t tau_max = (Nmk_per_traj <= 10) ? Traj_t(1) :
+				Traj_t tau_max = (Nmk_per_traj <= 10 || !extra_params.cut_tau) ? Traj_t(1) :
 					find_tau_max(e,r0, r1, theta_max, mk, mi, deltaE_div_m_cm, Phi, TempR, th00);
 
 				auto Tin = Tin_Teheta * theta_max;
 				auto Tout = ToutFunc(e, l, Ltmp);
 
 				auto mk_factor =
-					weight * tau_max* Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
+					bin_cut_factor*weight * tau_max* Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
 
 				if (tau_max > 0) {
 					for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
@@ -584,7 +595,6 @@ namespace evdm {
 					));
 				}
 			}
-			m_bar.next();
 		}
 		std::vector<SpTriplet_t<Mat_vt>>
 			AllTriplets(flatten(triplets));
@@ -640,16 +650,14 @@ namespace evdm {
 		Nmk_Vec_t const& Nmk_v,
 		size_t Nmk_per_traj,
 		Gen_vt<Gen_t> weight,
-		progress_omp_function<>& m_progress_func
+		ScatterImplExtra extra_params = {}
 	) {
 		typedef Grid_vt Traj_t;
 
 
 		const size_t N_in = EvapDistrib.Grid.size();
 		auto&& grid = EvapDistrib.Grid;
-		progress_omp_bar<> m_bar(
-			m_progress_func, N_in, std::max((int)(N_in / 1000), 1)
-		);
+
 		auto m_cm = mk * mi / (mk + mi);
 
 		auto deltaE_div_m_cm = 2 * dm / m_cm;
@@ -680,8 +688,14 @@ namespace evdm {
 				el_trajpool, LEf, _F2_value);
 			auto ToutFunc = make_bin_traj_pool_Tout_func(
 				el_trajpool, LEf);
-
-			el_bin = PrepairBin(el_bin, mk, mi, deltaE_div_m_cm, Phi, TempR, TinFunc, LEf);
+			
+			Traj_t bin_cut_factor = 1;
+			if(extra_params.cut_el){
+				Traj_t old_mes = m_mes(el_bin);
+				el_bin = PrepairBin(el_bin, mk, mi, deltaE_div_m_cm, Phi, TempR, TinFunc, LEf);
+				Traj_t new_mes = m_mes(el_bin);
+				bin_cut_factor = new_mes/old_mes;
+			}
 			//auto m_bin_el_gen = gen_EL(m_mes, el_bin, G, LEf);
 
 			size_t Nmk = 0;
@@ -716,11 +730,11 @@ namespace evdm {
 				auto Tin = Tin_Teheta * theta_max;
 				auto Tout = ToutFunc(e, l, Ltmp);
 
-				Traj_t tau_max = (Nmk_per_traj <= 10) ? Traj_t(1) :
+				Traj_t tau_max = (Nmk_per_traj <= 10|| !extra_params.cut_tau) ? Traj_t(1) :
 					find_tau_max(e,r0, r1, theta_max, mk, mi, deltaE_div_m_cm, Phi, TempR, th00);
 
 				auto mk_factor =
-					weight * tau_max*Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
+					weight *bin_cut_factor * tau_max*Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
 
 
 				if(tau_max > 0)
@@ -835,7 +849,6 @@ namespace evdm {
 					}
 				}
 			}
-			m_bar.next();
 		}
 		//std::vector<SpTriplet_t<Mat_vt>>
 		//	AllTriplets(flatten(triplets));
@@ -908,16 +921,14 @@ namespace evdm {
 		Nmk_Vec_t const& Nmk_v,
 		size_t Nmk_per_traj,
 		Gen_vt<Gen_t> weight,
-		progress_omp_function<>& m_progress_func
+		ScatterImplExtra extra_params = {}
 	) {
 		typedef Grid_vt Traj_t;
 
 
 		const size_t N_in = EvapDistrib.Grid.size();
 		auto&& grid = EvapDistrib.Grid;
-		progress_omp_bar<> m_bar(
-			m_progress_func, N_in, std::max((int)(N_in / 1000), 1)
-		);
+
 		auto m_cm = mk * mi / (mk + mi);
 
 		auto deltaE_div_m_cm = 2 * dm / m_cm;
@@ -950,7 +961,13 @@ namespace evdm {
 				el_trajpool, LEf);
 
 			//auto m_bin_el_gen = gen_EL(m_mes, el_bin, G, LEf);
-			el_bin = PrepairBin(el_bin, mk, mi, deltaE_div_m_cm, Phi, TempR, TinFunc, LEf);
+			Traj_t bin_cut_factor = 1;
+			if(extra_params.cut_el){
+				Traj_t old_mes = m_mes(el_bin);
+				el_bin = PrepairBin(el_bin, mk, mi, deltaE_div_m_cm, Phi, TempR, TinFunc, LEf);
+				Traj_t new_mes = m_mes(el_bin);
+				bin_cut_factor = new_mes/old_mes;
+			}
 
 			size_t Nmk = 0;
 			if constexpr (std::is_same_v<Nmk_Vec_t, size_t>) {
@@ -983,11 +1000,11 @@ namespace evdm {
 				auto Tin = Tin_Teheta * theta_max;
 				auto Tout = ToutFunc(e, l, Ltmp);
 
-				Traj_t tau_max = !Nmk_per_traj ? Traj_t(1) : 
+				Traj_t tau_max = !extra_params.cut_tau ? Traj_t(1) : 
 					find_tau_max(e,r0, r1, theta_max, mk, mi, deltaE_div_m_cm, Phi, TempR, th00);
 
 				auto mk_factor =
-					tau_max*weight * Tin / ((Tin + Tout) * Nmk) / 4;
+					tau_max* bin_cut_factor *weight * Tin / ((Tin + Tout) * Nmk) / 4;
 				
 
 				if (tau_max > 0) {
@@ -1091,7 +1108,6 @@ namespace evdm {
 				}
 				
 			}
-			m_bar.next();
 		}
 		//std::vector<SpTriplet_t<Mat_vt>>
 		//	AllTriplets(flatten(triplets));

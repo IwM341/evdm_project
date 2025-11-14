@@ -53,7 +53,7 @@ namespace evdm {
 		float mN;
 		float mX;
 		float dmX;
-		FormFactor_t ff;
+		ScatterEvent ff;
 	};
 
 	template <typename FormFactorConstructor_impl>
@@ -96,7 +96,7 @@ namespace evdm {
 		ScatterInfoTheta(){}
 
 		template <typename Allocator>
-		ScatterInfoTheta(std::list<grob::point<T, T>,Allocator>  m_prob)
+		ScatterInfoTheta(std::list<grob::Point<T, T>,Allocator>  m_prob)
 		{
 			using namespace grob::literals;
 			{

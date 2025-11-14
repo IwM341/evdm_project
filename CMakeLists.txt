@@ -80,23 +80,6 @@ set(FORM_FACTOR_SOURCES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/NuclearFormFactors)
 file(GLOB_RECURSE SOURCES "${P_SOURCES_DIR}/*.cpp")
 
 
-set(OLD_SOURCES 
-    ${P_SOURCES_DIR}/pyevdm.cpp
-    ${P_SOURCES_DIR}/body_model.cpp
-    ${P_SOURCES_DIR}/el_grid.cpp
-    ${P_SOURCES_DIR}/core_python_defs.cpp
-    ${P_SOURCES_DIR}/distribution.cpp
-    ${P_SOURCES_DIR}/capture.cpp
-    ${P_SOURCES_DIR}/matrix.cpp
-    ${P_SOURCES_DIR}/pyscatter_process.cpp
-    ${P_SOURCES_DIR}/pycapture_process.cpp
-    ${P_SOURCES_DIR}/pydynamics.cpp
-    ${P_SOURCES_DIR}/pyannihilation.cpp
-    ${P_SOURCES_DIR}/scatter_event_info.cpp
-    ${P_SOURCES_DIR}/pygridproj.cpp
-    ${P_SOURCES_DIR}/pymarkov.cpp
-    ${P_SOURCES_DIR}/pyevolutor.cpp
-)
 
 include(cmake/CPM.cmake)
 
