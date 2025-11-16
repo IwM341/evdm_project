@@ -89,10 +89,10 @@ namespace evdm {
 				RowShift(RowShift), ColShift(ColShift), j(j) {}
 
 		public:
-			bool operator !=(iterator other)const {
+			inline bool operator !=(iterator other)const {
 				return (vec_iter != other.vec_iter);
 			}
-			bool operator ==(iterator other) const {
+			inline bool operator ==(iterator other) const {
 				return (vec_iter == other.vec_iter);
 			}
 			iterator& operator++() {
@@ -118,19 +118,19 @@ namespace evdm {
 				}
 				return *this;
 			}
-			value_type operator*()const {
+			inline value_type operator*()const {
 				return { sp_iter.index() + ColShift,j + RowShift,sp_iter.value() };
 			}
 			struct proxy {
 				value_type m_value;
-				value_type* operator->() {
+				inline value_type* operator->() noexcept{
 					return &m_value;
 				}
-				value_type& operator *() {
+				inline value_type& operator *() noexcept {
 					return m_value;
 				}
 			};
-			proxy operator->()const {
+			inline proxy operator->()const noexcept {
 				return { operator*() };
 			}
 		};
@@ -845,6 +845,11 @@ namespace evdm {
 						}
 						else if (e >= 0) {
 							EvapDistrib.Values[i] += final_factor;
+						}
+						else if (std::isnan(final_factor) || std::isnan(e_out) ){
+							std::ostringstream error;
+							error << "i = " << i << " nm = " << nm << " nt = " << nt << std::endl;
+							throw std::runtime_error(error.str());
 						}
 					}
 				}
