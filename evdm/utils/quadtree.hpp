@@ -75,7 +75,7 @@ namespace evdm {
 		friend struct Quadtree;
 		QuadtreeNode(
 			u64_t cx0, u64_t cx1, u64_t cy0, u64_t cy1,
-			Fp_t _x0, Fp_t _x1, Fp_t , Fp_t _y1,
+			Fp_t _x0, Fp_t _x1, Fp_t _y0, Fp_t _y1,
 			QuadtreeNode* m_parent = nullptr, u64_t m_level = 0)
 			: cx0(cx0), cx1(cx1), cy0(cy0), cy1(cy1),
 			_x0(_x0), _x1(_x1),

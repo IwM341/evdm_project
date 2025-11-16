@@ -128,7 +128,7 @@ namespace evdm {
 					for (; it != m_prob.end();++it) {
 						auto [x1,p1] = *it;
 						p_sum += AvP(p0,p1)*(x1-x0);
-						it[1_c] = p_sum;
+						(*it)[1_c] = p_sum;
 						p0 = p1;
 						x0 = x1;
 					}
@@ -149,7 +149,7 @@ namespace evdm {
 						auto next = it;
 						++next;
 						
-						if (next != m_prob.end() && it->second == next->second) {
+						if (next != m_prob.end() && (*it)[1_c] == (*next)[1_c]) {
 							m_prob.erase(next);
 						} else {
 							++it;

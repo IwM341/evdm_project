@@ -313,7 +313,7 @@ namespace evdm {
 			typedef Gen_vt<Gen_t> T;
 			auto Vdisp = std::sqrt(Therm / Mtarget);
 			auto Vtresh = std::clamp(
-				std::sqrt(Delta_x_2_div_mu) - Vmk,
+				ssqrt(Delta_x_2_div_mu) - Vmk,
 				(T)0, (T)(8 * Vdisp)
 			);
 			return Gauss3_Soft8_abs(G, Vdisp, Vtresh);
@@ -327,7 +327,7 @@ namespace evdm {
 			typedef Gen_vt<Gen_t> T;
 			auto Vdisp = std::sqrt(Therm / Mtarget);
 			auto Vtresh = std::clamp(
-				std::sqrt(Delta_x_2_div_mu) - Vmk, 
+				ssqrt(Delta_x_2_div_mu) - Vmk, 
 				(T)0, (T)(8 * Vdisp)
 			);
 			return Gauss3_Soft8(G, Vdisp, Vtresh);

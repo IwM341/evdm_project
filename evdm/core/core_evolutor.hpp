@@ -16,6 +16,7 @@
 #include <algorithm>
 #include "../dynamics/dynamics_evolutor.hpp"
 #include <ranges>
+#include "../trajectory.hpp"
 
 #define PURE_FUNCTION
 namespace evdm {
@@ -648,8 +649,7 @@ namespace evdm {
 			size_t ptype_in,size_t ptype_out,
 			size_t initial_rv_level, size_t max_rv_level,size_t max_rv_size, T rv_cmp_accept,
 			size_t initial_el_level, size_t max_el_level,size_t max_el_size,T el_cmp_accept,
-			size_t ThetaMaxSteps,
-			T zeroProb, Gen_t G, size_t Nmk
+			size_t ThetaMaxSteps, T maxProbTheta, T zeroProb, Gen_t G, size_t Nmk
 			){
 				std::vector<ElementInfo_t> m_elements = make_element_info(
 					ScatterInfoEL.FFC_impl,ptype_in,ptype_out
@@ -689,14 +689,13 @@ namespace evdm {
 					std::vector<ScatterInfoTheta<T>> m_traj_for_elements;
 					m_traj_for_elements.reserve(m_elements.size());
 					for (size_t i=0;i<m_qt.size();++i){
-						T theta_max = 0;
-						T Tin = 0;
-						T Tout = 0;
-						size_t MaxProbInBin=0;
-						throw std::runtime_error("TODO define: MaxProbInBin,max_steps, thetas");
+						T theta_max = B.get_theta_max(rmin,rmax);
+						T Tin = B.get_internal_period(rmin,rmax,100);
+						T Tout = eT(-e,L2*l*l);
+						
 						m_traj_for_elements.push_back( 
 							genTrajProbs(
-								e,l,rmin,rmax,theta_max,Tin,Tout,m_qt[i],ThetaMaxSteps,20,MaxProbInBin
+								e,l,rmin,rmax,theta_max,Tin,Tout,m_qt[i],ThetaMaxSteps,20,maxProbTheta
 							)
 						);
 					}
@@ -768,7 +767,7 @@ namespace evdm {
 			T vesc = B.Vesc;
 
 			T v2 = v*v;
-			T v1_temp_sq = B.Temp(r)/El.mN/(vesc*vesc);
+			T v1_temp_sq = (B.Temp(r) + 1e-12)/El.mN/(vesc*vesc);
 			T v1_tres = v2_delta > v2 ? std::sqrt(v2_delta) - v : T(0);
 			T u_tresh = v2_delta > 0 ? (v1_tres*v1_tres)/(2*v1_temp_sq) : T(0);
 
@@ -778,7 +777,7 @@ namespace evdm {
 			for (int i=0;i<RVPi::size;++i){
 				auto [xiu_0,xiu_1] = RVPi::box(i);
 				T max_ff = 0;
-				for(int _k : std::views::iota(Nmk)){
+				for(int _k : std::views::iota(0,Nmk)){
 					T xi = RVPi::min_value+(xiu_0 + (xiu_1-xiu_0)*G());
 					T s = std::log(xi);
 					T u_in = (s + u_tresh);
@@ -814,21 +813,18 @@ namespace evdm {
 
 			T _1 = 1;
 
-			auto tau_theta = [](T)->T {
-				throw std::runtime_error(__LINE__);
-			};
+			B.get_internal_period(rmin,rmax,100);
 			auto dP_dth = [&](T theta_undim)->T {
-				auto tau = tau_theta(theta_undim);
 				T theta_full = theta_undim*theta_max;
-				T ct = std::cos(theta_full);
-				T st = std::sin(theta_full);
+				T ct = std::cos(theta_full/2);
+				T st = std::sin(theta_full/2);
 				
 				// Check that rmax > 1 in outer trajectories?
 				T r = sqrt(powint(rmin*ct,2)+powint(rmax*st,2)); 
 				if(r>=1){
 					return 0;
 				}
-				T dtau_dth = std::sqrt(B.S(r,rmin,rmax));//S or 1/S?
+				T dtau_dth = 1/(2*std::sqrt(B.S(r,rmin,rmax)) );//S or 1/S?
 				T v = ssqrt(e - B.Phi(r));
 				T vmax = ssqrt(B.Phi(r));
 				if(vmax == 0){
@@ -843,7 +839,7 @@ namespace evdm {
 					interpolate_log(P00,P10,alph),
 					interpolate_log(P01,P11,alph),
 					bth
-				);
+				)/(Tout+Tin);
 			};
 
 			m_points.push_back({0,dP_dth(0)});
@@ -922,7 +918,6 @@ namespace evdm {
 			//		big difference in treshold
 			//		big difference in majorants
 			auto GetProb = [](ScatterRVExpInfo_t<T> const & x){
-				
 				return x.full_prob;
 			};
 			auto comparator = [](
