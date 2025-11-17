@@ -529,7 +529,7 @@ namespace evdm {
 
 						Traj_t v2 = downbound(Phi(r) + e, 0);
 						auto v = std::sqrt(v2);
-						Traj_t vt = upbound(Ltmp / r, v);
+						Traj_t vt = upbound(downbound(Ltmp / r, (Traj_t)0), v);
 						Traj_t vr = ssqrt(v2 - vt * vt);
 
 						vec3<Traj_t > V_in_nd(vt, 0, vr);
@@ -765,7 +765,7 @@ namespace evdm {
 
 						Traj_t v2 = downbound(Phi(r) + e, 0);
 						auto v = std::sqrt(v2);
-						Traj_t vt = upbound(Ltmp / r, v);
+						Traj_t vt = upbound(downbound(Ltmp / r,(Traj_t)0), v);
 						Traj_t vr = ssqrt(v2 - vt * vt);
 
 						vec3<Traj_t > V_in_nd(vt, 0, vr);
@@ -1030,7 +1030,7 @@ namespace evdm {
 
 						Traj_t v2 = downbound(Phi(r) + e, 0);
 						auto v = std::sqrt(v2);
-						Traj_t vt = upbound(Ltmp / r, v);
+						Traj_t vt = upbound(downbound(Ltmp / r, (Traj_t)0), v);
 						Traj_t vr = ssqrt(v2 - vt * vt);
 
 						vec3<Traj_t > V_in_nd(vt, 0, vr);
