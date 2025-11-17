@@ -771,7 +771,7 @@ namespace evdm {
 						Traj_t v_esc_nd = VescR(r);
 						auto [dVout, factor] =
 							DeltaVout1_Scatter(
-								V_in, v, G, ThermGen,
+								V_in, v* VescMin, G, ThermGen,
 								mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm,
 								dF,
 								v_esc_nd * VescMin, VescMin,
@@ -843,7 +843,7 @@ namespace evdm {
 								}
 							}
 						}
-						else if (e >= 0) {
+						else if (e_out >= 0) {
 							EvapDistrib.Values[i] += final_factor;
 						}
 						else if (std::isnan(final_factor) || std::isnan(e_out) ){
@@ -1033,7 +1033,7 @@ namespace evdm {
 						Traj_t v_esc_nd = VescR(r);
 						auto [dVout, factor] =
 							DeltaVout1_Scatter(
-								V_in, v, G, ThermGen,
+								V_in, v* VescMin, G, ThermGen,
 								mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm,
 								dF,
 								v_esc_nd * VescMin, VescMin,
@@ -1105,7 +1105,7 @@ namespace evdm {
 								}
 							}
 						}
-						else if (e >= 0) {
+						else if (e_out >= 0) {
 							EvapDistrib.Values[i] += final_factor;
 						}
 
