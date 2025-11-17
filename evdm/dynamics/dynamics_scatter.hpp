@@ -850,7 +850,7 @@ namespace evdm {
 						}
 						else if (std::isnan(final_factor) || std::isnan(e_out) ){
 							std::ostringstream error;
-							error << "e_out = " << e_out << " factor = " << factor << 
+							error << "e_out = " << e_out << " factor = " << factor << std::endl;
 							error << "i = " << i << " nm = " << nm << " nt = " << nt << std::endl;
 							error << "seed nm" << seed_nm << "seed nt" << seed_nt << std::endl;
 
