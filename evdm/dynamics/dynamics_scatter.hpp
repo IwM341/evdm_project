@@ -707,6 +707,7 @@ namespace evdm {
 			}
 
 			for (size_t nm = 0; nm < Nmk; ++nm) {
+				auto seed_nm = G.seed;
 				auto X0 = X0X1.left + X0X1.volume() * G();
 				auto Y0 = Y0Y1.left + Y0Y1.volume() * G();
 				
@@ -740,6 +741,7 @@ namespace evdm {
 				if(tau_max > 0)
 				{
 					for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
+						auto seed_nt = G.seed;
 						auto tau = G() * tau_max;
 						auto [theta_undim, d_theta_undim] = th00(tau);
 						auto theta = theta_undim * theta_max;
@@ -848,7 +850,10 @@ namespace evdm {
 						}
 						else if (std::isnan(final_factor) || std::isnan(e_out) ){
 							std::ostringstream error;
+							error << "e_out = " << e_out << " factor = " << factor << 
 							error << "i = " << i << " nm = " << nm << " nt = " << nt << std::endl;
+							error << "seed nm" << seed_nm << "seed nt" << seed_nt << std::endl;
+
 							throw std::runtime_error(error.str());
 						}
 					}
