@@ -848,6 +848,7 @@ namespace evdm {
 						else if (e_out >= 0) {
 							EvapDistrib.Values[i] += final_factor;
 						}
+#ifdef CATCHNAN
 						else if (std::isnan(final_factor) || std::isnan(e_out) ){
 							std::ostringstream error;
 							error << "e_out = " << e_out << " factor = " << factor << std::endl;
@@ -856,6 +857,7 @@ namespace evdm {
 
 							throw std::runtime_error(error.str());
 						}
+#endif
 					}
 				}
 			}

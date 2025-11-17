@@ -7,7 +7,7 @@
 #include "value_types.hpp"
 #include <evdm/measure.hpp>
 #include "matrix_python.hpp"
-
+#include <pybind11/iostream.h>
 void Py_ScatterProcess(
 	Py_Matrix& ScatterAccum,
 	int ptype_in, int ptype_out,
@@ -169,7 +169,8 @@ void add_pyscatter_to_python_module(pybind11::module_& m)
 		py::arg("delta"),
 		py::arg("m_nuc"),
 		py::arg("sc_event"),
-		py::arg("Nmk")
+		py::arg("Nmk"),
+		py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>()
 	);
 }
 

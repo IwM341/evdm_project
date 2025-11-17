@@ -20,8 +20,14 @@ endif()
 
 if(CMAKE_BUILD_TYPE MATCHES Release)
 option(OPENMP "" ON)
+option(CATCHNAN "" ON)
 else()
 option(OPENMP "" OFF)
+option(CATCHNAN "" OFF)
+endif()
+
+if(${CATCHNAN})
+   add_compile_definitions(CATCHNAN)
 endif()
 
 option(BUILD_TESTS "BUILD_TESTS" OFF)
