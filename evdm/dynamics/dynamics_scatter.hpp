@@ -707,7 +707,7 @@ namespace evdm {
 			}
 
 			for (size_t nm = 0; nm < Nmk; ++nm) {
-				auto seed_nm = G.seed;
+				auto seed_nm = G.state;
 				auto X0 = X0X1.left + X0X1.volume() * G();
 				auto Y0 = Y0Y1.left + Y0Y1.volume() * G();
 				
@@ -741,7 +741,7 @@ namespace evdm {
 				if(tau_max > 0)
 				{
 					for (size_t nt = 0; nt < Nmk_per_traj; ++nt) {
-						auto seed_nt = G.seed;
+						auto seed_nt = G.state;
 						auto tau = G() * tau_max;
 						auto [theta_undim, d_theta_undim] = th00(tau);
 						auto theta = theta_undim * theta_max;
