@@ -10,7 +10,7 @@
 #include "dynamic_python.hpp"
 #include "distrib_python.hpp"
 #include "scatter_impl/dist_sampler.hpp"
-#include <format>
+//#include <format>
 struct Py_FFC_Impl {
 	pybind11::object impl;
 
@@ -138,7 +138,7 @@ struct Py_Evolutor {
 				m_plt = ev.plotinfo_rv(pin, pout, extra["A"].cast<size_t>(), extra["Z"].cast<size_t>());
 			}
 			else {
-				throw std::runtime_error(std::format("unexpected key {}", what_to_plot));
+				throw std::runtime_error("unexpected key" + what_to_plot);
 			}
 			
 			using shape = pybind11::array::ShapeContainer;

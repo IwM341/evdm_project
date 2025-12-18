@@ -104,7 +104,7 @@ endif()
 find_package(Grob)
 if(NOT Grob_FOUND )
     message("Grob not found, download from git")
-    CPMAddPackage("gh:IwM341/GridObject@1.1.3")
+    CPMAddPackage("gh:IwM341/GridObject@1.1.4")
 endif()
 
 
