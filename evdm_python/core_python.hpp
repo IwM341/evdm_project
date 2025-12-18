@@ -3,9 +3,12 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/functional.h>
+#include <pybind11/eigen.h>
+#include <pybind11/stl.h>
 #include <tuple>
 #include <set>
 #include "value_types.hpp"
+#include "grob_python.hpp"
 #include <ctype.h>
 
 template <typename T>
@@ -143,3 +146,151 @@ std::vector<size_t> get_N_distrib_from_handle(Grid_t const& Grid, pybind11::hand
 	}
 }
 
+struct NpDictSerializator {
+
+	template <typename T>
+	struct serializable_s : std::false_type {};
+
+	template <typename T>
+	struct deserializable_s : std::false_type {};
+
+	template <typename T, typename...Args>
+	struct serializable_s<
+		std::vector<T, Args...>
+	> : std::is_arithmetic<T> {};
+
+	template <typename T, typename...Args>
+	struct deserializable_s<
+		std::vector<T, Args...>
+	> : std::is_arithmetic<T> {};
+
+
+	template <typename T>
+	pybind11::object MakePrimitive(T const& value) {
+		return pybind11::cast(
+			value,
+			pybind11::return_value_policy::automatic_reference
+		);
+	}
+	template <typename Keys_t, typename Values_t>
+	pybind11::object MakeDict(Keys_t&& keys, Values_t&& values) {
+		pybind11::dict m_dict;
+		for (size_t i = 0; i < keys.size(); ++i) {
+			if constexpr (
+				std::is_same_v<
+				std::decay_t<decltype(keys[i])>,
+				std::string
+				>
+				) {
+				m_dict[keys[i].c_str()] = values[i];
+			}
+			else if constexpr (
+				std::is_same_v<
+				std::decay_t<decltype(keys[i])>,
+				std::string_view
+				>
+				) {
+				std::string X(keys[i].begin(), keys[i].end());
+				m_dict[X.c_str()] = values[i];
+			}
+			else {
+				m_dict[keys[i]] = values[i];
+			}
+		}
+		return m_dict;
+	}
+
+	template <typename Values_t>
+	pybind11::object MakeArray(Values_t&& values) {
+		typedef std::decay_t<decltype(values[0])> value_type;
+		if constexpr (std::is_fundamental_v<value_type>) {
+			return pybind11::cast(make_py_array(values));
+		}
+		else {
+			pybind11::list L;
+			size_t N = values.size();
+			for (size_t i = 0; i < N; ++i) {
+				L.append(values[i]);
+			}
+			return L;
+		}
+	}
+
+	template <typename...Ts>
+	pybind11::object Make(std::vector<Ts...> const& value) {
+		return make_py_array(value);
+	}
+
+	template <typename T, typename...Args>
+	std::vector<T, Args...> get_impl(
+		std::type_identity<std::vector<T, Args...>>,
+		pybind11::handle Obj)
+	{
+		try {
+			pybind11::array_t<T> m_array = Obj.cast<pybind11::array_t<T>>();
+			if (m_array.ndim() != 1) {
+				throw pybind11::index_error("number of dimentions in array should be 1 to cast to std::vector");
+			}
+			const T* _ptr = m_array.data();
+			size_t _stride = m_array.strides()[0] / sizeof(T);
+			size_t _size = m_array.shape()[0];
+			std::vector<T, Args...> Ret(_size);
+			for (size_t i = 0; i < _size; ++i) {
+				Ret[i] = *(_ptr + i * _stride);
+			}
+			return Ret;
+		}
+		catch (pybind11::cast_error&) {
+
+		}
+
+		std::vector<T, Args...> Ret;
+		for (auto it = Obj.begin(); it != Obj.end(); ++it) {
+			Ret.push_back(it->cast<T>());
+		}
+
+		return Ret;
+	}
+
+
+	template <typename T>
+	T GetPrimitive(pybind11::handle Obj) {
+		return pybind11::cast<T>(Obj);
+	}
+	template <typename T>
+	T Get(pybind11::handle Obj) {
+		return get_impl(std::type_identity<T>{}, Obj);
+	}
+
+
+	auto BeginArray(pybind11::handle Obj) {
+		return Obj.begin();
+	}
+	auto EndArray(pybind11::handle Obj) {
+		return Obj.end();
+	}
+
+	auto BeginDict(pybind11::handle Obj) {
+		return pybind11::cast<pybind11::dict>(Obj).begin();
+	}
+	auto EndDict(pybind11::handle Obj) {
+		return pybind11::cast<pybind11::dict>(Obj).end();
+	}
+	template <typename Iter_type>
+	auto GetKey(Iter_type it) {
+		return it->first.template cast<std::string_view>();
+	}
+	template <typename Iter_type>
+	auto GetValue(Iter_type it) {
+		return it->second;
+	}
+	template <typename Iter_type>
+	auto GetItem(Iter_type it) {
+		return *it;
+	}
+	template <typename T>
+	pybind11::handle GetPrimitive(pybind11::handle Obj, T& value) {
+		return value = Obj.cast<T>();
+		grob::GridUniform<T>::Serialize;
+	}
+};

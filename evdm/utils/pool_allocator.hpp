@@ -4,6 +4,7 @@
 #include <cstddef>
 namespace evdm {
  
+
 template <typename T>
 class PoolAllocator {
 private:
@@ -85,7 +86,31 @@ public:
             }
         }
     }
-
+    void flushExceptOne() {
+        if (nonFullBlocks.empty()) {
+            bool empty = true;
+            for (FBlock & block : fullBlocks.end()) {
+                if (empty && block.capacity >= minSize) {
+                    nonFullBlocks.push_back(block.ptr, block.capacity);
+                    empty = false;
+                }
+                else {
+                    if (block.ptr) {
+                        std::free(block.ptr);
+                    }
+                }
+            }
+        }
+        fullBlocks.clear();
+        while (nonFullBlocks.size() > 1) {
+            Block & block = nonFullBlocks.back();
+            nonFullBlocks.pop_back();
+            if (block.ptr) {
+                std::free(block.ptr);
+            }
+            nonFullBlocks.pop_back();
+        }
+    }
     pointer allocate(size_type n) {
         if (n == 0) {
             return nullptr;

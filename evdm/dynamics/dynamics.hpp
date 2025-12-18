@@ -18,6 +18,16 @@ namespace evdm {
 	template <typename T>
 	using vec2 = Eigen::Vector2<T>;
 
+	/// @brief state: ptype,e,l 
+	template <typename T>
+	struct StateEL {
+		size_t ptype;
+		T e, l;
+		StateEL(){}
+		StateEL(size_t ptype, T e, T l):
+			ptype(ptype),e(e),l(l){}
+	};
+
 	struct ScatterEvent {
 		grob::GridFunction <
 			grob::linear_interpolator,

@@ -17,7 +17,7 @@ Py_Matrix CreatePyMatrix(
 	std::string_view _dtype = dtype;
 	if (_dtype == "float") {
 #ifdef DISTRIB_USE_FLOAT
-		return Creator(Py_EL_Grid::m_type_marker<float>{});
+		return Creator(std::type_identity<float>{});
 #else
 		throw pybind11::type_error("unsupported distrib type 'float'");
 #endif
@@ -25,7 +25,7 @@ Py_Matrix CreatePyMatrix(
 	}
 	else if (_dtype == "double") {
 #ifdef DISTRIB_USE_DOUBLE
-		return Creator(Py_EL_Grid::m_type_marker<double>{});
+		return Creator(std::type_identity<double>{});
 #else
 		throw pybind11::type_error("unsupported distrib type 'double'");
 #endif

@@ -7,7 +7,7 @@ struct Py_Distribution {
 
 	template <typename T, typename Initializer_t>
 	Py_Distribution(Py_EL_Grid const& mGridEL,
-		Py_EL_Grid::m_type_marker<T> _type,
+		std::type_identity<T> _type,
 		Initializer_t&& init) :
 		m_distrib(
 			std::visit([&init](auto const& _grid)->Distrib_Variant_t {

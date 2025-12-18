@@ -8,7 +8,7 @@ struct Py_Matrix {
 
 	template <typename T>
 	Py_Matrix(Py_EL_Grid const& mGridEL,
-		Py_EL_Grid::m_type_marker<T> _type/*,
+		std::type_identity<T> _type/*,
 		size_t padding = 1*/
 	) :
 		m_matrix(

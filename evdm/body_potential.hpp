@@ -69,15 +69,38 @@ namespace evdm{
             static_assert("Body::get_vtype() is not callable");
         }
         SERIALIZATOR_FUNCTION(
-            PROPERTY_NAMES("Q", "rho", "phi", "Temp", "vesc"), 
-            PROPERTIES(Q, Rho, Phi, Temp, Vesc)
+            PROPERTY_NAMES( "rho", "Q", "phi", "Temp", "vesc"),
+            PROPERTIES( Rho, Q, Phi, Temp, Vesc)
         )
-        WRITE_FUNCTION(Q, Rho, Phi, Temp, Vesc)
         DESERIALIZATOR_FUNCTION(
-            Body, PROPERTY_NAMES("Q", "rho", "phi", "Temp", "vesc"), 
-            PROPERTY_TYPES(Q, Rho, Phi, Temp, Vesc)
+            Body, PROPERTY_NAMES("rho", "Q", "phi", "Temp", "vesc"),
+            PROPERTY_TYPES(Rho, Q, Phi, Temp, Vesc)
         )
-        READ_FUNCTION(Body, PROPERTY_TYPES(Q, Rho, Phi, Temp, Vesc))
+        
+        Body(RFunc1_t vRho, RFunc2_t vQ,
+            RFunc2_t vPhi, RFunc1_t vTemp,
+            T mVesc
+        ) : Rho(std::move(vRho)),
+        Q(std::move(vQ)),Phi(std::move(vPhi)),
+        VescFunc(
+            GridR(0, 1, Rho.size()),
+            grob::map(Phi.Values, [](T x)->T {return std::sqrt(x); })
+        ),
+        Temp(std::move(vTemp)),
+        Vesc(mVesc)
+        {
+            if (
+                Rho.size() != Q.size() ||
+                Rho.size() != Phi.size() ||
+                Rho.size() != Temp.size() ||
+                Rho.size() != Q.size()
+                ) {
+                throw std::range_error("constructing evdm.Body:"
+                    "arrays of Rho,Q,Phi,Temp don't have same size");
+            }
+            Rho_max = Rho[Rho.size() - 1];
+            low_steps_num = 2;
+        }
 
         Body(Values_t vRho, Values_t vQ,
             Values_t vPhi, Values_t vTemp,
@@ -589,13 +612,14 @@ namespace evdm{
             return std::make_tuple(theta_max,tau_max,Taus);
         }
         inline auto get_internal_period(T const & rmin,T const & rmax,size_t Nbins)const {
-            auto u0 = rmin*rmin;
-            auto u1 = rmax*rmax;
+            T u0 = rmin*rmin;
+            T u1 = rmax*rmax;
             
-            auto u_av = (u0+u1)/2;
-            auto u_d = (u0-u1)/2;
-            auto pot_cos = (1-u_av)/u_d;
-            auto theta_max = std::acos(
+            T u_av = (u0+u1)/2;
+            T u_d = (u0-u1)/2;
+            T pot_cos = (1-u_av)/u_d;
+
+            T theta_max = (u_d >= 0) ? std::numbers::pi_v<T> : std::acos(
                 pot_cos < -1 ? -1 : (
                     pot_cos <= 1 ? pot_cos : 1
                 )  

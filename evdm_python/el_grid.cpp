@@ -8,6 +8,17 @@
 #include <variant>
 //#include <format>
 
+template <typename T>
+struct tuple_to_variant;
+
+template <typename...Ts>
+struct tuple_to_variant<std::tuple<Ts...>> {
+	using type = std::variant<Ts...>;
+};
+
+template <typename T>
+using tuple_to_variant_t = typename tuple_to_variant<T>::type;
+
 
 size_t Py_EL_Grid::size() const
 {
@@ -613,253 +624,91 @@ Py_EL_Grid CreateELGrid(
 		_kwarg("nl_max", 4)
 	);
 
-	auto ret_action = [&](auto marker)-> Py_EL_Grid {
+	
+	auto m_types = VariantFromString(
+		[dtype](auto x,std::string_view S) {
+			using T = typename decltype(x)::type;
+			return S == type_name<T>();
+		}, dtype, std::type_identity<tuple_to_variant_t<grid_types >> {});
+	return std::visit([&](auto marker,auto const& BM_p)->Py_EL_Grid {
 		typedef typename decltype(marker)::type T;
-		//VERBOSE_VAR1(type_name<T>());
-		return std::visit(
-			[&](auto const& BM_p) {
-				//VERBOSE_VAR1(type_name<decltype(BM_p->get_vtype())>());
-				auto RhoE_func = [&](T t_e)->T 
+		//VERBOSE_VAR1(type_name<decltype(BM_p->get_vtype())>());
+		auto RhoE_func = [&](T t_e)->T
+			{
+				return pybind11::cast<T>(RhoE_func_opt(t_e));
+			};
+		auto RhoL_func = [&](T t_e, T t_l)->T
+			{
+				return pybind11::cast<T>(RhoL_func_opt(t_e, t_l));
+			};
+		int nl_size = -1;
+		try {
+			nl_size = (int)pybind11::cast<size_t>(Nl_func_or_size);
+		}
+		catch (...) {}
+		if (nl_size >= 0)
+		{
+			VERBOSE_VAR1("nl >=0");
+			auto Nl_func = [nl_size](auto t_e) {return nl_size; };
+			if (RhoE_func_opt.is_none())
+			{
+				VERBOSE_VAR1("RhoE_func_opt is none");
+				return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, 0, 0, marker,
+					std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCUU>{},
+					TPPars);
+			}
+			else {
+				if (RhoL_func_opt.is_none())
 				{
-					return pybind11::cast<T>(RhoE_func_opt(t_e));
-				};
-				auto RhoL_func = [&](T t_e,T t_l)->T 
-				{
-					return pybind11::cast<T>(RhoL_func_opt(t_e,t_l));
-				};
-				int nl_size = -1;
-				try {
-					nl_size = (int)pybind11::cast<size_t>(Nl_func_or_size);
-				}
-				catch (...) {}
-				if (nl_size >= 0) 
-				{
-					VERBOSE_VAR1("nl >=0");
-					auto Nl_func = [nl_size](auto t_e) {return nl_size; };
-					if (RhoE_func_opt.is_none()) 
-					{
-						VERBOSE_VAR1("RhoE_func_opt is none");
-						return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, 0, 0, marker, 
-							std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCUU>{}, 
-							TPPars);
-					}
-					else {
-						if (RhoL_func_opt.is_none()) 
-						{
-							VERBOSE_VAR1("RhoL_func_opt is none");
-							auto _RhoL_func = [&](T t_e, T t_l)->T {
-								return 1;
-							};
-							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, _RhoL_func, marker,
-								std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{},
-								TPPars);
-						}
-						else {
-							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, RhoL_func, marker, 
-								std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{},
-								TPPars);
-						}
-					}
+					VERBOSE_VAR1("RhoL_func_opt is none");
+					auto _RhoL_func = [&](T t_e, T t_l)->T {
+						return 1;
+						};
+					return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, _RhoL_func, marker,
+						std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{},
+						TPPars);
 				}
 				else {
-					VERBOSE_VAR1("nl determined by function");
-					auto Nl_func = [nl_size,&Nl_func_or_size](auto t_e)->size_t {
-						return pybind11::cast<double>(Nl_func_or_size(t_e)); 
-					};
-					if (RhoE_func_opt.is_none()) 
-					{
-						VERBOSE_VAR1("RhoE_func_opt is none");
-						return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, 0, 0, marker, 
-							std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCUU>{},
-							TPPars);
-					}
-					else {
-						if (RhoL_func_opt.is_none()) {
-							VERBOSE_VAR1("RhoL_func_opt is none");
-							auto _RhoL_func = [&](T t_e, T t_l)->T {
-								return 1;
-							};
-							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, _RhoL_func, marker, 
-								std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{},
-								TPPars);
-						}
-						else {
-							return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, RhoL_func, marker, 
-								std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{},
-								TPPars);
-						}
-					}
+					return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, RhoL_func, marker,
+						std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{},
+						TPPars);
 				}
-			}, BM.m_body);
-	};
-	if (dtype == "float") {
-		VERBOSE_VAR1("float");
-#ifdef GRID_EL_USE_FLOAT
-		return ret_action(Py_EL_Grid::m_type_marker<float>{});
-#else
-		throw pybind11::type_error("unsupported grid value type 'float'");
-#endif
-	}
-	else if (dtype == "double") {
-		VERBOSE_VAR1("double");
-#ifdef GRID_EL_USE_DOUBLE
-		return ret_action(Py_EL_Grid::m_type_marker<double>{});
-#else
-		throw pybind11::type_error("unsupported grid value type 'float'");
-#endif
-	} else {
-		throw pybind11::type_error("wrong data type: " + dtype + ", expect float or double");
-	}
-
+			}
+		}
+		else {
+			VERBOSE_VAR1("nl determined by function");
+			auto Nl_func = [nl_size, &Nl_func_or_size](auto t_e)->size_t {
+				return pybind11::cast<double>(Nl_func_or_size(t_e));
+				};
+			if (RhoE_func_opt.is_none())
+			{
+				VERBOSE_VAR1("RhoE_func_opt is none");
+				return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, 0, 0, marker,
+					std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCUU>{},
+					TPPars);
+			}
+			else {
+				if (RhoL_func_opt.is_none()) {
+					VERBOSE_VAR1("RhoL_func_opt is none");
+					auto _RhoL_func = [&](T t_e, T t_l)->T {
+						return 1;
+						};
+					return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, _RhoL_func, marker,
+						std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{},
+						TPPars);
+				}
+				else {
+					return Py_EL_Grid(BM_p, ptypes, Ne, Nl_func, RhoE_func, RhoL_func, marker,
+						std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>{},
+						TPPars);
+				}
+			}
+		}
+	}, m_types, BM.m_body);
 }
 
 
-struct NpDictSerializator {
 
-	template <typename T>
-	struct serializable_s : std::false_type {};
-
-	template <typename T>
-	struct deserializable_s : std::false_type {};
-
-	template <typename T,typename...Args>
-	struct serializable_s<
-		std::vector<T, Args...>
-	> : std::is_arithmetic<T> {};
-
-	template <typename T,typename...Args>
-	struct deserializable_s<
-		std::vector<T, Args...>
-	> : std::is_arithmetic<T> {};
-
-
-	template <typename T>
-	pybind11::object MakePrimitive(T const & value) {
-		return pybind11::cast(
-			value,
-			pybind11::return_value_policy::automatic_reference
-		);
-	}
-	template <typename Keys_t,typename Values_t>
-	pybind11::object MakeDict(Keys_t && keys, Values_t && values) {
-		pybind11::dict m_dict;
-		for (size_t i = 0; i < keys.size(); ++i) {
-			if constexpr (
-				std::is_same_v<
-					std::decay_t<decltype(keys[i])>,
-					std::string
-				>
-			) {
-				m_dict[keys[i].c_str()] = values[i];
-			}
-			else if constexpr (
-				std::is_same_v<
-					std::decay_t<decltype(keys[i])>, 
-					std::string_view
-				>
-			) {
-				std::string X(keys[i].begin(), keys[i].end() );
-				m_dict[X.c_str()] = values[i];
-			} else {
-				m_dict[keys[i]] = values[i];
-			}
-		}
-		return m_dict;
-	}
-
-	template <typename Values_t>
-	pybind11::object MakeArray(Values_t&& values) {
-		typedef std::decay_t<decltype(values[0])> value_type;
-		if constexpr (std::is_fundamental_v<value_type>) {
-			return pybind11::cast(make_py_array(values));
-		} else {
-			pybind11::list L;
-			size_t N = values.size();
-			for (size_t i = 0; i < N;++i) {
-				L.append(values[i]);
-			}
-			return L;
-		}
-	}
-
-	template <typename...Ts>
-	pybind11::object Make(std::vector<Ts...> const& value) {
-		return make_py_array(value);
-	}
-
-	template <typename T, typename...Args>
-	std::vector<T, Args...> get_impl(
-		std::type_identity<std::vector<T,Args...>>,
-		pybind11::handle Obj) 
-	{
-		try {
-			pybind11::array_t<T> m_array = Obj.cast<pybind11::array_t<T>>();
-			if (m_array.ndim() != 1) {
-				throw pybind11::index_error("number of dimentions in array should be 1 to cast to std::vector");
-			}
-			const T* _ptr = m_array.data();
-			size_t _stride = m_array.strides()[0]/sizeof(T);
-			size_t _size = m_array.shape()[0];
-			std::vector<T, Args...> Ret(_size);
-			for (size_t i = 0; i < _size; ++i) {
-				Ret[i] = *(_ptr + i * _stride);
-			}
-			return Ret;
-		}
-		catch (pybind11::cast_error&) {
-			
-		}
-
-		std::vector<T, Args...> Ret;
-		for (auto it = Obj.begin(); it != Obj.end();++it) {
-			Ret.push_back(it->cast<T>());
-		}
-
-		return Ret;
-	}
-	
-
-	template <typename T>
-	T GetPrimitive(pybind11::handle Obj) {
-		return pybind11::cast<T>(Obj);
-	}
-	template <typename T>
-	T Get(pybind11::handle Obj) {
-		return get_impl(std::type_identity<T>{}, Obj);
-	}
-
-
-	auto BeginArray(pybind11::handle Obj) {
-		return Obj.begin();
-	}
-	auto EndArray(pybind11::handle Obj) {
-		return Obj.end();
-	}
-
-	auto BeginDict(pybind11::handle Obj) {
-		return pybind11::cast<pybind11::dict>(Obj).begin();
-	}
-	auto EndDict(pybind11::handle Obj) {
-		return pybind11::cast<pybind11::dict>(Obj).end();
-	}
-	template <typename Iter_type>
-	auto GetKey(Iter_type it) {
-		return it->first.template cast<std::string_view>();
-	}
-	template <typename Iter_type>
-	auto GetValue(Iter_type it) {
-		return it->second;
-	}
-	template <typename Iter_type>
-	auto GetItem(Iter_type it) {
-		return *it;
-	}
-	template <typename T>
-	pybind11::handle GetPrimitive(pybind11::handle Obj, T & value) {
-		return value = Obj.cast<T>();
-		grob::GridUniform<T>::Serialize;
-	}
-};
 
 pybind11::dict Py_EL_Grid::get_object(pybind11::handle self) {
 	using namespace pybind11::literals;

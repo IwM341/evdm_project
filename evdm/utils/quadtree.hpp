@@ -6,7 +6,8 @@
 #include <cmath>
 #include <array>
 #include <ranges>
-
+#include <stack>
+#include <map>
 namespace evdm {
 	namespace detail{
 		typedef uint_least64_t u64_t;
@@ -77,10 +78,10 @@ namespace evdm {
 			u64_t cx0, u64_t cx1, u64_t cy0, u64_t cy1,
 			Fp_t _x0, Fp_t _x1, Fp_t _y0, Fp_t _y1,
 			QuadtreeNode* m_parent = nullptr, u64_t m_level = 0)
-			: cx0(cx0), cx1(cx1), cy0(cy0), cy1(cy1),
+			: _parent(m_parent),cx0(cx0), cx1(cx1), cy0(cy0), cy1(cy1),
 			_x0(_x0), _x1(_x1),
 			_y0(_y0), _y1(_y1),
-			_parent(m_parent), _level(m_level), _is_leaf(true) {}
+			 _level(m_level), _is_leaf(true) {}
 
 
 	public:
@@ -330,6 +331,9 @@ namespace evdm {
 		}
 		class StubFunc_t{};
 	public:
+		size_t point_num() const {
+			return point_registry.size();
+		}
         size_t leafs() const {
             return leaf_count;
         }

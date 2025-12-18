@@ -13,10 +13,7 @@ struct Py_EL_Grid {
 	std::string repr() const;
 	std::string printd1() const;
 
-	template <typename T> struct m_type_marker
-	{
-		typedef T type;
-	};
+
 
 	template <typename Bt, typename Gt, evdm::GridEL_type _m_type>
 	Py_EL_Grid(evdm::EL_Grid<Bt, Gt, _m_type> const& _m_grid) :m_grid(_m_grid) {}
@@ -26,7 +23,7 @@ struct Py_EL_Grid {
 		FuncType_NL&& Nl_func,
 		RhoE_ft&& RhoE_func_or_false,
 		RhoL_ft&& RhoL_func_or_false,
-		m_type_marker<GEL_t>,
+		std::type_identity<GEL_t>,
 		std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCUU>,
 		evdm::TrajPoolInitParams_t TrajPoolInit = evdm::TrajPoolInitParams_t()) :
 		m_grid(
@@ -44,7 +41,7 @@ struct Py_EL_Grid {
 		FuncType_NL&& Nl_func,
 		RhoE_ft&& RhoE_func_or_false,
 		RhoL_ft&& RhoL_func_or_false,
-		m_type_marker<GEL_t>,
+		std::type_identity<GEL_t>,
 		std::integral_constant<evdm::GridEL_type, evdm::GridEL_type::GridCVV>,
 		evdm::TrajPoolInitParams_t TrajPoolInit = evdm::TrajPoolInitParams_t()) :
 		m_grid(

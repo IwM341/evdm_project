@@ -2,7 +2,8 @@
 #define MATH_EXTERNAL_HPP
 #include <cmath>
 #include <numbers>
-
+#include <bit>
+#include "type_tr.hpp"
 namespace evdm {
 
 	/// @brief 0 if x < 0, 
@@ -30,11 +31,11 @@ namespace evdm {
 	}
 
 	template <typename T>
-	inline constexpr T smax(T  x, grob::type_identity_t<T> y) {
+	inline constexpr T smax(T  x, same_t<T> y) {
 		return std::max(x, y);
 	}
 	template <typename T>
-	inline constexpr T smin(T  x, grob::type_identity_t<T> y) {
+	inline constexpr T smin(T  x, same_t<T> y) {
 		return std::min(x, y);
 	}
 

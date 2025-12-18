@@ -11,263 +11,21 @@
 #include "../utils/quadtree.hpp"
 #include "../utils/progress_bar.hpp"
 #include "../dynamics/dynamics.hpp"
-#include "../utils/discret_generator.hpp"
 #include <list>
 #include <algorithm>
 #include "../dynamics/dynamics_evolutor.hpp"
 #include <ranges>
 #include "../trajectory.hpp"
-
-#define PURE_FUNCTION
+#include "../dynamics/dynamic_evolutor_funcs.hpp"
 namespace evdm {
 
-
-	template <typename T>
-	struct scatter_pre_result{
-		T cos_theta_in;
-		T cos_theta_out;
-		T gen_pre_form_factor;
-	};
-	template <typename T>
-	inline PURE_FUNCTION scatter_pre_result<T> gen_scatter(
-		T xi_theta_in,same_t<T> xi_theta_out,
-		same_t<T> V_in,same_t<T> v1_in, same_t<T> u_in,
-		same_t<T> DeltaV2){
-		T A = (v1_in*v1_in + V_in*V_in + DeltaV2);
-		T B = 2*V_in*v1_in;
-		
-		if(A > B){
-			T t = B/A;
-			//evaluate (1 - (1+x)^{2/3})/x
-			auto Wfunc_2_3 = [](T one_plus_x){
-				T q = std::pow(one_plus_x,T(1)/T(3));
-				return -(1+q)/(1+q+q*q);
-			};
-			//evaluate ((1+x)^{3/2} - 1)/x
-			auto Wfunc_3_2_p = [](T x){
-				T x1 = 1+x;
-				T q = std::pow(x1,T(3)/T(2));
-				return (1 + x1 + x1*x1)/(1 + q*q*q);
-			};
-			//evaluate (1 - (1-x)^{3/2})/x
-			auto Wfunc_3_2_m = [](T x){
-				T x1 = 1-x;
-				T q = std::pow(x1,T(3)/T(2));
-				return (1 + x1 + x1*x1)/(1 + q*q*q);
-			};
-
-
-			// evaluate [ 1 - ( (1+t)^{3/2} - xi*t*{ ((1+t)^{3/2} - (1-t)^{3/2} )/t} )^{2/3}]/t 
-			// =  A * [ (1-(1-A*t)^{2/3})/(At) ] = A*Wfunc_2_3(A*t)
-			// 1 + A*t = (1+t)^{3/2} - xi*t*{ ((1+t)^{3/2} - (1-t)^{3/2} )/t}
-			// A = Wfunc_3_2_p(t) - xi*(Wfunc_3_2_p(t)+Wfunc_3_2_m(t))
-			T a = Wfunc_3_2_p(t) - xi_theta_in*(Wfunc_3_2_p(t)+Wfunc_3_2_m(t));
-			T cos_theta_in = a * Wfunc_2_3(1+a*t);
-			T cos_theta_out = -1 + 2*xi_theta_out;
-
-			T m_factor = (Wfunc_3_2_p(t)+Wfunc_3_2_m(t))*(T(2)/T(3));
-			//T G1 = (T(2)/T(3))*std::sqrt(A)*(Wfunc_3_2_p(t)+Wfunc_3_2_m(t));
-
-			return {cos_theta_in,cos_theta_out, 
-				m_factor*std::sqrt(A * u_in * std::numbers::inv_pi_v<T>)};
-		}
-		else if(B > A && (A+B)>=0 ){
-			T t = A/B;
-
-			T t_plus_1_pow_3_2 = std::pow(1+t,T(1.5));
-			T cos_theta_in = t - std::pow( t_plus_1_pow_3_2*(1-xi_theta_in),T(2)/T(3) );
-			T cos_theta_out = -1 + 2*xi_theta_out;
-			T m_factor = t_plus_1_pow_3_2*(T(2)/T(3));
-			return {
-				cos_theta_in,cos_theta_out, 
-				m_factor*std::sqrt(B * u_in * std::numbers::inv_pi_v<T>)};
-		}
-		else{
-			return {
-				-1 + 2*xi_theta_in,-1 + 2*xi_theta_out,\
-				T(0)};
-		}
-	}
-
-
-	template <typename T>
-	inline T get_ff_out(
-		T Vu_in,T Vu_out,T mu,T delta,T VescMin,T cos_theta_out,
-		FormFactor_t const & FF){
-		T m_factor = mu*VescMin*VescMin;
-		
-		T delta_Vu2 = Vu_in*Vu_in+ Vu_out*Vu_out - 2*Vu_in*Vu_out*cos_theta_out;
-		T t = delta_Vu2 >0 ? delta/(m_factor*delta_Vu2)	: T(0);
-		
-		T Vu_in_t = Vu_in *( T(0.5)-t);
-		T Vu_out_t = Vu_out *( T(0.5)+t);
-
-		T V2_perp = Vu_in_t*Vu_in_t + Vu_out_t*Vu_out_t - 2*Vu_in_t*Vu_out_t*cos_theta_out;
-		
-		return FF.ScatterFactor(
-			m_factor*delta_Vu2,
-			V2_perp,
-			delta
-		);
-	}
-
 	
-	template <typename T>
-	std::pair<T,T> get_el_out(
-		T mu_xi,T mu_i,
-		T r, T phi_r, T vr,T vtau,T v,T v1,T Vu_in,T Vu_out,
-		T cos_theta_in,T phi_in,
-		T cos_theta_out,T phi_out)
-	{
-		vec3<T> V_in(vtau,0,vr);
-		T vinv = v > 0 ? 1/v : T(0);
-		vec3<T> N_V(vr*vinv,0,vtau*vinv);
-
-		vec3<T> N1(-N_V[2],0,N_V[0]);
-		vec3<T> N2(0,1,0);
-
-		T sin_theta_in = std::sqrt(1-cos_theta_in*cos_theta_in);
-		vec3<T> v1_vec = N_V*(v1*cos_theta_in) +
-			N1*(v1*sin_theta_in*std::cos(phi_in)) + 
-			N2*(v1*sin_theta_in*std::sin(phi_in)); 
-		
-		vec3<T> Vu = V_in-v1_vec;
-		auto [e1,e2,e_vu] = Basis3(Vu);
-		
-		T sin_theta_out = std::sqrt(1-cos_theta_out*cos_theta_out);
-		vec3<T> V_cm = mu_xi*V_in+mu_i*v1_vec;
-		vec3<T> Vu_out_vec = Vu_out*(
-			e_vu*cos_theta_out + 
-			e1*sin_theta_out*std::cos(phi_out),
-			e2*sin_theta_out*std::sin(phi_out)
-		);
-		vec3<T> Vfinal = V_cm + mu_i*Vu_out_vec;
-		
-		T Vout2 = Vfinal.squaredNorm();
-		T L = r*std::sqrt(Vfinal[0]*Vfinal[0]+Vfinal[1]*Vfinal[1]);
-		return {Vout2-phi_r,L};
-	}
-
-
-	/// @brief struct with majorants for particular element, r, v 
-	template <typename T>
-	struct ScatterRVExpInfo_t{
-		constexpr static T m_factor = 1.2;
-		constexpr static T m_factor_inv = 1/m_factor;
-		constexpr static size_t size = 48;
-		constexpr static T min_value = 1e-37;
-		std::vector<T> Majorants;
-		T full_prob;
-		T u_tres;
-
-		ScatterRVExpInfo_t(){}
-		ScatterRVExpInfo_t( std::vector<T> Majorants,T full_prob,T u_tres):
-			Majorants(std::move(Majorants)), 
-			full_prob(full_prob),
-			u_tres(u_tres)
-		{
-			if(Majorants.size() != size){
-				throw std::runtime_error("ScatterExpInfo_t: invalid Majorants size");
-			}
-		}
-	
-		inline static grob::Rect<T> box(size_t i){
-			return {
-				i !=0 ? std::pow(m_factor_inv, size-i) : 0, 
-				std::pow(m_factor_inv, size-i-1)};
-		}
-		
-
-		SERIALIZATOR_FUNCTION(
-			PROPERTY_NAMES("Majorants","full_prob","u_tres"), 
-			PROPERTIES(Majorants, full_prob,u_tres)
-		);
-		DESERIALIZATOR_FUNCTION(
-			ScatterRVExpInfo_t, 
-			PROPERTY_NAMES("Majorants","full_prob","u_tres"), 
-			PROPERTY_TYPES(Majorants, full_prob,u_tres)
-		);
-	};
-	
-	/// @brief struct to sample intervals from majorants
-	template <typename T>
-	struct ScatterRVExp{
-		using Base = ScatterRVExpInfo_t<T>::ScatterRVExpInfo_t;
-		constexpr static T m_factor = Base::m_factor;
-		constexpr static T m_factor_inv = Base::m_factor_inv;
-		constexpr static size_t size = Base::size;
-		constexpr static T min_value = Base::min_value;
-
-		std::vector<T> interval_samples;
-
-		ScatterRVExp(){}
-		ScatterRVExp(std::vector<T> interval_samples):
-			interval_samples(interval_samples){}
-		//"inherited" box function
-		inline static grob::Rect<T> box(size_t i){
-			return Base::box(i);
-		}
-		//construct from ScatterExpInfo_t
-		template <typename iter_t>
-		ScatterRVExp(iter_t majorant_begin,iter_t majorant_end)
-		{
-			interval_samples.resize(std::distance(majorant_begin,majorant_end));
-
-			if( std::distance(majorant_begin, majorant_end) != size){
-				throw std::runtime_error("majorant_end - majorant_begin != size");
-			}
-			interval_samples[0] = (*majorant_begin)*box(0).volume();
-			++majorant_begin;
-			for(size_t i=1;i<size;++i,++majorant_begin){
-				interval_samples[i] = 
-					interval_samples[i] + 
-					*majorant_begin*box(i).volume();
-			}
-			T max_prob = interval_samples.back();
-			for(size_t i=0;i<size;++i){
-				interval_samples[i] /= max_prob;
-			}
-		}
-		size_t gen_index(T xi)const{
-			return evdm::IndexGenBigHelper::gen(
-				interval_samples.begin(), interval_samples.end(), xi
-			);
-		}
-
-		SERIALIZATOR_FUNCTION(
-			PROPERTY_NAMES("interval_samples"), 
-			PROPERTIES(interval_samples)
-		);
-		DESERIALIZATOR_FUNCTION(
-			ScatterRVExp, 
-			PROPERTY_NAMES("interval_samples"), 
-			PROPERTY_TYPES(interval_samples)
-		);
-	};
-
-
-	/// @brief quad tree for each element in space (r,v/v_max(r)) 
-	template <typename T>
-	using QT_RV_t = Quadtree<T,ScatterRVExpInfo_t<T>,ScatterRVExp<T>>;
-
-	
-	/// @brief vector of qt for each element
-	template <typename T>
-	using ElementsRVQuadTree = 
-		std::vector<QT_RV_t<T>> ; //QTs_per_element
-	
-	/// @brief state: ptype,e,l 
-	template <typename T>
-	struct StateEL{
-		size_t ptype;
-		T e,l;
-	};
 
 	/// @brief type with quadtree (e,l) for each process ptype_in->ptype_out
 	template <typename T,typename FormFactorConstructor_impl>
 	struct ScatterInfoEL_in_t {
 		typedef ScatterInfoElements<T> ScInfoEls_t;
-		using QT_t =  Quadtree<T,ScatterInfoElements<T>>;
+		using QT_t =  Quadtree<T,ScatterInfoElements<T>,ScatterSampleElements<T>>;
 		using Node_t = typename QT_t::Node;
 
 		typedef std::vector<QT_t>  QTrees_t;
@@ -283,16 +41,16 @@ namespace evdm {
 		RV_Info_t RV_Info;
 		ScatterInfoEL_in_t(
 			size_t ptypes,
-			FormFactorConstructor_impl FFC_impl,				
-			std::vector<int> ValueIndexes = {},
-			QTrees_t QuadTrees = {},
-			RV_Info_t RV_Info = {} 
+			FormFactorConstructor_impl _FFC_impl,				
+			std::vector<int> _ValueIndexes = {},
+			QTrees_t _QuadTrees = {},
+			RV_Info_t _RV_Info = {} 
 		):
 			ptypes(ptypes),
-			FFC_impl(std::move(FFC_impl)),
-			ValueIndexes(std::move(ValueIndexes)),
-			QuadTrees(std::move(QuadTrees)),
-			RV_Info(std::move(RV_Info))
+			FFC_impl(std::move(_FFC_impl)),
+			ValueIndexes(std::move(_ValueIndexes)),
+			QuadTrees(std::move(_QuadTrees)),
+			RV_Info(std::move(_RV_Info))
 		{
 			if(ValueIndexes.size() < ptypes*ptypes){
 				ValueIndexes.resize(ptypes*ptypes,-1);
@@ -311,22 +69,31 @@ namespace evdm {
 							FFC_impl,i,j
 						);
 						//sort: first with bigger mN
+						/*
 						std::sort(
 							FormFactors[index].begin(),
 							FormFactors[index].end(),
 							[](const ElementInfo_t & a,const ElementInfo_t & b){
 								return a.mN > b.mN;
 							}
-						);
+						);*/
 					} 
 				}
 			}
 		}
-		
+		struct gen_next_errors {
+			constexpr static size_t NO_ERROR = 0;
+			constexpr static size_t ELEMENT_FULL_PROB = 1;
+			constexpr static size_t MAJORANT_ERROR = 2;
+			constexpr static size_t ATTEMPT_THETA_ERROR = 4;
+			constexpr static size_t ATTEMPT_ERROR = 8;
+		};
 		template <typename Gen_t>
 		std::pair<StateEL<T>,T> gen_next(
 			StateEL<T> current,T max_time,
-			T * p_in_p_out_ProbMatrix,const Body<T> & B,Gen_t & G
+			T * p_in_p_out_ProbMatrix,const Body<T> & B,Gen_t & G,
+			std::span<T> ElementBuffer,
+			size_t errors = gen_next_errors::NO_ERROR
 		) const{
 			
 			//calculate scatter probability
@@ -362,13 +129,13 @@ namespace evdm {
 			);
 
 			if(scat_prob <= 0){
-				return {current, max_time};
+				return { current,0};
 			}
 			//generate scatter time
 			auto xi = E0I1_G(G);
 			T dt_scat = -std::log(xi) / scat_prob;
 			if (dt_scat >= max_time) {
-				return { current, max_time };
+				return { current,0 };
 			}
 			//scatter
 			//generate ptype_out
@@ -376,7 +143,7 @@ namespace evdm {
 				ptype_out_probs[i] += ptype_out_probs[i-1];
 			}
 			
-			auto xi_pt = E0I1_G(G)*ptype_out_probs[array_index-1];
+			T xi_pt = E0I1_G(G)*ptype_out_probs[array_index-1];
 			size_t sel_index = evdm::IndexGenBigHelper::gen(
 				ptype_out_probs.begin(),
 				ptype_out_probs.begin()+array_index,
@@ -387,67 +154,75 @@ namespace evdm {
 			//generate e,l after scatter
 			//generate element
 			const QT_t & qt = getQT(current.ptype,ptype_out);
-			auto const & Node = qt.find_node(current.e,current.l);
-
+			QuadtreeNode<T,ScatterInfoElements<T>,ScatterSampleElements<T>> const & Node = 
+				qt.find_node(current.e,current.l);
+			auto [alpha_el,beta_el] = Node.coeffs(current.e, current.l);
 			//to generate element we need to:
 			//1) make interpolated range from corners
 			T xi_elem = G();
-			int i00 = Node(0,0).gen_index(xi_elem);
-			int i01 = Node(0,1).gen_index(xi_elem);
-			int i10 = Node(1,0).gen_index(xi_elem);
-			int i11 = Node(1,1).gen_index(xi_elem);
-			
-			int sel_elem_index = std::min(std::min(i00,i01),std::min(i10,i11));
-			if(sel_elem_index < 0){
-				#ifndef NDEBUG
-				throw std::runtime_error("MCEvolutor::ScatterInfoEL_in_t::gen_next:"
-					" can't generate element index after scatter");
-				#endif
-				return {current, 0};
-				
-			}
+
+			auto ElementException = [current,errors](){
+				if (errors & gen_next_errors::ELEMENT_FULL_PROB) {
+					std::ostringstream S;
+					S << "MCEvolutor::ScatterInfoEL_in_t::gen_next:"
+						" can't generate element index after scatter. cureent = ";
+					S << "(" << current.ptype << ", " << current.e << ", " << current.l << ")"; 
+					throw std::runtime_error(S.str());
+				}
+			};
+
+			ScatterSampleElements<T> const & m_scatter_sampler = Node.uvalue();
+			size_t sel_elem_index = m_scatter_sampler.gen_index(
+				xi_elem,ElementBuffer,Node.values(),alpha_el,beta_el,ElementException);
 			
 			//3) get theta distribution for selected element
 			// we will use min from corners
 			auto xi_th = G();
 			
-			grob::Point<T,T,T,T> thetas = Node.values_view(
-				[sel_elem_index,xi_th](
-					const ScatterInfoElements<T> & siot
-				)->T {
-					const auto & theta_sample = siot.ThetaTrajs[sel_elem_index].SampleTheta;
-					return theta_sample(xi_th);
+			
+			const ScatterSampleTheta<T> & theta_sampler = m_scatter_sampler.Samples[sel_elem_index];
+			auto ThetaGenException = [current,errors](){
+				if (errors & gen_next_errors::ATTEMPT_THETA_ERROR) {
+					std::ostringstream S;
+					S << "MCEvolutor::ScatterInfoEL_in_t::gen_next:"
+						" can't generate theta after scatter. cureent = ";
+					S << "(" << current.ptype << ", " << current.e << ", " << current.l << ")"; 
+					throw std::runtime_error(S.str());
 				}
-			);
+			};
+
 			
 			using namespace grob::literals;
-			T theta = tuple_min(thetas);
 			
-			grob::Point<size_t,size_t,size_t,size_t> il0_hints = Node.indices_view(
-				[sel_elem_index](const ScatterInfoElements<T> & siot)->size_t {
-					return siot.i0_lmax();
-				}
-			);
+			
+			
 			//find minimum of tuple with boost
-			size_t il0_hint =  tuple_min(il0_hints); //minimum of tuple
-			
+			size_t il0_hint =  m_scatter_sampler.i0_lmax(); 
+			size_t il1_hint =  m_scatter_sampler.i1_lmax();
+			auto [L2max,r2_max ] = B.maxL2(-current.e,il0_hint,il1_hint);
 
-			grob::Point<size_t,size_t,size_t,size_t> il1_hints = Node.indices_view(
-				[sel_elem_index](const ScatterInfoElements<T> & siot)->size_t {
-					return siot.i1_lmax();
-				}
-			);
-			size_t il1_hint =  tuple_max(il1_hints);
-			auto [L2,r2_max ] = B.maxL2(-current.e,il0_hint,il1_hint);
-
-			
+			T L2 = L2max * current.l * current.l;
 			auto [rmin,rmax] = B.find_rmin_rmax(-current.e,L2,r2_max);
 
 			T theta_max = B.get_theta_max(rmin,rmax);
-			T theta_tmp = theta_max*theta;
-			auto cth2 = rmin * std::cos(theta / 2);
-			auto sth2 = rmax * std::sin(theta / 2);
-			T r = std::sqrt( cth2*cth2+ sth2*sth2);
+			T Tout = eT(-current.e,L2);
+			auto [T00,T01,T10,T11] = Node.values_view([sel_elem_index](
+				const evdm::ScatterInfoElements<T> & cel){
+					return cel.ThetaTrajs[sel_elem_index].Tin;
+				});
+			T Tin = interpolate_lin(T00,T01,T10,T11,alpha_el,beta_el);
+			
+			T theta_undim = theta_sampler.gen_theta(
+				dP_dth_functor<T>(
+					B,getRVInfo(current.ptype,ptype_out)[sel_elem_index],
+					current.e, rmin,rmax,theta_max,Tin+Tout),
+				G,200,ElementBuffer
+			);
+
+			T theta_tmp = theta_max*theta_undim;
+			auto cth2 = rmin * std::cos(theta_tmp / 2);
+			auto sth2 = rmax * std::sin(theta_tmp / 2);
+			T r = std::sqrt( upbound(cth2*cth2+ sth2*sth2,1));
 			T phi_r = B.Phi(r);
 			T v2 = downbound(phi_r + current.e, 0);
 			auto v = std::sqrt(v2);
@@ -460,10 +235,10 @@ namespace evdm {
 			T mu_i = ff.mN*(1/(ff.mN+ff.mX));
 			T Mu_chi_i = ff.mN*mu_chi;
 			T Delta_M_chi = ff.dmX;
-			T v2_delta = - 2*ff.dmX/Mu_chi_i;
-			T v1_temp_sq = B.Temp(r)/ff.mN/(vesc*vesc);
+			T v2_delta = 2*ff.dmX/Mu_chi_i/(vesc*vesc);
+			T v1_temp_sq = downbound(B.Temp(r)/ff.mN/(vesc*vesc),1e-10);
 			T v1_tres = v2_delta > v2 ? std::sqrt(v2_delta) - v : T(0);
-			T u_tresh = v2_delta > 0 ? (v1_tres*v1_tres)/(2*v1_temp_sq) : T(0);
+			T u_tresh = v2_delta > v2 ? (v1_tres*v1_tres)/(2*v1_temp_sq) : T(0);
 
 			const QT_RV_t<T> & m_RV_Qt = RV_Info[
 				getIndex(current.ptype,ptype_out)
@@ -473,38 +248,44 @@ namespace evdm {
 				m_RV_Qt.find_node(r,v/std::sqrt(B.Phi(r)));
 
 			
-			for(size_t attempt=0;attempt<100;++attempt){
+			for(size_t attempt=0;attempt<1000;++attempt){
 				auto xi_rv = G();
 				ScatterRVExp<T> const & m_scatter_rv = NodeRV.uvalue();
 
 				size_t rv_index =  m_scatter_rv.gen_index(G());
+				// biggest majorant
 				T majorant = m_scatter_rv.Majorants[rv_index];
+
 				auto [xi0,xi1] = m_scatter_rv.box(rv_index);
 				T xi = m_scatter_rv.min_value + ((xi0) + G()*(xi1 - xi0));
-				T s = std::log(xi);
+				T s = -std::log(xi);
 				T u_in = (s + u_tresh);
 				T v1 = std::sqrt(2*u_in*v1_temp_sq);
 				
 				scatter_pre_result<T> m_s = 
-					gen_scatter(G(),G(),v,v1,u_in,v2_delta);
-				T Vu_in2 = v*v+v1*v1+2*v*v1*m_s.cos_theta_in;
+					gen_scatter(G(),G(),v,v1,u_in,-v2_delta);
+				T Vu_in2 = v*v+v1*v1-2*v*v1*m_s.cos_theta_in;
 				T Vu_in = std::sqrt(Vu_in2);
-				T Vu_out = std::sqrt(downbound(Vu_in2 + v2_delta,0));
+				T Vu_out = std::sqrt(downbound(Vu_in2 - v2_delta,0));
 				
 				T m_factor = get_ff_out(
-					Vu_in,Vu_out,Mu_chi_i,Delta_M_chi,vesc,m_s.cos_theta_out,ff.ff.sf);
+					Vu_in,Vu_out,Mu_chi_i,-v2_delta,vesc,m_s.cos_theta_out,ff.ff.sf);
 				
 				T from_factor = m_factor*m_s.gen_pre_form_factor;
 
-				if(from_factor <= majorant){
-							
-				}
-				#ifndef NDEBUG
+				
 				if(from_factor > majorant){
-				throw std::runtime_error("MCEvolutor::ScatterInfoEL_in_t::gen_next:"
-					" can't generate element index after scatter");
+					if (errors & gen_next_errors::MAJORANT_ERROR) {
+						std::ostringstream err;
+						err << "evolute error: form factor "
+							" is more than majorant ";
+						err << from_factor / majorant;
+						err << ", state = (" <<
+							current.ptype << ", " << current.e << ", "
+							<< current.l << ")";
+						throw std::runtime_error(err.str());
+					}
 				}
-				#endif
 				if(from_factor > majorant*G()){
 					auto [newE,newL] = get_el_out(
 						mu_chi,mu_i,r,phi_r,vr,vt,v,v1,Vu_in,Vu_out,
@@ -513,17 +294,26 @@ namespace evdm {
 					);
 					if(newE < 0){
 						
-						T Lmax = std::sqrt(B.maxL2(-newE));
+						T Lmax = std::sqrt(B.maxL2(-newE).first);
 						
-						T l = Lmax > 0 ? downbound(newL/Lmax,1) : T(0);
+						T l = Lmax > 0 ? newL/Lmax : T(0);
 						
-						return { {ptype_out,newE,l}, max_time-dt_scat};
+						return { {ptype_out,newE,l}, max_time- dt_scat };
 						
 					} else{
-						return { {ptype_out,newE,0}, 0};
+						return { {ptype_out,newE,0}, 0 };
 					}
 				}
 			}
+			if (errors & gen_next_errors::ATTEMPT_ERROR) {
+				std::ostringstream err;
+				err << "evolute error: too many attempts to";
+				err << ", state = (" <<
+					current.ptype << ", " << current.e << ", "
+					<< current.l << ")";
+				throw std::runtime_error(err.str());
+			}
+			return { {ptype_out,0,0}, 0};
 			
 		}
 		
@@ -543,6 +333,7 @@ namespace evdm {
 					prob += p_elem * ptype_out_mlt_factors[ptype_out];
 				}
 			}
+
 			return prob;
 		}
 		
@@ -563,21 +354,31 @@ namespace evdm {
 			QT_t qt,
 			ElementsRVQuadTree<T> rv_info
 		){
-			ValueIndexes[ptype_in*ptypes + ptype_out] = QuadTrees.size();
-			QuadTrees.push_back(std::move(qt));
+			int index = ValueIndexes[ptype_in * ptypes + ptype_out];
+			if (index < 0) {
+				ValueIndexes[ptype_in * ptypes + ptype_out] = QuadTrees.size();
+				QuadTrees.push_back(std::move(qt));
 
-			FormFactors.push_back(
-				make_element_info(
-					FFC_impl,ptype_in,ptype_out
-				)
-			);
-			RV_Info.push_back(
-				std::move(rv_info)
-			);
+				FormFactors.push_back(
+					make_element_info(
+						FFC_impl, ptype_in, ptype_out
+					)
+				);
+				RV_Info.push_back(
+					std::move(rv_info)
+				);
+			}
+			else {
+				QuadTrees[index] = std::move(qt);
+				FormFactors[index] = make_element_info(
+					FFC_impl, ptype_in, ptype_out
+				);
+				RV_Info[index] = std::move(rv_info);
+			}
 		}
 
 		bool hasValue(size_t ptype_in,size_t ptype_out) const{
-			return ValueIndexes[ptype_in*ptypes + ptype_out]>0;
+			return ValueIndexes[ptype_in*ptypes + ptype_out]>=0;
 		}
 		int getIndex(size_t ptype_in,size_t ptype_out) const{
 			return ValueIndexes[ptype_in*ptypes + ptype_out];
@@ -606,6 +407,13 @@ namespace evdm {
 				static_cast<const ScatterInfoEL_in_t*>(this)->getQT(ptype_in,ptype_out)
 			);
 		}
+		const std::vector<ElementInfo_t> & getFF(size_t ptype_in,size_t ptype_out) const{
+			if(!hasValue(ptype_in,ptype_out)){
+				throw std::runtime_error("MCEvolutor::ScatterInfoEL_in_t::getRVInfo:"
+					" no quadtree for given ptype_in,ptype_out");
+			}
+			return FormFactors[getIndex(ptype_in,ptype_out)]; 
+		} 
 	}; 
 
 
@@ -643,76 +451,79 @@ namespace evdm {
 			FFC_impl_t FFC_impl
 		):B(std::move(B)),ScatterInfoEL(ptypes,std::move(FFC_impl))
 		{}
+		size_t ptypes()const {
+			return ScatterInfoEL.ptypes;
+		}
 
 		template <typename Gen_t>
 		void AddProcess(
 			size_t ptype_in,size_t ptype_out,
 			size_t initial_rv_level, size_t max_rv_level,size_t max_rv_size, T rv_cmp_accept,
 			size_t initial_el_level, size_t max_el_level,size_t max_el_size,T el_cmp_accept,
-			size_t ThetaMaxSteps, T maxProbTheta, T zeroProb, Gen_t G, size_t Nmk
-			){
-				std::vector<ElementInfo_t> m_elements = make_element_info(
-					ScatterInfoEL.FFC_impl,ptype_in,ptype_out
-				);
-				ElementsRVQuadTree<T> m_qt;
-				m_qt.reserve(m_elements.size());
+			size_t ThetaMaxSteps, T ThetaAccept, T zeroProb, Gen_t G, size_t Nmk){
+
+			std::vector<ElementInfo_t> m_elements = make_element_info(
+				ScatterInfoEL.FFC_impl,ptype_in,ptype_out
+			);
+			ElementsRVQuadTree<T> m_qt;
+			m_qt.reserve(m_elements.size());
 				
-				for(size_t i=0;i<m_elements.size();++i){
-					const auto & m_el = m_elements[i];
-					auto rv_qt_filler = [&](T r,T v_undim)->ScatterRVExpInfo_t<T> {
-						auto vmax = std::sqrt(B.Phi(r));
-						return genRVinfo(ptype_in,ptype_out,r,vmax*v_undim,m_el.ff.n_e(r),m_el,G,Nmk);
-					};
-					m_qt.push_back( 
-						make_rv_tree (
-							rv_qt_filler,initial_rv_level,max_rv_level,max_rv_size,
-							zeroProb/m_elements.size(),rv_cmp_accept
+			for(size_t i=0;i<m_elements.size();++i){
+				const auto & m_el = m_elements[i];
+				auto rv_qt_filler = [&](T r,T v_undim)->ScatterRVExpInfo_t<T> {
+					auto vmax = std::sqrt(B.Phi(r));
+					return genRVinfo(ptype_in,ptype_out,r,vmax*v_undim,m_el.ff.n_e(r),m_el,G,Nmk);
+				};
+				m_qt.push_back( 
+					make_rv_tree (
+						rv_qt_filler,initial_rv_level,max_rv_level,max_rv_size,
+						zeroProb/m_elements.size(),rv_cmp_accept
+					)
+				);
+			}
+
+			// 2) using RV info fill elinfo quadtree
+			//	critrium to split: 
+			//		bad interpolation of probs for any element
+			using EL_QT_t = Quadtree<T,ScatterInfoElements<T>,ScatterSampleElements<T>>;
+			auto el_filler = [&](T e,T l)->ScatterInfoElements<T> {
+				auto const & m_r_grid = B.Rho.Grid;
+				auto [L2,rme] = B.maxL2(-e);
+				auto get_poses = [&m_r_grid](T r)->size_t {
+					size_t i = m_r_grid.pos(r);
+					return i;
+				};
+				auto il_min= get_poses(rme);
+				auto [rmin,rmax] = B.find_rmin_rmax(-e,L2*l*l,rme);
+				auto i0_rmin = get_poses(rmin);
+				auto i0_rmax = get_poses(rmax);
+				std::vector<ScatterInfoTheta<T>> m_traj_for_elements;
+				m_traj_for_elements.reserve(m_elements.size());
+				for (size_t i=0;i<m_qt.size();++i){
+					T theta_max = B.get_theta_max(rmin,rmax);
+					T Tin = B.get_internal_period(rmin,rmax,200);
+					T Tout = eT(-e,L2*l*l);
+						
+					m_traj_for_elements.push_back( 
+						genTrajProbs(
+							e,l,rmin,rmax,theta_max,Tin,Tout,m_qt[i],ThetaMaxSteps,20, ThetaAccept
 						)
 					);
 				}
+				return ScatterInfoElements<T>(
+					std::move(m_traj_for_elements),
+					std::make_tuple(il_min,i0_rmin,i0_rmax)
+				);
+			};
+			auto m_el_tree = make_el_tree(
+				el_filler, -B.Phi[0],
+				initial_el_level, max_el_level, max_el_size, zeroProb,
+				el_cmp_accept);
 
-				// 2) using RV info fill elinfo quadtree
-				//	critrium to split: 
-				//		bad interpolation of probs for any element
-				using EL_QT_t = Quadtree<T,ScatterInfoElements<T>>;
-				auto el_filler = [&](T e,T l)->ScatterInfoElements<T> {
-					auto const & m_r_grid = B.Rho.Grid;
-					auto [L2,rme] = B.maxL2(-e);
-					auto get_poses = [&m_r_grid](T r)->std::pair<size_t,size_t> {
-						size_t i = m_r_grid.pos(r);
-						return {i, std::min(i+1,m_r_grid.size()-1)};
-					};
-					auto [il_min,il_max] = get_poses(rme);
-					auto [rmin,rmax] = B.find_rmin_rmax(-e,L2*l*l,rme);
-					auto [i0_rmin,i1_rmin] = get_poses(rmin);
-					auto [i0_rmax,i1_rmax] = get_poses(rmax);
-					std::vector<ScatterInfoTheta<T>> m_traj_for_elements;
-					m_traj_for_elements.reserve(m_elements.size());
-					for (size_t i=0;i<m_qt.size();++i){
-						T theta_max = B.get_theta_max(rmin,rmax);
-						T Tin = B.get_internal_period(rmin,rmax,100);
-						T Tout = eT(-e,L2*l*l);
-						
-						m_traj_for_elements.push_back( 
-							genTrajProbs(
-								e,l,rmin,rmax,theta_max,Tin,Tout,m_qt[i],ThetaMaxSteps,20,maxProbTheta
-							)
-						);
-					}
-					return ScatterInfoElements<T>(
-						std::move(m_traj_for_elements),
-						std::make_tuple(il_min,il_max,i0_rmin,i1_rmin,i0_rmax,i1_rmax)
-					);
-				};
-			
 			ScatterInfoEL.addQT(
 				ptype_in,ptype_out,
-				make_el_tree(
-					el_filler,-B.Phi[0],
-					initial_el_level,  max_el_level, max_el_size,zeroProb,
-					el_cmp_accept),std::move(m_qt)
+				std::move(m_el_tree), std::move(m_qt)
 				);
-			throw std::runtime_error("unimplemented");
 		}
 		
 		void AddSameProcess(size_t ptype_in_dsc,size_t ptype_out_dsc,
@@ -724,30 +535,51 @@ namespace evdm {
 		}
 
 		template <typename Gen_t>
-		std::vector<StateEL<T>> evolute(
-			std::vector<StateEL<T>> init,
-			Gen_t && _G,
-			std::array<T,16> prob_matrix,
-			T evolve_time,
-			size_t max_scatter
-		){
+		void evolute(
+			std::span<StateEL<T>> init,
+			Gen_t&& _G,
+			std::array<T, 16> prob_matrix,
+			const T evolve_time,
+			const size_t max_scatter,
+			const std::list<std::string> & m_errors = {}
+		) const{
+
+			typedef typename ScatterInfoEL_in_t<T, FFC_impl_t>::gen_next_errors err_t;
+			size_t m_err = 0;
+			for (std::string_view err : m_errors) {
+				if (err == "element") {
+					m_err |= err_t::ELEMENT_FULL_PROB;
+				}
+				if (err == "majorant") {
+					m_err |= err_t::MAJORANT_ERROR;
+				}
+				if (err == "theta") {
+					m_err |= err_t::ATTEMPT_THETA_ERROR;
+				}
+				if (err == "attempt") {
+					m_err |= err_t::ATTEMPT_ERROR;
+				}
+			}
 			int N = init.size();
 			const auto _seed = _G.state;
-			#pragma omp parallel for
+			std::array<T,80> ElementBuffer;
+			#pragma omp parallel for firstprivate(ElementBuffer)
 			for(int i=0;i<N;++i){
 				auto G = _G;
 				G.set_seed(_seed ^ i + 1);
-				max_scatter += std::floor( G()*ScatterInfoEL.ptypes);
+				T max_scatter1 = max_scatter+std::floor( G()*ScatterInfoEL.ptypes);
 				StateEL<T> tmp_state = init[i];
-				T tmp_time = evolve_time;
-				for(size_t j=0;j<max_scatter;++j){
-					std::tie(tmp_state,tmp_time) = 
-						ScatterInfoEL.gen_next(tmp_state,tmp_time,prob_matrix.data(),B,G);
-					if(tmp_time == 0){
+				T time_remain = evolve_time;
+				for(size_t j=0;j< max_scatter1;++j){
+					
+					std::tie(tmp_state, time_remain) = ScatterInfoEL.gen_next(
+						tmp_state, time_remain,prob_matrix.data(),B,G,ElementBuffer, m_err
+					);
+					if(time_remain <= 0){
 						break;
 					}
 				}
-				init[i] = tmp_time;
+				init[i] = tmp_state;
 			}
 		}
 
@@ -763,37 +595,41 @@ namespace evdm {
 			T mu_i = El.mN*(1/(El.mN+El.mX));
 			T Mu_chi_i = El.mN*mu_chi;
 			T Delta_M_chi = El.dmX;
-			T v2_delta = - 2*El.dmX/Mu_chi_i;
 			T vesc = B.Vesc;
+			T v2_delta = 2*El.dmX/Mu_chi_i/(vesc*vesc);
+			
 
 			T v2 = v*v;
 			T v1_temp_sq = (B.Temp(r) + 1e-12)/El.mN/(vesc*vesc);
 			T v1_tres = v2_delta > v2 ? std::sqrt(v2_delta) - v : T(0);
-			T u_tresh = v2_delta > 0 ? (v1_tres*v1_tres)/(2*v1_temp_sq) : T(0);
+			T u_tresh = v1_tres ? (v1_tres*v1_tres)/(2*v1_temp_sq) : T(0);
+
 
 			using RVPi = ScatterRVExpInfo_t<T>;
 			T sum = 0;
-			std::vector<T> max_ffs(RVPi::size);
+			std::array<T, RVPi::size> max_ffs;
 			for (int i=0;i<RVPi::size;++i){
 				auto [xiu_0,xiu_1] = RVPi::box(i);
 				T max_ff = 0;
-				for(int _k : std::views::iota(0,Nmk)){
-					T xi = RVPi::min_value+(xiu_0 + (xiu_1-xiu_0)*G());
-					T s = std::log(xi);
-					T u_in = (s + u_tresh);
-					T v1 = std::sqrt(2*u_in*v1_temp_sq);
-					scatter_pre_result<T> m_s = 
-						gen_scatter(G(),G(),v,v1,u_in,v2_delta);
-				
-					T Vu_in2 = v*v+v1*v1+2*v*v1*m_s.cos_theta_in;
-					T Vu_in = std::sqrt(Vu_in2);
-					T Vu_out = std::sqrt(downbound(Vu_in2 + v2_delta,0));
-					
-					T m_factor = get_ff_out(
-						Vu_in,Vu_out,Mu_chi_i,Delta_M_chi,vesc,m_s.cos_theta_out,El.ff.sf);
-					T from_factor = m_factor*m_s.gen_pre_form_factor;
-					max_ff = std::max(max_ff,from_factor);
-					sum += from_factor*n_r;
+				if (u_tresh < 40) {
+					for (int _k = 0; _k < Nmk; ++_k) {
+						T xi = RVPi::min_value + (xiu_0 + (xiu_1 - xiu_0) * G());
+						T s = -std::log(xi);
+						T u_in = (s + u_tresh);
+						T v1 = std::sqrt(2 * u_in * v1_temp_sq);
+						scatter_pre_result<T> m_s =
+							gen_scatter(G(), G(), v, v1, u_in, -v2_delta);
+
+						T Vu_in2 = v * v + v1 * v1 - 2 * v * v1 * m_s.cos_theta_in;
+						T Vu_in = std::sqrt(Vu_in2);
+						T Vu_out = std::sqrt(downbound(Vu_in2 - v2_delta, 0));
+
+						T m_factor = get_ff_out(
+							Vu_in, Vu_out, Mu_chi_i, -v2_delta, vesc, m_s.cos_theta_out, El.ff.sf);
+						T from_factor = m_factor * m_s.gen_pre_form_factor;
+						max_ff = std::max(max_ff, from_factor);
+						sum += (xiu_1 - xiu_0)*from_factor * n_r * std::exp(-u_tresh);
+					}
 				}
 				max_ffs[i] = max_ff;
 			}
@@ -804,54 +640,31 @@ namespace evdm {
 
 		ScatterInfoTheta<T> genTrajProbs(
 			T e, T l, T rmin,T rmax,T theta_max,T Tin,T Tout,QT_RV_t<T> const & rv_probs,
-			size_t max_steps,size_t max_lvl,T MaxProbInBin
-		){
+			size_t max_steps,size_t max_lvl,T MaxProbDiff
+		)const{
 			using namespace grob::literals;
 			typedef grob::Point<T,T> PDF_t;
-			std::list<PDF_t,PoolAllocator<PDF_t> > 
-				m_points(PoolAllocator<PDF_t>{max_steps});
+			if(max_steps < 16){
+				throw std::runtime_error("genTrajProbs: max_steps < 16");
+			}
+			std::vector<PDF_t> m_points(max_steps+1);
+			std::vector<PDF_t> m_buffer(max_steps+1);
+			size_t tmp_size = 0;
 
 			T _1 = 1;
 
-			B.get_internal_period(rmin,rmax,100);
-			auto dP_dth = [&](T theta_undim)->T {
-				T theta_full = theta_undim*theta_max;
-				T ct = std::cos(theta_full/2);
-				T st = std::sin(theta_full/2);
-				
-				// Check that rmax > 1 in outer trajectories?
-				T r = sqrt(powint(rmin*ct,2)+powint(rmax*st,2)); 
-				if(r>=1){
-					return 0;
-				}
-				T dtau_dth = 1/(2*std::sqrt(B.S(r,rmin,rmax)) );//S or 1/S?
-				T v = ssqrt(e - B.Phi(r));
-				T vmax = ssqrt(B.Phi(r));
-				if(vmax == 0){
-					return 0;
-				}
-				auto const & N = 
-					rv_probs.find_node(r,v/vmax);
-				auto [P00,P01,P10,P11] = N.values_view([](auto const & x){return x.full_prob;});
-				auto [alph,bth]= N.coeffs(r,v/vmax);
-				
-				return dtau_dth*interpolate_log(
-					interpolate_log(P00,P10,alph),
-					interpolate_log(P01,P11,alph),
-					bth
-				)/(Tout+Tin);
-			};
+			//B.get_internal_period(rmin,rmax,100);genTrajProbs
+			dP_dth_functor<T> dP_dth(B,rv_probs,e,rmin,rmax,theta_max,Tin+Tout);
 
-			m_points.push_back({0,dP_dth(0)});
-			m_points.push_back({_1,dP_dth(_1)});
+			m_points[0] = {0,dP_dth(0)};
+			m_points[1] = { _1/2,dP_dth(_1/2) };
+			m_points[2] = {_1,dP_dth(_1)};
+			tmp_size  += 3;
 
-			T FullProbLow = m_points.back()[0_c]* 1;
+			T PFD_max = m_points.front()[1_c];
 
-			T PFD_max = m_points.front()[0_c];
-
-			if(max_steps < 2){
-				throw std::runtime_error("genTrajProbs: max_steps < 4");
-			}
+			
+			max_steps -= 2;
 			auto intr_log = [](PDF_t P0,PDF_t P1){
 				return interpolate_log(P0[1_c],P1[1_c],T(0.5));
 			};
@@ -860,48 +673,89 @@ namespace evdm {
 			};
 			
 			auto new_point = [&dP_dth](PDF_t P0,PDF_t P1)->PDF_t {
-				T x = (P0[0_c]+P0[1_c])/2;
+				T x = (P0[0_c]+P1[0_c])/2;
 				return PDF_t(x,dP_dth(x));
 			};
 			//T m_zero = 1e-9*m_points.front().second;
 
-			max_steps -= 2;
 			
 			{// get rid of zero elements until there is positive element
+				
 				PDF_t & p0 = m_points.front();
+				PDF_t & p1_2 = *std::next(m_points.begin());
 				PDF_t & p1 = m_points.back();
+				T remain_prob = std::max(p1_2[1_c], p1[1_c]) * p1_2[0_c];
 				for(size_t i=0;i<max_lvl;++i){
-					if(p1[1_c] < p0[0_c]*1e-10){
-						p1 = new_point(p0,p1);
+					if(p0[1_c]* p1_2[0_c] * 1e-10 > remain_prob ){
+						PDF_t np1 = new_point(p0, p1_2);
+						p1 = p1_2;
+						p1_2 = np1;
+						remain_prob += p1_2[1_c] * p1_2[0_c];
 					} else{
 						break;
 					}
 				}
 			}
-			
+
+			auto PointComp = [](auto const& x, auto const& y) {
+				return x[0_c] < y[0_c];
+			};
+			auto push_points = [PointComp](
+				std::vector<PDF_t> & m_points,size_t &tmp_size,
+				size_t new_points_num,std::vector<PDF_t> & buff)
+			{
+				
+				if(new_points_num){
+					auto beg = m_points.begin();
+					std::merge(beg ,beg+tmp_size,beg+tmp_size,
+						beg+tmp_size+new_points_num,buff.begin(),
+						PointComp);
+					std::swap(m_points,buff);
+					tmp_size += new_points_num;
+				}
+			};
+
+			for(size_t i=0;i<3;++i){
+				size_t num = 0;
+				for(size_t i=0;i<tmp_size-1;++i){
+					T x0 = m_points[i][0_c];
+					T x1 = m_points[i+1][0_c];
+					T x = (x0+x1)/2;
+					m_points[tmp_size+i] = {x,dP_dth(x)};
+					++num;
+					--max_steps;
+				}
+				push_points(m_points,tmp_size,num,m_buffer);
+			}//refine grid to 17 points
+
 			// we want to make prob less than MaxProbInPin in each bin
-			for(auto it = m_points.begin();it != std::prev(m_points.end());++it){
-				PDF_t & p = *it;
-				bool prob_in_it_is_too_big = true;
-				while(prob_in_it_is_too_big){
-					PDF_t & nxt = *std::next(it);
+			while(max_steps){
+				size_t new_points = 0;
+				auto inplace_iter = m_points.begin()+tmp_size;
+				for(size_t i=0;i<tmp_size-1;++i){
+					PDF_t const & p = m_points[i];
+					PDF_t const & nxt = m_points[i+1];
 					T h = nxt[0_c]-p[0_c];
-					if(p[1_c]*h > FullProbLow*MaxProbInBin){
-						if(max_steps){
+					if(2*std::abs(p[1_c]- nxt[1_c]) > MaxProbDiff*(p[1_c] + nxt[1_c])){
+						if(max_steps)[[likely]]{
+							new_points++;
 							max_steps--;
 							PDF_t ph = new_point(p,nxt);
-							m_points.insert(it,ph);
-							FullProbLow += (ph[1_c] - nxt[1_c])*h/2;
-						} else {
-							ScatterInfoTheta<T>(std::move(m_points));
+							*inplace_iter = ph;
+							++inplace_iter;
+						}else {
+							push_points(m_points,tmp_size,new_points,m_buffer);
+							return ScatterInfoTheta<T>(std::span{ m_points.begin(),tmp_size },Tin);
 						}
-					} else{
-						prob_in_it_is_too_big = false;
 					}
 				}
-				//m_points.insert()
+				if(new_points){
+					push_points(m_points,tmp_size,new_points,m_buffer);
+				} else{
+					return ScatterInfoTheta<T>(std::span{ m_points.begin(),tmp_size },Tin);
+				}
 			}
-			return ScatterInfoTheta<T>(std::move(m_points));
+			return ScatterInfoTheta<T>(std::span{ m_points.begin(),tmp_size },Tin);
 		}
 
 		public:
@@ -955,7 +809,7 @@ namespace evdm {
 		}
 
 		template <typename ValueGetter>
-		static Quadtree<T,ScatterInfoElements<T>> make_el_tree(
+		static Quadtree<T,ScatterInfoElements<T>,ScatterSampleElements<T>> make_el_tree(
 			ValueGetter &&Fel,T Emin, 
 			size_t initial_level, size_t max_level, size_t max_bins,
 			T zeroProb, T cmp_accept
@@ -966,7 +820,7 @@ namespace evdm {
 			auto cmp = [zeroProb](ScatterInfoElements<T> const & x,
 				ScatterInfoElements<T> const & y)->T 
 			{
-				auto get_delta = [](T x,T y){
+				auto get_delta = [](T x,T y){	
 					if(y>x){
 						std::swap(x,y);
 					}
@@ -984,10 +838,17 @@ namespace evdm {
 
 				return max_delta;
 			};
-			return make_quadtree<ScatterInfoElements<T>,evdm::Nothing_t>(
+			Quadtree<T,ScatterInfoElements<T>,ScatterSampleElements<T>> m_tree =  
+			make_quadtree<ScatterInfoElements<T>, ScatterSampleElements<T>>(
 				Fel, Emin,0,0,1,initial_level,max_level,max_bins,zeroProb,
 				FuncGetProb,cmp,cmp_accept
 			);
+
+			for (QuadtreeNode<T,ScatterInfoElements<T>,ScatterSampleElements<T>> & N : m_tree){
+				N.uvalue() = ScatterSampleElements<T>(N(0,0),N(0,1),N(1,0),N(1,1));
+			}
+
+			return m_tree;
 		}
 		
 		template <typename Val_t,typename UV_t,
@@ -1013,10 +874,8 @@ namespace evdm {
 				}
 				return ret;
 			};
-			auto always_true_cond = [zeroProb,&FuncGetProb](Node_t const& nd){
-				auto Ptuple = nd.values_view(FuncGetProb);
-				auto Pmax = tuple_max(Ptuple);
-				return Pmax > zeroProb;
+			auto always_true_cond = [zeroProb,&FuncGetProb](auto const& nd){
+				return true;
 			};
 			auto CMPaccept_condition = [&](T accept_error){ 
 				return [accept_error,zeroProb,max_lvl,&cmp,&FuncGetProb](Node_t const& nd){
@@ -1073,6 +932,98 @@ namespace evdm {
 			
 			return m_tree;
 		}
+		PlotInfo<T> plotinfo_rv(
+		size_t ptypein,size_t ptypeout,
+		size_t elementA,size_t elementZ,
+		std::string_view what_to_plot = "")
+		{
+			std::vector<ElementInfo_t> const & qtffs = 
+				ScatterInfoEL.getFF(ptypein,ptypeout);
+			auto it = std::find_if(qtffs.begin(),qtffs.end(),
+				[elementA,elementZ](ElementInfo_t const & info){
+					return info.A == elementA && info.Z == elementZ;
+				}
+			);
+			if(it != qtffs.end()){
+				size_t index = it-qtffs.begin();
+				QT_RV_t<T> const & m_qt = ScatterInfoEL.getRVInfo(ptypein,ptypeout)[index];
+				
+				if(what_to_plot == "prob" || what_to_plot.empty()){
+					return quadtree_plotinfo(m_qt,
+						[](ScatterRVExpInfo_t<T> const & V){
+							return V.full_prob; 
+						}
+					);
+				} else {
+					throw std::runtime_error("can plot only full prob of rv tree");
+				}
+			} else {
+				throw std::runtime_error("element not found");
+			}
+			
+		}
+
+		PlotInfo<T> plotinfo_el(
+			size_t ptypein,size_t ptypeout,
+			std::string_view what_to_plot = ""
+		){
+			auto const & qtel = 
+				ScatterInfoEL.getQT(ptypein,ptypeout);
+			constexpr size_t PLOT_RMIN = 0;
+			constexpr size_t PLOT_RMAX = 1;
+			constexpr size_t PLOT_L2MAX = 2;
+			constexpr size_t PLOT_Tin = 3;
+			constexpr size_t PLOT_Tout = 4;
+			constexpr size_t PLOT_T = 5;
+			constexpr size_t PLOT_ThetaMax = 6;
+			constexpr size_t PLOT_Prob = 7;
+
+			size_t wtp = 7;
+			std::array<const char *,7> strs = {
+				"rmin","rmax","L2","Tin","Tout","T","theta_max"
+			};
+			wtp = std::find(strs.begin(), strs.end(), what_to_plot) - strs.begin();
+
+			return quadtree_plotinfo_xyz(qtel, 
+				[&,wtp](auto e, auto l, auto const& el) -> T
+				{
+					if (wtp == PLOT_Prob) {
+						return el.full_prob;
+					}
+					auto [L2m,rm] = B.maxL2(-e);
+					if (wtp == PLOT_L2MAX) {
+						return L2m;
+					}
+					auto L2 = L2m * l * l;
+					auto [rmin,rmax] = B.find_rmin_rmax(-e, L2, rm,0);
+					if (wtp == PLOT_RMIN) {
+						return rmin;
+					}
+					if (wtp == PLOT_RMAX) {
+						return rmax;
+					}
+					if (wtp == PLOT_ThetaMax) {
+						return B.get_theta_max(rmin, rmax);
+					}
+					auto Tin = B.get_internal_period(rmin, rmax, 100);
+					if (wtp == PLOT_Tin) {
+						return Tin;
+					}
+
+					auto Tout = eT(-e, L2);
+					if (wtp == PLOT_Tout) {
+						return Tout;
+					}
+
+					if (wtp == PLOT_T) {
+						return Tin+Tout;
+					}
+
+					return 0;
+				});
+		}
+
 	};
+	
 
 };

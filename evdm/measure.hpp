@@ -37,6 +37,12 @@ namespace evdm {
         EL_t emin_abs;
         EL_t emin_abs_inv;
 
+        template <typename EL1_t>
+        inline measure_dEpdlq(measure_dEpdlq<EL1_t> const & other): 
+            p(other.p),q(other.q),
+            emin_abs(other.emin_abs),
+            emin_abs_inv(other.emin_abs_inv){}
+
         measure_dEpdlq(EL_t p, EL_t q, EL_t emin_abs):
             p(p),q(q), emin_abs(std::abs(emin_abs)), 
             emin_abs_inv(1/ std::abs(emin_abs)){}

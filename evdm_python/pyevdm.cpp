@@ -12,7 +12,7 @@ namespace py = pybind11;
 
 void PyMarkov_add_to_python_module(pybind11::module& m);
 void PyEvolutor_add_to_python_module(pybind11::module& m);
-
+void PyEvolutor_add_to_python_module(pybind11::module& m);
 PYBIND11_MODULE(pyevdm, m)
 {
     m.doc() = "pyevdm module with classes:\n"
@@ -35,4 +35,11 @@ PYBIND11_MODULE(pyevdm, m)
 
     add_scatter_funcs_to_python_module(m);
     add_to_python_module_GridProjectionMatrix(m);
+    PyEvolutor_add_to_python_module(m);
+
+    m.def("set_thread_num", [](int M) {
+#ifdef _OPENMP
+        omp_set_num_threads(M);
+#endif // _OPENMP
+    },py::arg("threads"));
 }

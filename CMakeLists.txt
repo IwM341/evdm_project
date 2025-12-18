@@ -102,10 +102,11 @@ endif()
 
 
 find_package(Grob)
-if(NOT Grob_FOUND)
+if(NOT Grob_FOUND AND FALSE)
     message("Grob not found, download from git")
     CPMAddPackage("gh:IwM341/GridObject@1.1.3")
 endif()
+
 
 
 
@@ -131,7 +132,7 @@ target_include_directories(pyevdm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 ## grob lib, will be downloaded with cpm_cmake
 #target_include_directories(pyevdm PRIVATE ${GROB_INCLUDE_DIR})
-
+#target_include_directories(pyevdm PRIVATE "D:/Tmp/GridObject_1/include")
 target_link_libraries(pyevdm Grob::grob)
 ##
 

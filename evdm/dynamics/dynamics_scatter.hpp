@@ -176,22 +176,9 @@ namespace evdm {
 		typedef Gen_vt<Gen_t> number_t;
 		number_t VcmN = Vcm.norm();
 		typedef vec3<number_t> vec3_t;
-		vec3_t  n_v = (VcmN > 0 ? Vcm / VcmN : vec3_t({ 0,0,1 }));
+		auto [n_1, n_2, n_v] = Basis3(Vcm);
 
-		number_t cosThetaVcm = n_v[2];
-		number_t sinThetaVcm = sqrt(n_v[0] * n_v[0] + n_v[1] * n_v[1]);
-
-		number_t cosPhiVcm = 1.0;
-		number_t sinPhiVcm = 0.0;
-
-		if (sinThetaVcm > 1e-10) {
-			cosPhiVcm = n_v[0] / sinThetaVcm;
-			sinPhiVcm = n_v[1] / sinThetaVcm;
-		}
-
-		vec3_t n_1(cosThetaVcm * cosPhiVcm, cosThetaVcm * sinPhiVcm, -sinThetaVcm);
-		vec3_t n_2(-sinPhiVcm, cosPhiVcm, 0);
-
+		
 		/*
 		std::cout << n_1*n_1 << "\t" << n_1*n_2 << "\t" << n_1*n_v << std::endl;
 		std::cout << n_2*n_1 << "\t" << n_2*n_2 << "\t" << n_2*n_v << std::endl;
@@ -349,8 +336,8 @@ namespace evdm {
 
 	template < typename Te_t,typename U, typename V,typename T,
 		typename Func_Phi_t, typename Func_Tr_t, typename TinTraj_t>
-	auto find_tau_max(Te_t e,U r0,U r1, V theta_max,
-		T m, T mi, evdm::same_t<T> deltaE_div_m_cm,
+	auto find_tau_max(Te_t e,U r0,U r1, V theta_max,T VescMin,
+		same_t<T> m, same_t<T> mi, evdm::same_t<T> deltaE_div_m_cm,
 		Func_Phi_t&& Phi, Func_Tr_t&& TempR, TinTraj_t&& th00) {
 		
 		typedef  decltype(th00.Grid[0]) Tau_t;
@@ -365,7 +352,7 @@ namespace evdm {
 			auto r = std::sqrt(u0 * cth2 * cth2 + u1 * sth2 * sth2);
 			auto v2 = downbound(Phi(r) + e, 0);
 			auto Tr = TempR(r);
-			auto Vmax = std::sqrt(v2) + 8 * std::sqrt(Tr / mi);
+			auto Vmax = std::sqrt(v2)* VescMin + 8 * std::sqrt(Tr / mi);
 			return Vmax >= ssqrt(deltaE_div_m_cm);
 		};
 		return critical_value(Tau_t(0), Tau_t(1), reaction_goes, true);
@@ -496,7 +483,8 @@ namespace evdm {
 
 
 				Traj_t tau_max = (Nmk_per_traj <= 10 || !extra_params.cut_tau) ? Traj_t(1) :
-					find_tau_max(e,r0, r1, theta_max, mk, mi, deltaE_div_m_cm, Phi, TempR, th00);
+					find_tau_max(e,r0, r1, theta_max, VescMin, mk, mi,
+						deltaE_div_m_cm, Phi, TempR, th00);
 
 				auto Tin = Tin_Teheta * theta_max;
 				auto Tout = ToutFunc(e, l, Ltmp);
@@ -537,7 +525,7 @@ namespace evdm {
 						Traj_t v_esc_nd = VescR(r);
 						auto [dVout, factor] =
 							DeltaVout1_Scatter(
-								V_in, v, G, ThermGen,
+								V_in, v * VescMin, G, ThermGen,
 								mi, mk, mi_frac, mk_frac, m_cm, dm, deltaE_div_m_cm,
 								dF,
 								v_esc_nd * VescMin, VescMin,
@@ -732,7 +720,8 @@ namespace evdm {
 				auto Tout = ToutFunc(e, l, Ltmp);
 
 				Traj_t tau_max = (Nmk_per_traj <= 10|| !extra_params.cut_tau) ? Traj_t(1) :
-					find_tau_max(e,r0, r1, theta_max, mk, mi, deltaE_div_m_cm, Phi, TempR, th00);
+					find_tau_max(e,r0, r1, theta_max, VescMin,mk, mi,
+						deltaE_div_m_cm , Phi, TempR, th00);
 
 				auto mk_factor =
 					weight *bin_cut_factor * tau_max*Tin / ((Tin + Tout) * Nmk * Nmk_per_traj);
@@ -1013,7 +1002,8 @@ namespace evdm {
 				auto Tout = ToutFunc(e, l, Ltmp);
 
 				Traj_t tau_max = !extra_params.cut_tau ? Traj_t(1) : 
-					find_tau_max(e,r0, r1, theta_max, mk, mi, deltaE_div_m_cm, Phi, TempR, th00);
+					find_tau_max(e,r0, r1, theta_max, VescMin, mk, mi,
+						deltaE_div_m_cm , Phi, TempR, th00);
 
 				auto mk_factor =
 					tau_max* bin_cut_factor *weight * Tin / ((Tin + Tout) * Nmk) / 4;
