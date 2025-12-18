@@ -17,7 +17,7 @@
 
 #include "../utils/pool_allocator.hpp"
 #include <ranges>
-
+#include <span>
 namespace evdm {
 
 	//template <typename T>
