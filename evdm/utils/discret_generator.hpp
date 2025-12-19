@@ -5,7 +5,7 @@
 #include <Eigen/Eigen>
 #include <Eigen/Dense>
 #include <stdexcept>
-
+#include <numeric>
 
 namespace evdm {
 
