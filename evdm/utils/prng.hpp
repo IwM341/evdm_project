@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <type_traits>
 #include <limits>
+#include <cstddef>
 
 namespace evdm{
 
