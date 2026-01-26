@@ -26,14 +26,8 @@ Py_ScatterFactor qexp_factor(float b, bool y_inv,
 	return Py_ScatterFactor(y_inv, b, P_0_arr);
 }
 
-Py_ScatterFactor func_factor(pybind11::object _function) {
-	float (*func)(float, float);
-	func = reinterpret_cast<float (*)(float, float)> (
-		_function.attr("address").cast<size_t>()
-		);
-	Py_ScatterFactor sf(func);
-	sf._opt_functur = _function;
-	return sf;
+Py_ScatterFactor helm_factor(float R,float s2,float cns_fac) {
+	return Py_ScatterFactor(evdm::BesselFormFactor(R, s2, cns_fac));
 }
 
 
@@ -85,31 +79,28 @@ void Py_ScatterFactor::add_to_python_module(pybind11::module_& m) {
 		py::arg("P_0"),
 		py::arg("P_V")
 	)
-		.def("qexp_factor", static_cast<Qexp_0_t>(&qexp_factor),
-			"create exponential form factor exp(-2y)(p0_i y^i)/y^t\n"
-			"where y = b^2*q^2/4\n"
-			"Parameters:\n"
-			"___________\n"
-			"b : float\n\t size of nuclei in GeVn\n"
-			"y_inv : bool\n\tif false than t = 0 and y^t = 1, else t = 1\n"
-			"P_0 : array\n\tcoefficients of y^i",
-			py::arg("b"),
-			py::arg("y_inv"),
-			py::arg("P_0"))
-		.def("func_factor", func_factor,
-			"create elastic form fractor from function\n"
-			"Input should contain pointer to funcion with signature float ScatterFunc(float q_2,float v2T)\n"
-			"where q_2 = q^2 - transferred momentum in GeV,v2T - squared norm of inelastic transfer velocity\n"
-			"Parameters:\n"
-			"___________\n"
-			"func : function\n\tfloat ScatterFunc(float q_2,float v2T)",
-			py::arg("func"))
-		.def("__repr__", [](const Py_ScatterFactor& sf) {
-		return sf.repr();
-			})
-		.def("__str__", [](const Py_ScatterFactor& sf) {
-				return sf.repr();
-			});
+	.def("qexp_factor", static_cast<Qexp_0_t>(&qexp_factor),
+		"create exponential form factor exp(-2y)(p0_i y^i)/y^t\n"
+		"where y = b^2*q^2/4\n"
+		"Parameters:\n"
+		"___________\n"
+		"b : float\n\t size of nuclei in GeVn\n"
+		"y_inv : bool\n\tif false than t = 0 and y^t = 1, else t = 1\n"
+		"P_0 : array\n\tcoefficients of y^i",
+		py::arg("b"),
+		py::arg("y_inv"),
+		py::arg("P_0"))
+	.def("helm_factor", helm_factor,
+		"create helm form fractor\n"
+		"FF(q^2) = CF*(Bessels[qR])^2*exp(-q^2*s2)"
+		"Parameters:\n",
+		py::arg("R"), py::arg("s2"), py::arg("CF"))
+	.def("__repr__", [](const Py_ScatterFactor& sf) {
+	return sf.repr();
+		})
+	.def("__str__", [](const Py_ScatterFactor& sf) {
+			return sf.repr();
+		});
 }
 
 evdm::ScatterEvent Py_MakeScatterEvent(

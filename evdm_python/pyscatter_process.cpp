@@ -8,6 +8,7 @@
 #include <evdm/measure.hpp>
 #include "matrix_python.hpp"
 #include <pybind11/iostream.h>
+#include <pybind11/cast.h>
 void Py_ScatterProcess(
 	Py_Matrix& ScatterAccum,
 	int ptype_in, int ptype_out,

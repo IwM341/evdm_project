@@ -158,6 +158,35 @@ namespace evdm{
         }
     };
 
+    struct BesselFormFactor {
+        float R; // something like nucleus radius
+        float s2; // another nucleus radius
+        float cns_fac; //multiplicity factor A^4*(M+mp)^2/(M+mN)^2
+        static constexpr float fermi_GeV = 5;
+
+        inline BesselFormFactor(float R, float s2, float cns_fac):
+            R(R), s2(s2), cns_fac(cns_fac){}
+        inline float ScatterFactor(float q_2, float v_2, float Eloss) const {
+            float bf = 3 * myBessel(std::sqrt(q_2) * R) * std::exp(-q_2 * s2 / 2);
+            return bf * bf * cns_fac;
+        }
+        
+        static float myBessel(float x) {
+            if (x < 0.01) {
+                return 1.0 / 3 - x * x * (1 - x * x / 28) / 10;
+            }
+            else {
+                return (std::sin(x) - x * std::cos(x)) / (x * x * x);
+            }
+        }
+        inline std::string repr()const {
+            std::ostringstream S;
+            S << "Bessel form factor ";
+            S << "(" << R << ", " << s2 << ", " << cns_fac << ")";
+            return S.str();
+        }
+    };
+
     namespace __index_detail{
         template<size_t i,typename IndexSeq>
         struct get_index;
@@ -270,7 +299,7 @@ namespace evdm{
     struct QexpFactors<std::index_sequence<I...>> :public std::variant<
             QexpFactor<I,false>...,QexpFactor<I,true>...,
             QexpFactor_v<I,false>...,QexpFactor_v<I,true>...,
-            FunctionalElasticFormFactor
+            BesselFormFactor
         >{
         typedef std::index_sequence<I...> PolySizes;
 
@@ -279,7 +308,7 @@ namespace evdm{
         typedef std::variant<
             QexpFactor<I,false>...,QexpFactor<I,true>...,
             QexpFactor_v<I,false>...,QexpFactor_v<I,true>...,
-            FunctionalElasticFormFactor
+            BesselFormFactor
         > Base;
 
         typedef std::variant<QexpFactor<I>...> Base_v0;
@@ -344,8 +373,8 @@ namespace evdm{
         QexpFactors(bool y_inv,double b,Array1_t const & coeffs_v0,Array2_t const & coeffs_v1): 
         Base(vmove(MakeBase_v1(y_inv,b,coeffs_v0,coeffs_v1))){}
 
-        QexpFactors(float (*ScatFunc)(float,float)) :
-            Base(FunctionalElasticFormFactor(ScatFunc)) {}
+        QexpFactors(BesselFormFactor BFF) :
+            Base(BFF) {}
 
         inline Base & as_variant(){
             return static_cast<Base &>(*this);
@@ -370,14 +399,16 @@ namespace evdm{
                 return Poly.ScatterFactor(q_2, v_2, inel_enloss);
             }, as_variant());
         }
+
+        
         float eval_slow(float y, float v2T) const{
             return std::visit([y, v2T](const auto& Poly) {
                 if constexpr (
                     std::same_as<
                         std::decay_t<decltype(Poly)>,
-                        FunctionalElasticFormFactor
+                        BesselFormFactor
                     >) {
-                    return Poly.ScatterFactor(4 * y / 1, v2T, 0);
+                    return Poly.ScatterFactor(4 * y / (Poly.R* Poly.R), v2T, 0);
                 }
                 else {
                     return Poly.ScatterFactor(4 * y / Poly.b_2, v2T, 0);
