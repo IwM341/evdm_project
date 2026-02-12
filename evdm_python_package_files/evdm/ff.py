@@ -111,10 +111,10 @@ class FormFactor_Helm:
         self.wimp = wimp_pars
         self.nucleus = nucleus
         fermi_GeV= 5
-        s2 : float =  S2 or (fermi_GeV*0.9)**2
+        s2 : float =  S2 if(S2 != None) else (fermi_GeV*0.9)**2
         b = (1.23*nucleus.A**(1.0/3)-0.6)*fermi_GeV
         a = 0.52*fermi_GeV
-        R : float = R or math.sqrt(b*b+7*math.pi**2*a*a/3-5*s2)
+        R : float = R if(R != None) else math.sqrt(b*b+7*math.pi**2*a*a/3-5*s2)
         mp = Nucleus.Hydrogen.mass
         cns_fac : float = nucleus.A**4*( (wimp_pars.mass+mp)/(wimp_pars.mass+nucleus.A*mp) )**2
 
@@ -230,7 +230,8 @@ class ScatterModel:
             operator,
             operator_norm,
             norm_dv,
-            form_factor = None
+            form_factor = None,
+            **kwargs
         ):
         """
         wimp_pars: instance of class WimpScatterParams\n
@@ -244,9 +245,13 @@ class ScatterModel:
         self.nucleus = nucleus
 
         if(form_factor == "helm"):
-            self.ff = FormFactor_Helm(wimp_pars,nucleus)
+            R = kwargs.get('R')
+            S2 =  kwargs.get('S2')
+            self.ff = FormFactor_Helm(wimp_pars,nucleus,R,S2)
         elif(form_factor == "exp"):
-            self.ff = FormFactor_Helm(wimp_pars,nucleus,0)
+            R = kwargs.get('R')
+            S2 =  kwargs.get('S2',None)
+            self.ff = FormFactor_Helm(wimp_pars,nucleus,0,S2)
         else:
             try:
                 self.ff = FormFactor_Standard ( wimp_pars, nucleus, operator, operator_norm, norm_dv)

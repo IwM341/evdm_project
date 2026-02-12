@@ -563,10 +563,11 @@ namespace evdm {
 			int N = init.size();
 			const auto _seed = _G.state;
 			std::array<T,80> ElementBuffer;
+			auto G = _G;
 			#pragma omp parallel for firstprivate(ElementBuffer)
 			for(int i=0;i<N;++i){
-				auto G = _G;
-				G.set_seed(_seed ^ i + 1);
+				//auto G = _G;
+				//#G.set_seed(_seed ^ i + 1);
 				T max_scatter1 = max_scatter+std::floor( G()*ScatterInfoEL.ptypes);
 				StateEL<T> tmp_state = init[i];
 				T time_remain = evolve_time;
@@ -631,7 +632,7 @@ namespace evdm {
 						sum += (xiu_1 - xiu_0)*from_factor * n_r * std::exp(-u_tresh);
 					}
 				}
-				max_ffs[i] = max_ff;
+				max_ffs[i] = max_ff*T(1.05);
 			}
 			return ScatterRVExpInfo_t<T>(std::move(max_ffs),sum/Nmk,u_tresh);
 		}

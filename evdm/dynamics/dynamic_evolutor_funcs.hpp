@@ -77,7 +77,7 @@ namespace evdm{
 	inline T get_ff_out(
 		T Vu_in,T Vu_out,T mu,T v2delta,T VescMin,T cos_theta_out,
 		FormFactor_t const & FF){
-		T m_factor = mu*(VescMin*VescMin);
+		T m_factor = mu*mu*(VescMin*VescMin);
 		
 		T delta_Vu2 = Vu_in*Vu_in+ Vu_out*Vu_out - 2*Vu_in*Vu_out*cos_theta_out;
 		T t = delta_Vu2 >0 ? v2delta/(delta_Vu2) : T(0);
@@ -104,7 +104,10 @@ namespace evdm{
 	{
 		vec3<T> V_in(vtau,0,vr);
 		T vinv = v > 0 ? 1/v : T(0);
-		vec3<T> N_V(vr*vinv,0,vtau*vinv);
+		T cth_V = v > 0 ? vr * (1/v) : 1;
+		T sth_V = v > 0 ? vtau * (1/v) : 0;
+
+		vec3<T> N_V(sth_V,0, cth_V);
 
 		vec3<T> N1(-N_V[2],0,N_V[0]);
 		vec3<T> N2(0,1,0);
@@ -121,7 +124,7 @@ namespace evdm{
 		vec3<T> V_cm = mu_xi*V_in+mu_i*v1_vec;
 		vec3<T> Vu_out_vec = Vu_out*(
 			e_vu*cos_theta_out + 
-			e1*sin_theta_out*std::cos(phi_out),
+			e1*sin_theta_out*std::cos(phi_out) +
 			e2*sin_theta_out*std::sin(phi_out)
 		);
 		vec3<T> Vfinal = V_cm + mu_i*Vu_out_vec;
@@ -208,7 +211,7 @@ namespace evdm{
 			++majorant_begin;
 			for(size_t i=1;i<size;++i,++majorant_begin){
 				interval_samples[i] = 
-					interval_samples[i] + 
+					interval_samples[i-1] + 
 					*majorant_begin*box(i).volume();
 			}
 			T max_prob = interval_samples.back();

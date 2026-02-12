@@ -298,13 +298,32 @@ class SolarDensityGetter:
 class FF_Provider:
     def __init__(
             self,m_wimp : WimpModel,elements : List[ff.Nucleus],
-            density_getter,Operator,NormOperator = None, NormVelocity = 1e-3):
+            density_getter,Operator,NormOperator = None, NormVelocity = 1e-3,**kwargs):
+        """
+        makes class for info about elements for evolutor
+
+        Parameters:
+        -----------
+
+        m_wimp: Wimp Model
+        elements: list of elements
+        density_getter: functor
+            any functor F(x: ff.Nucleus) which return relative concentration of elements n(r)
+        Operator: some linear combination of On operators
+        NormOperator: (optional) operator, which is used to calculate \chi+p cross section
+        NormVelocity: (optional) velocity, which is used to calculate \chi+p cross section
+        form_factor: (optional) could be 'helm' or 'exp'
+        R: (optional) for helm form factor - coeff in bessel: ff~J(R*q)
+        S2: (optional) for helm form factor - coeff in exp ff~exp(-q^2*s2)
+        """
+        
         self.wimp = m_wimp
         self.elements = elements
         self.Operator = Operator
         self.NormOperator = Operator if NormOperator is None else NormOperator
         self.NormVelocity = NormVelocity
         self.density_getter = density_getter
+        self.kwargs = kwargs
     def construct(self,pin,pout):
         delta = self.wimp.delta(pin,pout)
         data = []
@@ -312,7 +331,7 @@ class FF_Provider:
             scat_mod = ff.ScatterModel( 
                 self.wimp(pin,pout),nuc,
                 self.Operator,self.NormOperator,
-                self.NormVelocity)
+                self.NormVelocity,**self.kwargs)
             sc_event = ScatterEvent(
                 self.density_getter(nuc),
                 scat_mod.factor(),

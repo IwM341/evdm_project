@@ -354,7 +354,7 @@ namespace evdm {
 
 		template <typename Gen_t,typename dP_dth_functor_t>
 		T gen_theta(dP_dth_functor_t ProbFunc,
-			Gen_t G,size_t attempts,
+			Gen_t &G,size_t attempts,
 			std::span<T> buff) const
 		{
 			constexpr size_t Nt = 80;
@@ -395,6 +395,7 @@ namespace evdm {
 			}
 			T target_prob = buff.back()*xi_prob;
 			auto i = IndexGenBigHelper::gen(buff.begin(),buff.end(),target_prob);
+			i = (i > 0) ? i - 1 : 0;
 			auto th0 = i*max_theta_undim/(Nt-1);
 			auto dth = max_theta_undim/(Nt - 1);
 			T alpha = upbound( (buff[i+1] - target_prob)/(buff[i+1]-buff[i]),1);
@@ -595,10 +596,10 @@ namespace evdm {
 				}
 				i = index;
 				while(i < buffer.size()){
-					++i;
 					if(buffer[i] > 0){
 						return i;
 					}
+					++i;
 				}
 				exception_null_prob();
 			}
