@@ -293,4 +293,195 @@ namespace evdm{
         }
 
     };
+
+	struct GenTrajProbs_return_full {};
+	template <typename T,typename U = GenTrajProbs_return_full>
+	T GenTrajProbs(
+		const Body<T>& B, T e, T l, T rmin, T rmax, T theta_max,
+		T Tin, T Tout, QT_RV_t<T> const& rv_probs,
+		std::span<grob::Point<T, T>> m_points, 
+		std::span<grob::Point<T, T>> m_buffer,
+		size_t max_lvl, T MaxProbDiff,
+		U xi_or_return_full = GenTrajProbs_return_full{}
+	) {
+
+		using namespace grob::literals;
+		typedef grob::Point<T, T> PDF_t;
+
+
+		if (m_points.size() < 17) {
+			throw std::runtime_error("GenTrajProbs: max_steps < 16");
+		}
+		size_t max_steps = m_points.size() - 1;
+		if (m_buffer.size() < max_steps + 1) {
+			throw std::runtime_error("GenTrajProbs: m_buffer.size() < m_points.size()");
+		}
+
+		size_t tmp_size = 0;
+
+		T _1 = 1;
+
+		//B.get_internal_period(rmin,rmax,100);genTrajProbs
+		dP_dth_functor<T> dP_dth(B, rv_probs, e, rmin, rmax, theta_max, Tin + Tout);
+
+		m_points[0] = { 0,dP_dth(0) };
+		m_points[1] = { _1 / 2,dP_dth(_1 / 2) };
+		m_points[2] = { _1,dP_dth(_1) };
+		tmp_size += 3;
+
+		T PFD_max = m_points.front()[1_c];
+
+
+		max_steps -= 2;
+		auto intr_log = [](PDF_t P0, PDF_t P1) {
+			return interpolate_log(P0[1_c], P1[1_c], T(0.5));
+			};
+		auto intr_lin = [](PDF_t P0, PDF_t P1) {
+			return (P0[1_c] + P1[1_c]) / 2;
+			};
+
+		auto new_point = [&dP_dth](PDF_t P0, PDF_t P1)->PDF_t {
+			T x = (P0[0_c] + P1[0_c]) / 2;
+			return PDF_t(x, dP_dth(x));
+			};
+		//T m_zero = 1e-9*m_points.front().second;
+
+
+		{// get rid of zero elements until there is positive element
+
+			PDF_t& p0 = m_points.front();
+			PDF_t& p1_2 = *std::next(m_points.begin());
+			PDF_t& p1 = m_points.back();
+			T remain_prob = std::max(p1_2[1_c], p1[1_c]) * p1_2[0_c];
+			for (size_t i = 0; i < max_lvl; ++i) {
+				if (p0[1_c] * p1_2[0_c] * 1e-10 > remain_prob) {
+					PDF_t np1 = new_point(p0, p1_2);
+					p1 = p1_2;
+					p1_2 = np1;
+					remain_prob += p1_2[1_c] * p1_2[0_c];
+				}
+				else {
+					break;
+				}
+			}
+		}
+
+		auto PointComp = [](auto const& x, auto const& y) {
+			return x[0_c] < y[0_c];
+			};
+		auto push_points = [PointComp](
+			std::span<PDF_t>& m_points, size_t& tmp_size,
+			size_t new_points_num, std::span<PDF_t>& buff)
+			{
+				if (new_points_num) {
+					auto beg = m_points.begin();
+					std::merge(beg, beg + tmp_size, beg + tmp_size,
+						beg + tmp_size + new_points_num, buff.begin(),
+						PointComp);
+					std::swap(m_points, buff);
+					tmp_size += new_points_num;
+				}
+			};
+
+		for (size_t i = 0; i < 3; ++i) {
+			size_t num = 0;
+			for (size_t i = 0; i < tmp_size - 1; ++i) {
+				T x0 = m_points[i][0_c];
+				T x1 = m_points[i + 1][0_c];
+				T x = (x0 + x1) / 2;
+				m_points[tmp_size + i] = { x,dP_dth(x) };
+				++num;
+				--max_steps;
+			}
+			push_points(m_points, tmp_size, num, m_buffer);
+		}//refine grid to 17 points
+
+		auto return_theta_xi = [](std::span<PDF_t> pts,T xi) -> T {
+			
+		};
+		auto return_full_prob = [](std::span<PDF_t> pts) -> T {
+
+		};
+		auto return_value = [&](size_t size) -> T {
+			
+			// calclulate full probability
+			//log avarage
+			auto AvP = [](auto p0, auto p1) {
+				auto Pav = (p0 + p1) / 2;
+				if (Pav > 0) {
+					return Pav * WLogLinear((p0 - p1) / Pav);
+				}
+				else {
+					return Pav;
+				}
+			};
+			//integrate probability	
+			std::span<PDF_t> m_p{ m_points.begin(),size };
+			T p_sum = 0;
+			{
+				auto it = m_p.begin();
+				grob::Point<T, T>& _it = *it;
+				T p0 = _it[1_c];
+				T x0 = _it[0_c];
+				_it[1_c] = 0;
+				++it;
+				for (; it != m_p.end(); ++it) {
+					auto [x1, p1] = *it;
+					p_sum += AvP(p0, p1) * (x1 - x0);
+					(*it)[1_c] = p_sum;
+					p0 = p1;
+					x0 = x1;
+				}
+			}
+
+			if constexpr (std::is_same_v< U, GenTrajProbs_return_full> ) {
+				return p_sum;
+			}
+			else {
+				T target = p_sum * xi_or_return_full;
+				auto m_cdf = m_p | std::views::transform([](auto x) {return x[1_c];});
+				auto m_theta = m_p | std::views::transform([](auto x) {return x[0_c]; });
+				size_t index = IndexGenBigHelper::gen(m_cdf.begin(), m_cdf.end(), target);
+				index = (index > 0) ? index - 1 : 0;
+				if (m_cdf[index] != m_cdf[index + 1]) {
+					T dth = m_theta[index + 1] - m_theta[index];
+					T alpha = ( target- m_cdf[index]) / (m_cdf[index + 1] - m_cdf[index]);
+					return m_theta[index] + dth * alpha;
+				}
+				else {
+					return m_theta[index];
+				}
+			}
+		};
+		// we want to make prob less than MaxProbInPin in each bin
+		while (max_steps) {
+			size_t new_points = 0;
+			auto inplace_iter = m_points.begin() + tmp_size;
+			for (size_t i = 0; i < tmp_size - 1; ++i) {
+				PDF_t const& p = m_points[i];
+				PDF_t const& nxt = m_points[i + 1];
+				T h = nxt[0_c] - p[0_c];
+				if (2 * std::abs(p[1_c] - nxt[1_c]) > MaxProbDiff * (p[1_c] + nxt[1_c])) {
+					if (max_steps) [[likely]] {
+						new_points++;
+						max_steps--;
+						PDF_t ph = new_point(p, nxt);
+						*inplace_iter = ph;
+						++inplace_iter;
+					}
+					else {
+						push_points(m_points, tmp_size, new_points, m_buffer);
+						return return_value(tmp_size);
+					}
+				}
+			}
+			if (new_points) {
+				push_points(m_points, tmp_size, new_points, m_buffer);
+			}
+			else {
+				return return_value(tmp_size);
+			}
+		}
+		return return_value(tmp_size);
+	}
 };

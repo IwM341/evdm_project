@@ -67,13 +67,14 @@ struct Py_Evolutor {
 
 	pybind11::array evolute(
 		pybind11::array States,  double evolve_time, 
-		pybind11::dict m_probs, size_t max_scatter, size_t seed,std::string errors) const
+		pybind11::dict m_probs, size_t max_scatter, size_t seed,pybind11::kwargs extra) const
 	{
 		if (!seed) {
 			seed = 1;
 		}
 		std::list<std::string> m_errors;
 		{
+			std::string errors = pyget<std::string>("", extra, "errors");
 			std::replace(errors.begin(), errors.end(), ';', '|');
 			std::replace(errors.begin(), errors.end(), ',', '|');
 			std::istringstream f(errors);
@@ -98,9 +99,15 @@ struct Py_Evolutor {
 				}
 			}
 			pybind11::array_t<evdm::StateEL<T>> m_states = States;
+
+			evdm::EvolutionExtraParams params{
+				.m_errors = m_errors,
+				.max_theta_steps = pyget<size_t>(64, extra, "max_theta_steps"),
+				.prob_theta_accept = pyget<double>(0.05, extra, "theta_accept"),
+			};
 			ev.evolute(
 				std::span < evdm::StateEL<T>>(m_states.mutable_data(), m_states.size()),
-				evdm::xorshift<T>(seed), m_probs_arr, evolve_time, max_scatter, m_errors
+				evdm::xorshift<T>(seed), m_probs_arr, evolve_time, max_scatter, params
 			);
 			return m_states;
 		}, m_evolutor);
@@ -279,10 +286,12 @@ void PyEvolutor_add_to_python_module(pybind11::module& m) {
 			"{(0,0):0,(0,1):2} (by default they are 1)\n"
 			"max_scat : int\n\t max number of scatter in evolution (to avoid infinit loop)\n"
 			"seed : int",
+			"max_theta_steps: size_t\n\tmax number of steps in trajectory\n",
+			"theta_accept: size_t\n\trelative difference in probability between poins of trajectory, which is acceptable",
 			py::arg("states"), py::arg("time"),
 			py::arg_v("probs",py::dict()), 
-			py::arg_v("max_scat", 1000000000), py::arg_v("seed", 123), 
-			py::arg_v("errors", ""))
+			py::arg_v("max_scat", 1000000000), py::arg_v("seed", 123)
+		)
 		.def("to_distrib", &Py_Evolutor::to_distrib,
 			"make grid distribution from states\n"
 			"Parameters:\n"

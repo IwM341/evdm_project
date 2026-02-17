@@ -598,6 +598,10 @@ class Distrib:
     @property
     def grid(self) -> GridEL: ...
 
+class FF_Provider_Impl:
+    def __init__(self, arg0: object) -> None:
+        """__init__(self: pyevdm.FF_Provider_Impl, arg0: object) -> None"""
+
 class GridEL:
     @overload
     def __init__(self, body: Body, ptypes: int, Ne: int, Nl_func: object, RhoE: object = ..., RhoL: object = ..., dtype: str = ..., **kwargs) -> None:
@@ -768,6 +772,107 @@ class GridEL:
     @property
     def size_e(self) -> int: ...
 
+class MCEvolutor:
+    def __init__(self, body: Body, ptypes: int, ffprovider: object) -> None:
+        """__init__(self: pyevdm.MCEvolutor, body: pyevdm.Body, ptypes: int, ffprovider: object) -> None
+
+        evolutor class
+
+        Parameters:
+        ___________
+        body : evdm.Body
+        ptypes : int
+        ffprovider : evdm.FF_Provider
+        """
+    def addScatterProcess(self, pin: int, pout: int, **kwargs) -> None:
+        """addScatterProcess(self: pyevdm.MCEvolutor, pin: int, pout: int, **kwargs) -> None
+
+        add all scatter elements for process pin->pout
+
+        Parameters:
+        ___________
+        pin : int
+        pout : 
+        rv_linit
+        rv_lmax
+        rv_size
+        rv_acc
+        el_linit
+        el_lmax
+        el_size
+        el_acc
+        max_theta_steps
+        max_theta_prob
+        zero_prob
+        Nmk
+        seed
+
+        """
+    def evolute(self, states: numpy.ndarray, time: float, probs: dict = ..., max_scat: int = ..., seed: int = ..., **kwargs) -> numpy.ndarray:
+        """evolute(self: pyevdm.MCEvolutor, states: numpy.ndarray, time: float, probs: dict = {}, max_scat: int = 1000000000, seed: int = 123, **kwargs) -> numpy.ndarray
+
+        theta_accept: size_t
+        \trelative difference in probability between poins of trajectory, which is acceptable
+        """
+    def gen_initial(self, distrib: Distrib, N: int, mes: tuple = ..., seed: int = ...) -> numpy.ndarray:
+        """gen_initial(self: pyevdm.MCEvolutor, distrib: pyevdm.Distrib, N: int, mes: tuple = (1, 2), seed: int = 123) -> numpy.ndarray
+
+        generates initial states according to distribution
+
+        Parameters:
+        ___________
+        distrib : evdm.Distrib
+        \t initial distribution
+        N : int
+        \tnumber of states
+        mes : Tuple[float,float]
+        \tbin measure
+        seed : int
+        """
+    def plot_info(self, *args, **kwargs):
+        """plot_info(self: pyevdm.MCEvolutor, pin: int, pout: int, data: str, **kwargs) -> tuple
+
+        plot probabilities
+        Parameters:
+        ___________
+        pin, pout 
+        \t initial and final ptype
+        data: str
+        \t 'rv' or 'el' (what to plot)
+        \tif plot 'rv', need to point A and Z of element
+
+        """
+    def to_distrib(self, grid: GridEL, states: numpy.ndarray, count: float) -> Distrib:
+        """to_distrib(self: pyevdm.MCEvolutor, grid: pyevdm.GridEL, states: numpy.ndarray, count: float) -> pyevdm.Distrib
+
+        make grid distribution from states
+        Parameters:
+        ___________
+        grid : evd.GridEL
+        \t grid where to put points
+        states : array
+        count: float
+        \ttotal amount of particles ()
+        """
+
+class MarkovChain:
+    def __init__(self, matrix: object, evap: object = ...) -> None:
+        """__init__(self: pyevdm.MarkovChain, matrix: object, evap: object = None) -> None
+
+        constructor
+
+        Parameters:
+        ___________
+        matrix : array or csc sparse matrix
+        \tprobability matrix a[j,i] from i to jevap : array | None evaporation vector
+        """
+    def evolute(self, init: numpy.ndarray, t_max: float, traj_num: int, max_step: int, seed: int) -> numpy.ndarray:
+        """evolute(self: pyevdm.MarkovChain, init: numpy.ndarray, t_max: float, traj_num: int, max_step: int, seed: int) -> numpy.ndarray
+
+        seed: generator seed
+
+        """
+
 class Matrix:
     @overload
     def __init__(self, ELGrid: GridEL, dtype: str = ...) -> None:
@@ -781,7 +886,7 @@ class Matrix:
         Parameters:
         ___________
         ELGrid : GridEL
-        \tCreated EL Grid.
+        \tEL Grid.
         dtype : string
         \tfloat or double.
 
@@ -806,7 +911,7 @@ class Matrix:
         Parameters:
         ___________
         ELGrid : GridEL
-        \tCreated EL Grid.
+        \tEL Grid.
         dtype : string
         \tfloat or double.
 
@@ -831,7 +936,7 @@ class Matrix:
         Parameters:
         ___________
         ELGrid : GridEL
-        \tCreated EL Grid.
+        \tEL Grid.
         dtype : string
         \tfloat or double.
 
@@ -856,7 +961,7 @@ class Matrix:
         Parameters:
         ___________
         ELGrid : GridEL
-        \tCreated EL Grid.
+        \tEL Grid.
         dtype : string
         \tfloat or double.
 
@@ -881,7 +986,7 @@ class Matrix:
         Parameters:
         ___________
         ELGrid : GridEL
-        \tCreated EL Grid.
+        \tEL Grid.
         dtype : string
         \tfloat or double.
 
@@ -909,8 +1014,8 @@ class Matrix:
 
         creating Matrix with another dtype
         """
-    def calc_diag(self) -> None:
-        """calc_diag(self: pyevdm.Matrix) -> None
+    def calc_diag(self, count_evap: bool = ...) -> None:
+        """calc_diag(self: pyevdm.Matrix, count_evap: bool = False) -> None
 
         make diag values -sum of scatter probabilities
         """
@@ -919,7 +1024,7 @@ class Matrix:
     def diag_distrib(self) -> Distrib:
         """diag_distrib(self: pyevdm.Matrix) -> pyevdm.Distrib
 
-        givesdistribution of diag scatter matrix.
+        gives distribution of diag scatter matrix.
 
         Parameters:
         ___________
@@ -1016,6 +1121,20 @@ class ScatterFactor:
         evaluates form factor for demonstration
         """
 
+class Stated:
+    e: float
+    l: float
+    ptype: int
+    def __init__(self, arg0: int, arg1: float, arg2: float) -> None:
+        """__init__(self: pyevdm.Stated, arg0: int, arg1: float, arg2: float) -> None"""
+
+class Statef:
+    e: float
+    l: float
+    ptype: int
+    def __init__(self, arg0: int, arg1: float, arg2: float) -> None:
+        """__init__(self: pyevdm.Statef, arg0: int, arg1: float, arg2: float) -> None"""
+
 class scatter_event_info:
     def __init__(self, *args, **kwargs) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
@@ -1060,53 +1179,20 @@ def CalcCaptureImpl(capt_vector: Capture, ptype_in: int, ptype_out: int, m_wimp:
 def CalcScatterImpl(matrix: Matrix, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: ScatterEvent, Nmk: object, **kwargs) -> None:
     """CalcScatterImpl(matrix: pyevdm.Matrix, ptype_in: int, ptype_out: int, m_wimp: float, delta: float, m_nuc: float, sc_event: pyevdm.ScatterEvent, Nmk: object, **kwargs) -> None
 
-    Calculates scatter matrix part, add event to matrix class
-
-    Parameters:
-    ___________
-    matrix : Matrix
-    \tScatter matrix histo.
-    ptype_in : int
-    \tindex of input particle type.
-    ptype_out : int
-    \tindex of output particle type.
-    m_wimp : float
-    \tdm particle mass, GeV.
-    delta : float
-    \tdelta mass GeV: output mass - input mass.
-    m_nuc : float
-    \tnuclear mass, GeV.
-    sc_event : ScatterEvent.
-    Nmk : int | function | vector
-    \tnumber of monte-carle steps.
-    \tMay depends on (e,l) or on (e0,e1,l0,l1)
-    measure: how E,L distributed in bin.
-    \tshould be a tuple (p,q). E and l would be uniformly distributed by dE^pdl^q. default (1,2)
-    \tmethod : str
-    \t method of generating therm velocity of nuclei.can be: 
-    \t 'notherm', 'naive','soft' (more probability of high velocities), 'soft_tresh' (same as soft, but considering inelastic treshold)
-    Nmk_traj: int
-    \tnumber of monte-carle steps on each trajectory.
-    weight : float
-    \t[optional] scale factor, default - 1.
-    bar : object
-    \t[optional] progress bar update function.
+    cut_tau : bool
+    \t[optional] cut tau optimization.
     """
 def GridProjectionMatrix(Grid_out: GridEL, Grid_in: GridEL, p: float = ..., q: float = ...) -> object:
     """GridProjectionMatrix(Grid_out: pyevdm.GridEL, Grid_in: pyevdm.GridEL, p: float = measure of bin proportional dE^p, q: float = measure of bin proportional dl^q) -> object
 
     Make projection matrix from Grid_in to Grid_out distribution
     """
-def func_factor(func: object) -> ScatterFactor:
-    """func_factor(func: object) -> pyevdm.ScatterFactor
+def helm_factor(R: float, s2: float, CF: float) -> ScatterFactor:
+    """helm_factor(R: float, s2: float, CF: float) -> pyevdm.ScatterFactor
 
-    create elastic form fractor from function
-    Input should contain pointer to funcion with signature float ScatterFunc(float q_2,float v2T)
-    where q_2 = q^2 - transferred momentum in GeV,v2T - squared norm of inelastic transfer velocity
-    Parameters:
-    ___________
-    func : function
-    \tfloat ScatterFunc(float q_2,float v2T)
+    create helm form fractor
+    FF(q^2) = CF*(Bessels[qR])^2*exp(-q^2*s2)Parameters:
+
     """
 @overload
 def qexp_factor(b: float, y_inv: bool, P_0: numpy.ndarray[numpy.float32], P_V: numpy.ndarray[numpy.float32]) -> ScatterFactor:
@@ -1174,3 +1260,5 @@ def qexp_factor(b: float, y_inv: bool, P_0: numpy.ndarray[numpy.float32]) -> Sca
     P_0 : array
     \tcoefficients of y^i
     """
+def set_thread_num(threads: int) -> None:
+    """set_thread_num(threads: int) -> None"""
