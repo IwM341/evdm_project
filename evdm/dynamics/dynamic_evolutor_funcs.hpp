@@ -396,12 +396,6 @@ namespace evdm{
 			push_points(m_points, tmp_size, num, m_buffer);
 		}//refine grid to 17 points
 
-		auto return_theta_xi = [](std::span<PDF_t> pts,T xi) -> T {
-			
-		};
-		auto return_full_prob = [](std::span<PDF_t> pts) -> T {
-
-		};
 		auto return_value = [&](size_t size) -> T {
 			
 			// calclulate full probability

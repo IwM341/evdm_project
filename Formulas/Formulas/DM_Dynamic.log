@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  11 FEB 2026 23:19
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  18 FEB 2026 15:09
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -1113,7 +1113,7 @@ Missing character: There is no Å in font cmr10!
 Missing character: There is no ñ in font cmr10!
 Missing character: There is no ë in font cmr10!
 Missing character: There is no è in font cmr10!
-<imags/graphT.jpg, id=115, 383.18156pt x 378.66469pt>
+<imags/graphT.jpg, id=119, 383.18156pt x 378.66469pt>
 File: imags/graphT.jpg Graphic file (type jpg)
 <use imags/graphT.jpg>
 Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
@@ -1122,7 +1122,7 @@ Package pdftex.def Info: imags/graphT.jpg  used on input line 102.
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 [2] [3 <./imags/graphT.jpg>] [4]
-<imags/diagramm1.png, id=146, 462.528pt x 346.896pt>
+<imags/diagramm1.png, id=150, 462.528pt x 346.896pt>
 File: imags/diagramm1.png Graphic file (type png)
 <use imags/diagramm1.png>
 Package pdftex.def Info: imags/diagramm1.png  used on input line 256.
@@ -1181,15 +1181,52 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `math shift' on input line 126.
 
-) (src/FullMC.tex [17] [18]) [19] (DM_Dynamic.aux)
+) (src/FullMC.tex [17] [18]
+
+LaTeX Warning: Command \cyrd invalid in math mode on input line 171.
+
+
+LaTeX Warning: Command \cyri invalid in math mode on input line 171.
+
+
+LaTeX Warning: Command \cyra invalid in math mode on input line 171.
+
+
+LaTeX Warning: Command \cyrg invalid in math mode on input line 171.
+
+
+LaTeX Warning: Command \cyro invalid in math mode on input line 171.
+
+
+LaTeX Warning: Command \cyrn invalid in math mode on input line 171.
+
+
+LaTeX Warning: Command \cyra invalid in math mode on input line 171.
+
+
+LaTeX Warning: Command \cyrl invalid in math mode on input line 171.
+
+
+LaTeX Warning: Command \cyrsftsn invalid in math mode on input line 171.
+
+Missing character: There is no ä in font cmr10!
+Missing character: There is no è in font cmr10!
+Missing character: There is no à in font cmr10!
+Missing character: There is no ã in font cmr10!
+Missing character: There is no î in font cmr10!
+Missing character: There is no í in font cmr10!
+Missing character: There is no à in font cmr10!
+Missing character: There is no ë in font cmr10!
+Missing character: There is no ü in font cmr10!
+[19]) [20] (DM_Dynamic.aux)
 Package rerunfilecheck Info: File `DM_Dynamic.out' has not changed.
-(rerunfilecheck)             Checksum: B8797FD8DE9ACE79AAAAEFF06662458C;3990.
+(rerunfilecheck)             Checksum: 192801FE6CC4FF72498C059023F758F4;4210.
  ) 
 Here is how much of TeX's memory you used:
- 26233 strings out of 475385
- 503535 string characters out of 2790968
+ 26236 strings out of 475385
+ 503582 string characters out of 2790968
  843334 words of memory out of 3000000
- 47069 multiletter control sequences out of 15000+600000
+ 47070 multiletter control sequences out of 15000+600000
  476139 words of font info for 43 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  81i,13n,83p,776b,613s stack positions out of 10000i,1000n,20000p,200000b,80000s
@@ -1205,9 +1242,9 @@ msfonts/cm/cmsy10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy5.pfb>
 type1/public/amsfonts/symbols/msam10.pfb><D:/Soft/MikTex/fonts/type1/public/cm-
 super/sfbx1000.pfb><D:/Soft/MikTex/fonts/type1/public/cm-super/sfbx1200.pfb><D:
 /Soft/MikTex/fonts/type1/public/cm-super/sfrm1000.pfb>
-Output written on DM_Dynamic.pdf (19 pages, 376886 bytes).
+Output written on DM_Dynamic.pdf (20 pages, 381453 bytes).
 PDF statistics:
- 341 PDF objects out of 1000 (max. 8388607)
- 102 named destinations out of 1000 (max. 500000)
- 183 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 350 PDF objects out of 1000 (max. 8388607)
+ 104 named destinations out of 1000 (max. 500000)
+ 191 words of extra memory for PDF output out of 10000 (max. 10000000)
 

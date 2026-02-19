@@ -19,7 +19,22 @@
 #include "../dynamics/dynamic_evolutor_funcs.hpp"
 namespace evdm {
 
+	struct FFCImplStub {
 
+		template <typename T, typename U>
+		static FFCImplStub DeSerialize(T&& x, U&& y) {
+			return {};
+		}
+
+		template <typename T>
+		auto Serialize(T&& S) const {
+			return grob::Serialize(false, S);
+		}
+
+		std::vector< ElementInfo_t> construct(size_t, size_t) const {
+			return {};
+		}
+	};
 
 	uint_least64_t hash_seed(uint_least64_t i) {
 		uint_least64_t x = static_cast<uint_least64_t>(i);
@@ -221,7 +236,7 @@ namespace evdm {
 			T Tout = eT(-current.e, L2);
 			auto [T00, T01, T10, T11] = Node.values_view([sel_elem_index](
 				const evdm::ScatterInfoElements<T>& cel) {
-					return cel.ThetaTrajs[sel_elem_index].Tin;
+					return cel.Tin;
 				});
 			T Tin = interpolate_lin(T00, T01, T10, T11, alpha_el, beta_el);
 
@@ -520,42 +535,46 @@ namespace evdm {
 				auto [rmin,rmax] = B.find_rmin_rmax(-e,L2*l*l,rme);
 				auto i0_rmin = get_poses(rmin);
 				auto i0_rmax = get_poses(rmax);
-				std::vector<ScatterInfoTheta<T>> m_traj_for_elements;
-				m_traj_for_elements.reserve(m_elements.size());
+				std::vector<T> m_traj_prob_for_elements(m_elements.size());
+				std::vector<grob::Point<T, T>> buffers(ThetaMaxSteps*2);
+				std::span<grob::Point<T, T>> buffer1(buffers.begin(), ThetaMaxSteps);
+				std::span<grob::Point<T, T>> buffer2(buffers.begin()+ ThetaMaxSteps, ThetaMaxSteps);
+				T theta_max = B.get_theta_max(rmin, rmax);
+				T Tin = B.get_internal_period(rmin, rmax, 200);
+				T Tout = eT(-e, L2 * l * l);
+
 				for (size_t i=0;i<m_qt.size();++i){
-					T theta_max = B.get_theta_max(rmin,rmax);
-					T Tin = B.get_internal_period(rmin,rmax,200);
-					T Tout = eT(-e,L2*l*l);
-						
-					m_traj_for_elements.push_back( 
-						genTrajProbs(
-							e,l,rmin,rmax,theta_max,Tin,Tout,m_qt[i],ThetaMaxSteps,20, ThetaAccept
-						)
+					m_traj_prob_for_elements[i] = GenTrajProbs(
+						B, e, l, rmin, rmax, theta_max, Tin, Tout, 
+						m_qt[i], buffer1, buffer2, 20, ThetaAccept
 					);
 				}
+
 				return ScatterInfoElements<T>(
-					std::move(m_traj_for_elements),
+					Tin,
+					std::move(m_traj_prob_for_elements),
 					std::make_tuple(il_min,i0_rmin,i0_rmax)
 				);
 			};
 			auto m_el_tree = make_el_tree(
 				el_filler, -B.Phi[0],
 				initial_el_level, max_el_level, max_el_size, zeroProb,
-				el_cmp_accept);
+				el_cmp_accept
+			);
 
 			ScatterInfoEL.addQT(
 				ptype_in,ptype_out,
 				std::move(m_el_tree), std::move(m_qt)
-				);
+			);
 		}
-		
+		/*
 		void AddSameProcess(size_t ptype_in_dsc,size_t ptype_out_dsc,
 		size_t ptype_in_src,size_t ptype_out_src){
 			ScatterInfoEL.addQT(ptype_in_dsc,ptype_out_dsc,
 					ScatterInfoEL.getQT(ptype_in_src,ptype_out_src),
 					ScatterInfoEL.getRVInfo(ptype_in_src,ptype_out_src)
 			);
-		}
+		}*/
 
 		template <typename Gen_t>
 		void evolute(
@@ -666,128 +685,6 @@ namespace evdm {
 			return ScatterRVExpInfo_t<T>(std::move(max_ffs),sum/Nmk,u_tresh);
 		}
 
-
-
-		ScatterInfoTheta<T> genTrajProbs(
-			T e, T l, T rmin,T rmax,T theta_max,T Tin,T Tout,QT_RV_t<T> const & rv_probs,
-			size_t max_steps,size_t max_lvl,T MaxProbDiff
-		)const{
-			using namespace grob::literals;
-			typedef grob::Point<T,T> PDF_t;
-			if(max_steps < 16){
-				throw std::runtime_error("genTrajProbs: max_steps < 16");
-			}
-			std::vector<PDF_t> m_points(max_steps+1);
-			std::vector<PDF_t> m_buffer(max_steps+1);
-			size_t tmp_size = 0;
-
-			T _1 = 1;
-
-			//B.get_internal_period(rmin,rmax,100);genTrajProbs
-			dP_dth_functor<T> dP_dth(B,rv_probs,e,rmin,rmax,theta_max,Tin+Tout);
-
-			m_points[0] = {0,dP_dth(0)};
-			m_points[1] = { _1/2,dP_dth(_1/2) };
-			m_points[2] = {_1,dP_dth(_1)};
-			tmp_size  += 3;
-
-			T PFD_max = m_points.front()[1_c];
-
-			
-			max_steps -= 2;
-			auto intr_log = [](PDF_t P0,PDF_t P1){
-				return interpolate_log(P0[1_c],P1[1_c],T(0.5));
-			};
-			auto intr_lin = [](PDF_t P0,PDF_t P1){
-				return (P0[1_c] + P1[1_c])/2;
-			};
-			
-			auto new_point = [&dP_dth](PDF_t P0,PDF_t P1)->PDF_t {
-				T x = (P0[0_c]+P1[0_c])/2;
-				return PDF_t(x,dP_dth(x));
-			};
-			//T m_zero = 1e-9*m_points.front().second;
-
-			
-			{// get rid of zero elements until there is positive element
-				
-				PDF_t & p0 = m_points.front();
-				PDF_t & p1_2 = *std::next(m_points.begin());
-				PDF_t & p1 = m_points.back();
-				T remain_prob = std::max(p1_2[1_c], p1[1_c]) * p1_2[0_c];
-				for(size_t i=0;i<max_lvl;++i){
-					if(p0[1_c]* p1_2[0_c] * 1e-10 > remain_prob ){
-						PDF_t np1 = new_point(p0, p1_2);
-						p1 = p1_2;
-						p1_2 = np1;
-						remain_prob += p1_2[1_c] * p1_2[0_c];
-					} else{
-						break;
-					}
-				}
-			}
-
-			auto PointComp = [](auto const& x, auto const& y) {
-				return x[0_c] < y[0_c];
-			};
-			auto push_points = [PointComp](
-				std::vector<PDF_t> & m_points,size_t &tmp_size,
-				size_t new_points_num,std::vector<PDF_t> & buff)
-			{
-				
-				if(new_points_num){
-					auto beg = m_points.begin();
-					std::merge(beg ,beg+tmp_size,beg+tmp_size,
-						beg+tmp_size+new_points_num,buff.begin(),
-						PointComp);
-					std::swap(m_points,buff);
-					tmp_size += new_points_num;
-				}
-			};
-
-			for(size_t i=0;i<3;++i){
-				size_t num = 0;
-				for(size_t i=0;i<tmp_size-1;++i){
-					T x0 = m_points[i][0_c];
-					T x1 = m_points[i+1][0_c];
-					T x = (x0+x1)/2;
-					m_points[tmp_size+i] = {x,dP_dth(x)};
-					++num;
-					--max_steps;
-				}
-				push_points(m_points,tmp_size,num,m_buffer);
-			}//refine grid to 17 points
-
-			// we want to make prob less than MaxProbInPin in each bin
-			while(max_steps){
-				size_t new_points = 0;
-				auto inplace_iter = m_points.begin()+tmp_size;
-				for(size_t i=0;i<tmp_size-1;++i){
-					PDF_t const & p = m_points[i];
-					PDF_t const & nxt = m_points[i+1];
-					T h = nxt[0_c]-p[0_c];
-					if(2*std::abs(p[1_c]- nxt[1_c]) > MaxProbDiff*(p[1_c] + nxt[1_c])){
-						if(max_steps)[[likely]]{
-							new_points++;
-							max_steps--;
-							PDF_t ph = new_point(p,nxt);
-							*inplace_iter = ph;
-							++inplace_iter;
-						}else {
-							push_points(m_points,tmp_size,new_points,m_buffer);
-							return ScatterInfoTheta<T>(std::span{ m_points.begin(),tmp_size },Tin);
-						}
-					}
-				}
-				if(new_points){
-					push_points(m_points,tmp_size,new_points,m_buffer);
-				} else{
-					return ScatterInfoTheta<T>(std::span{ m_points.begin(),tmp_size },Tin);
-				}
-			}
-			return ScatterInfoTheta<T>(std::span{ m_points.begin(),tmp_size },Tin);
-		}
-
 		public:
 
 		template <typename ValueGetter_t>
@@ -858,11 +755,11 @@ namespace evdm {
 				};
 				T delta_fp = get_delta(x.full_prob,x.full_prob);
 				T max_delta = delta_fp;
-				for(size_t i=0;i<x.ThetaTrajs.size();++i){
-					ScatterInfoTheta<T> const& _x =x.ThetaTrajs[i];
-					ScatterInfoTheta<T> const& _y =y.ThetaTrajs[i];
-					if(_x.full_prob > zeroProb ||  _y.full_prob > zeroProb){
-						max_delta = std::max(max_delta,get_delta(_x.full_prob,_y.full_prob));
+				for(size_t i=0;i<std::min(x.ProbsElements.size(),y.ProbsElements.size());++i){
+					T _x = x.ProbsElements[i];
+					T _y = y.ProbsElements[i];
+					if(_x > zeroProb ||  _y> zeroProb){
+						max_delta = std::max(max_delta,get_delta(_x,_y));
 					} 
 				}
 

@@ -234,186 +234,14 @@ namespace evdm {
 		SampleTheta.Values = std::vector<T>(Xpoints.begin(), Xpoints.end());
 		return SampleTheta;
 	}
-	
-	/// @brief struct to sample theta from random value 
-	template <typename T>
-	struct ScatterInfoTheta {
-		T full_prob;
-		T Tin;
-		//VecFunc_t<T> SampleTheta;
-		VecFunc_t<T> LogThetaProbs; // x - dimentionless theta, y - density
-		ScatterInfoTheta():full_prob(0),Tin(0){}
-
-		ScatterInfoTheta(std::span<grob::Point<T, T>>  m_prob,T Tin):Tin(Tin)
-		{	
-			using namespace grob::literals;
-			std::vector<grob::Point<T, T>> m_reserve;
-			if(m_prob.size() < 2){
-				m_reserve = { {0,0},{0,1} };
-				m_prob = m_reserve;
-			}
-			auto Xp = std::views::transform(m_prob,[](auto const & P){return P[0_c];});
-			auto Yp = std::views::transform(m_prob,[](auto const & P){return std::log(P[1_c]);});
-
-			LogThetaProbs.Grid = std::vector<T>(Xp.begin(), Xp.end());
-			LogThetaProbs.Values = std::vector<T>(Yp.begin(),Yp.end());
-			T sum = 0;
-			const auto & X = LogThetaProbs.Grid;
-			const auto & Y = LogThetaProbs.Values;
-			for(size_t i=0;i< LogThetaProbs.size()-1;++i){
-				sum += (X[i+1]- X[i]) * std::exp( (Y[i]+Y[i+1])/2 );
-			}
-			full_prob = sum;
-		}
-		inline T log_prob(T x)const{
-			if(x >= LogThetaProbs.Grid.front() && x < LogThetaProbs.Grid.back())
-				return LogThetaProbs(x);
-			else
-				return std::numeric_limits<T>::max();
-		}
-
-		inline T prob(T x)const{
-			if(x >= LogThetaProbs.Grid.front() && x < LogThetaProbs.Grid.back())
-				return std::exp( LogThetaProbs(x) );
-			else
-				return 0;
-		}
-		ScatterInfoTheta(T full_prob, T Tin,VecFunc_t<T> LogThetaProbs) :
-			full_prob(full_prob),Tin(Tin), LogThetaProbs(std::move(LogThetaProbs)) {}
-		SERIALIZATOR_FUNCTION(PROPERTY_NAMES("full_prob","Tin", "LogThetaProbs"), PROPERTIES(full_prob,Tin, LogThetaProbs));
-		DESERIALIZATOR_FUNCTION(ScatterInfoTheta, PROPERTY_NAMES("full_prob","Tin", "LogThetaProbs"), PROPERTY_TYPES(full_prob,Tin, LogThetaProbs));
-
-	};
-
-	/// @brief struct to sample theta
-	template <typename T>
-	struct ScatterSampleTheta{
-		VecFunc_t<T> SampleTheta;
-		VecFunc_t<T> MajorantPDF;
-		ScatterSampleTheta(){}
-		
-		template <typename X>
-		using array4 = std::array<X,4>;
-		
-		inline grob::Point<T,T> sample(T xi)const{
-			T x = SampleTheta(xi);
-			return {x,MajorantPDF(x)};
-		}
-
-		ScatterSampleTheta(
-			VecFunc_t<T> const & logP0,
-			VecFunc_t<T> const & logP1,
-			VecFunc_t<T> const & logP2,
-			VecFunc_t<T> const & logP3)
-		{
-			using namespace grob::literals;
-			size_t m_size = logP0.size()+ logP1.size()+ logP2.size()+ logP3.size();
-			std::vector<grob::Point<T,T> > m_points;
-			m_points.reserve(m_size);
-			constexpr T max_val = std::numeric_limits<T>::max();
-			
-			VecFunc_t<T> null_prob(std::vector<T>({0,1}),std::vector<T>({ max_val,max_val}));
-			std::array<std::reference_wrapper<const VecFunc_t<T>> ,4> Ps = { logP0,logP1,logP2,logP3};
-			for(size_t i=0;i>4;++i){
-				const VecFunc_t<T> & F = Ps[i];
-				if(F.size() < 2){
-					Ps[i] = null_prob;
-				}
-			}
-			
-			array4<size_t> m_index = {0,0,0,0};
-			array4<size_t> m_end = grob::map(Ps,[](const VecFunc_t<T> & P){return P.size();});
-
-			while(m_index != m_end){
-				T min_next_x = 1;
-				for(size_t j=0;j<4;++j){
-					if(m_index[j] != m_end[j]){
-						min_next_x = std::min(min_next_x,Ps[j].get().Grid[ m_index[j] ]);
-					}
-				}
-				T max_value = 0;
-				for(size_t j=0;j<4;++j){
-					if(m_index[j] != m_end[j]) {
-						if(Ps[j].get().Grid[ m_index[j] ] == min_next_x){
-							max_value = std::max(max_value,std::exp(Ps[j].get().Values[ m_index[j] ]) );
-							++m_index[j];
-						} else {
-							const VecFunc_t<T> & F = Ps[j];
-							max_value = std::max(max_value,std::exp(F(min_next_x)));
-						}
-					}
-				}
-				m_points.push_back({min_next_x,max_value});
-			}
-			auto Xp = std::views::transform(m_points,[](auto const & P){return P[0_c];});
-			auto Yp = std::views::transform(m_points,[](auto const & P){return P[1_c];});
-			MajorantPDF.Grid = std::vector<T>(Xp.begin(),Xp.end());
-			MajorantPDF.Values = std::vector<T>(Yp.begin(),Yp.end());
-			SampleTheta = List_to_Sample(std::move(m_points));
-		}
-
-		template <typename Gen_t,typename dP_dth_functor_t>
-		T gen_theta(dP_dth_functor_t ProbFunc,
-			Gen_t &G,size_t attempts,
-			std::span<T> buff) const
-		{
-			constexpr size_t Nt = 80;
-
-			for (size_t _a = 0; _a < attempts;++_a){
-				T xi_prob = G();
-				auto [m_th,majorant] = sample(xi_prob);
-				T maj_xi = G();
-				if(majorant * maj_xi <= ProbFunc(m_th)){
-					return m_th;
-				}
-			}
-			//no return: make by honest integration
-			T xi_prob = G();
-			T max_theta_undim = 1;
-			T prob_func_0 = ProbFunc(0);
-			for(size_t i=0;i<20;++i){
-				if(ProbFunc(max_theta_undim/(Nt-1)) < prob_func_0 * 1e-10){
-					max_theta_undim/=2;
-				}
-			}
-			std::vector<T> m_bf;
-			
-			if(buff.size() < Nt){
-				m_bf.resize(Nt);
-				buff = m_bf;
-			} else {
-				buff = std::span{buff.begin(),Nt};
-			}
-			buff[0] = 0;
-			T last_prob = prob_func_0;
-			for(size_t i=1;i<buff.size();++i){
-				T next_prob = ProbFunc(i*max_theta_undim/(Nt-1));
-				T sum_prob = (last_prob+next_prob);
-				T diff_prob = (last_prob-next_prob);
-				buff[i] = buff[i-1] + (sum_prob)*WLogLinear(diff_prob/sum_prob)/2;
-				last_prob = next_prob;
-			}
-			T target_prob = buff.back()*xi_prob;
-			auto i = IndexGenBigHelper::gen(buff.begin(),buff.end(),target_prob);
-			i = (i > 0) ? i - 1 : 0;
-			auto th0 = i*max_theta_undim/(Nt-1);
-			auto dth = max_theta_undim/(Nt - 1);
-			T alpha = upbound( (buff[i+1] - target_prob)/(buff[i+1]-buff[i]),1);
-			return th0 + dth*(1-alpha);
-		}
-
-		ScatterSampleTheta(VecFunc_t<T> SampleTheta, VecFunc_t<T> MajorantPDF) :
-			SampleTheta(std::move(SampleTheta)), MajorantPDF(std::move(MajorantPDF)) {}
-		SERIALIZATOR_FUNCTION(PROPERTY_NAMES("SampleTheta", "MajorantPDF"), PROPERTIES(SampleTheta, MajorantPDF));
-		DESERIALIZATOR_FUNCTION(ScatterSampleTheta, PROPERTY_NAMES("SampleTheta", "MajorantPDF"), PROPERTY_TYPES(SampleTheta, MajorantPDF));
-	};
 
 	/// @brief struct with info: to sample the element toscatter + 
 	/// trajectory distribution for each element 
 	template <typename T>
 	struct ScatterInfoElements {
 		T full_prob;
-		std::vector<ScatterInfoTheta<T>> ThetaTrajs;
+		T Tin;
+		//std::vector<ScatterInfoTheta<T>> ThetaTrajs;
 		//std::vector<ScatterSampleTheta<T>> Samples;
 		std::vector<T> ProbsElements;
 		
@@ -433,32 +261,27 @@ namespace evdm {
 		
 		ScatterInfoElements(){}
 		ScatterInfoElements(
-			std::vector<ScatterInfoTheta<T>> _ThetaTrajs,
+			T Tin,
+			std::vector<T> _ProbsElements,
 			indexes_t indexes
-		):
-			ThetaTrajs(std::move(_ThetaTrajs)),
+		):	Tin(Tin),
+			ProbsElements(std::move(_ProbsElements)),
 			indexes(indexes)
 		{
-			auto prob_getter = std::views::transform(ThetaTrajs,[](auto const & x){return x.full_prob;});
-			full_prob = std::accumulate(prob_getter.begin(), prob_getter.end(),T(0));
-			//count ProbsElements
-			if(full_prob == 0){
-				return;
-			}
-			ProbsElements = std::vector<T>(prob_getter.begin(),prob_getter.end());
+			full_prob = std::accumulate(ProbsElements.begin(), ProbsElements.end(),T(0));
 		}
 		SERIALIZATOR_FUNCTION(
-			PROPERTY_NAMES("ThetaTrajs","indexes" ), 
-			PROPERTIES(ThetaTrajs, indexes)
+			PROPERTY_NAMES("Tin","ProbsElements","indexes" ), 
+			PROPERTIES(Tin,ProbsElements, indexes)
 		);
 		DESERIALIZATOR_FUNCTION(
 			ScatterInfoElements, 
-			PROPERTY_NAMES("ThetaTrajs", "indexes" ), 
-			PROPERTY_TYPES(ThetaTrajs, indexes)
+			PROPERTY_NAMES("Tin", "ProbsElements", "indexes" ),
+			PROPERTY_TYPES(Tin,ProbsElements, indexes)
 		);
 		inline int correct_index(int i) const{
 			for(;i>=0;--i){
-				if(ThetaTrajs[i].full_prob > 0){
+				if(ProbsElements[i] > 0){
 					return i;
 				}
 			}
@@ -470,7 +293,7 @@ namespace evdm {
 	/// to sample theta
 	template <typename T>
 	struct ScatterSampleElements {
-		std::vector<ScatterSampleTheta<T>> Samples;
+		//std::vector<ScatterSampleTheta<T>> Samples;
 		//std::vector<ScatterSampleTheta<T>> Samples;
 		//std::vector<T> SamplesElements;
 		
@@ -501,17 +324,7 @@ namespace evdm {
 		
 		using sci_cref_t = const ScatterInfoElements<T> & ;
 		ScatterSampleElements( sci_cref_t If0,sci_cref_t If1,sci_cref_t If2,sci_cref_t If3){
-			size_t N = If0.ProbsElements.size();
-			Samples.reserve(N);
-			for(size_t i=0;i< N;++i){
-				auto mget = [i](auto const& If) {
-					return If.ThetaTrajs[i].LogThetaProbs;
-				};
 
-				Samples.push_back(ScatterSampleTheta<T>(
-					mget(If0), mget(If1), mget(If2),mget(If3)
-				));
-			}
 			auto Ift = std::tie(If0,If1,If2,If3);
 			
 			indexes = std::make_tuple( 
@@ -525,34 +338,20 @@ namespace evdm {
 		}
 
 		ScatterSampleElements(
-			std::vector<ScatterSampleTheta<T>> Samples,
-			//std::vector<T> SamplesElements,
 			indexes_t indexes
-		):
-			Samples(std::move(Samples)),
-			//SamplesElements(std::move(SamplesElements)),
-			indexes(indexes)
-		{
-			
-		}
+		):indexes(indexes){}
+
 		SERIALIZATOR_FUNCTION(
-			PROPERTY_NAMES("Samples",
-				//"SamplesElements",
-				"indexes"), 
-			PROPERTIES(Samples,
-				 //SamplesElements,
-				 indexes)
-		);
-		DESERIALIZATOR_FUNCTION(
-			ScatterSampleElements, 
-			PROPERTY_NAMES("Samples", 
-				//"SamplesElements",
-				 "indexes"), 
-			PROPERTY_TYPES(Samples,
-				// SamplesElements,
-				indexes)
+			PROPERTY_NAMES("indexes"), 
+			PROPERTIES(indexes)
 		);
 
+		DESERIALIZATOR_FUNCTION(
+			ScatterSampleElements, 
+			PROPERTY_NAMES("indexes"), 
+			PROPERTY_TYPES(indexes)
+		);
+		
 		template <typename ExceptionFunc_t = NoExceptionHandler>
 		size_t gen_index(
 			T xi,std::span<T> buffer,
