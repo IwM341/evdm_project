@@ -10,7 +10,17 @@
 #include "dynamic_python.hpp"
 #include "distrib_python.hpp"
 #include "scatter_impl/dist_sampler.hpp"
+#include <pybind11/iostream.h>
 //#include <format>
+auto make_cout_scope(bool condition) {
+	if (not condition) {
+		return std::unique_ptr< pybind11::scoped_ostream_redirect>(nullptr);
+	} else {
+		return std::make_unique< pybind11::scoped_ostream_redirect>(
+			std::cout, pybind11::module_::import("sys").attr("stdout")
+		);
+	}
+}
 struct Py_FFC_Impl {
 	pybind11::object impl;
 
@@ -104,7 +114,25 @@ struct Py_Evolutor {
 				.m_errors = m_errors,
 				.max_theta_steps = pyget<size_t>(64, extra, "max_theta_steps"),
 				.prob_theta_accept = pyget<double>(0.05, extra, "theta_accept"),
+				.max_steps_eq = pyget<size_t>(0, extra, "eq_steps"),
 			};
+
+			
+
+			auto log_ino = pyget<std::string>("", extra, "verbose");
+			auto redirect_cout = make_cout_scope(log_ino != "");
+			
+			if (log_ino != "") {
+				params.logoutput = &std::cout;
+			}
+			
+			std::string decay = pyget<std::string>("SL", extra, "decay");
+			if(decay == "FD"){
+				params.fast_decay = true;
+			}
+
+			evdm::debug_args(params.logoutput,"", "start evolute with decay: ", decay);
+			
 			ev.evolute(
 				std::span < evdm::StateEL<T>>(m_states.mutable_data(), m_states.size()),
 				evdm::xorshift<T>(seed), m_probs_arr, evolve_time, max_scatter, params
@@ -127,10 +155,22 @@ struct Py_Evolutor {
 			T maxProbTheta =  pyget<T>(0.05, params, "max_theta_prob"); 
 			T zeroProb = pyget<T>(1e-16, params, "zero_prob");
 			size_t Nmk = pyget<size_t>(200, params, "Nmk");
+
+
+			
+			auto log_ino = pyget<std::string>("", params, "verbose");
+
+			auto redirect_cout = make_cout_scope(log_ino != "");
+			std::ostream* log = nullptr;
+			if (log_ino != "") {
+				log = &std::cout;
+			}
+
 			ev.AddProcess(ptypein, ptypeout,
 				initial_rv_level, max_rv_level, max_rv_size, rv_cmp_accept, 
 				initial_el_level, max_el_level, max_el_size, el_cmp_accept,
-				ThetaMaxSteps, maxProbTheta, zeroProb,evdm::xorshift<T>(seed),Nmk
+				ThetaMaxSteps, maxProbTheta, zeroProb,evdm::xorshift<T>(seed),Nmk,
+				log
 			);
 
 		}, m_evolutor);
@@ -287,7 +327,10 @@ void PyEvolutor_add_to_python_module(pybind11::module& m) {
 			"max_scat : int\n\t max number of scatter in evolution (to avoid infinit loop)\n"
 			"seed : int",
 			"max_theta_steps: size_t\n\tmax number of steps in trajectory\n",
-			"theta_accept: size_t\n\trelative difference in probability between poins of trajectory, which is acceptable",
+			"decay : str\n\t 'FD' or 'SD' (fast decay or slow decay)\n"
+			"theta_accept: size_t\n\trelative difference in probability between poins of trajectory, which is acceptable"
+			"eq_steps: size_t\n\tif after max_scat steps the particle still have time to evolve, we generate trajectory and pick point from it according to time",
+
 			py::arg("states"), py::arg("time"),
 			py::arg_v("probs",py::dict()), 
 			py::arg_v("max_scat", 1000000000), py::arg_v("seed", 123)

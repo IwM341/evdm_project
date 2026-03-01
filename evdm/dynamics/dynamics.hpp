@@ -28,6 +28,14 @@ namespace evdm {
 			ptype(ptype),e(e),l(l){}
 	};
 
+	template <typename T>
+	struct StateTimeEL : public StateEL<T> {
+		T t;
+		StateTimeEL() {}
+		StateTimeEL(size_t ptype, T e, T l, T t = 0):StateEL<T>(ptype,e,l),t(t){}
+		StateTimeEL(StateEL<T> S, T t = 0) :StateEL<T>(S), t(t) {}
+	};
+
 	struct ScatterEvent {
 		grob::GridFunction <
 			grob::linear_interpolator,

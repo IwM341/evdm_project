@@ -478,4 +478,96 @@ namespace evdm{
 		}
 		return return_value(tmp_size);
 	}
+
+
+	template <typename Args>
+	inline void _debug_args(std::ostream& os, std::string_view delimeter, Args arg) {
+		os << arg << std::endl;
+	}
+	template <typename Arg0, typename...Args>
+	inline void _debug_args(std::ostream& os, std::string_view delimeter,
+		Arg0 && arg,Args&&...args) {
+		os << arg << delimeter;
+		_debug_args(os, delimeter,args...);
+	}
+	template <typename...Args>
+	inline void debug_args(std::ostream* os,std::string_view delimeter, 
+		Args&&...args) {
+		if (os != nullptr) {
+			std::ostringstream os1;
+			_debug_args(os1, delimeter,args...);
+			(*os) << os1.str();
+		}
+	}
+
+	uint_least64_t hash_seed(uint_least64_t i) {
+		uint_least64_t x = static_cast<uint_least64_t>(i);
+		// SplitMix64 для 64-бит
+		x = (x + 0x9e3779b97f4a7c15) ^ (x >> 30);
+		x *= 0xbf58476d1ce4e5b9;
+		x = x ^ (x >> 27) ^ (x >> 17);
+		x *= 0x94d049bb133111eb;
+		x = x ^ (x >> 31);
+		return x > 0 ? x : 1;
+	}
+
+	uint_least64_t hash_float(float x) {
+		uint32_t bits;
+		std::memcpy(&bits, &x, sizeof(float));
+
+		// Обработка специальных значений
+		if (std::isnan(x)) {
+			return 0x7FF8000000000000ULL;
+		}
+
+		if (x == 0) {
+			bits = 0;
+		}
+
+		// Расширяем 32-битное значение до 64 бит с перемешиванием
+		uint_least64_t result = bits;
+		result ^= result >> 17;
+		result *= 0xed5ad4bbULL;
+		result ^= result >> 11;
+		result *= 0xac4c1b51ULL;
+		result ^= result >> 15;
+		result ^= result >> 31;
+
+		return result;
+	}
+
+	// Специализация для double
+	uint_least64_t hash_float(double x) {
+		uint64_t bits;
+		std::memcpy(&bits, &x, sizeof(double));
+
+		// Обработка специальных значений
+		if (std::isnan(x)) {
+			return 0x7FF8000000000000ULL;
+		}
+
+		if (x == 0) {
+			bits = 0;
+		}
+
+		// Перемешивание для double
+		bits ^= bits >> 33;
+		bits *= 0xff51afd7ed558ccdULL;
+		bits ^= bits >> 33;
+		bits *= 0xc4ceb9fe1a85ec53ULL;
+		bits ^= bits >> 33;
+
+		return bits;
+	}
+
+	uint_least64_t hash_combine(uint_least64_t x, uint_least64_t y) {
+		return x ^ y;
+	}
+
+	template <typename...Args>
+	uint_least64_t hash_combine(uint_least64_t x, Args...args) {
+		return hash_combine(x, hash_combine(args...));
+	}
+
+
 };

@@ -486,14 +486,20 @@ namespace evdm {
 		size_t refine_vectorized(RefineCondition_t r_cond, XYFuncVectorization_t && value_provider,
 			size_t m_level = 1,size_t max_new_nodes = std::numeric_limits<size_t>::max()){
 			size_t new_nodes = 0;
+			std::list<Node* > candidates;
 			for (Node & N : *this){
 				size_t delta = (1<<m_level) - 1;
 				if(max_new_nodes >= delta && r_cond(N)){
-					refine_unsave(N,m_level);
+					candidates.push_back(&N);
+					
 					max_new_nodes -=delta;
 					new_nodes += delta;
 				}
 			}
+			for (Node* N : candidates) {
+				refine_unsave(*N, m_level);
+			}
+
 			auto missings_tp = get_missing_values_unsafe();
 			auto as_pair = missings_tp | std::ranges::views::transform(
 				[](auto const & tp) -> std::pair<Fp_t,Fp_t> {return {std::get<1>(tp),std::get<2>(tp)};}

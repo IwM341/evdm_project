@@ -19,6 +19,8 @@
 #include "../dynamics/dynamic_evolutor_funcs.hpp"
 namespace evdm {
 
+
+
 	struct FFCImplStub {
 
 		template <typename T, typename U>
@@ -36,16 +38,7 @@ namespace evdm {
 		}
 	};
 
-	uint_least64_t hash_seed(uint_least64_t i) {
-		uint_least64_t x = static_cast<uint_least64_t>(i);
-		// SplitMix64 для 64-бит
-		x = (x + 0x9e3779b97f4a7c15) ^ (x >> 30);
-		x *= 0xbf58476d1ce4e5b9;
-		x = x ^ (x >> 27) ^ (x >> 17);
-		x *= 0x94d049bb133111eb;
-		x = x ^ (x >> 31);
-		return x > 0 ? x : 1;
-	}
+	
 
 	/// @brief type with quadtree (e,l) for each process ptype_in->ptype_out
 	template <typename T, typename FormFactorConstructor_impl>
@@ -114,6 +107,9 @@ namespace evdm {
 			constexpr static size_t ATTEMPT_THETA_ERROR = 4;
 			constexpr static size_t ATTEMPT_ERROR = 8;
 		};
+
+		/// @brief generate next state and time delta after scatter. If no scatter - return current state and 0
+		/// @return pair of next state and time delta
 		template <typename Gen_t>
 		std::pair<StateEL<T>, T> gen_next(
 			StateEL<T> current, T max_time,
@@ -121,9 +117,12 @@ namespace evdm {
 			std::span<T> ElementBuffer,
 			T MaxProbDiff_traj,
 			std::pair < std::span<grob::Point<T,T>>, std::span<grob::Point<T, T>>> theta_buffers,
-			size_t errors = gen_next_errors::NO_ERROR
+			bool FastDecay = false,
+			size_t errors = gen_next_errors::NO_ERROR,
+			std::ostream * logs = nullptr
 		) const {
-
+			
+			current.ptype = FastDecay ? 0 : current.ptype;
 			//calculate scatter probability
 			//generate ptype_out
 			std::array<T, 4> ptype_out_probs;
@@ -157,13 +156,13 @@ namespace evdm {
 			);
 
 			if (scat_prob <= 0) {
-				return { current,0 };
+				return { current,max_time };
 			}
 			//generate scatter time
 			auto xi = E0I1_G(G);
 			T dt_scat = -std::log(xi) / scat_prob;
 			if (dt_scat >= max_time) {
-				return { current,0 };
+				return { current,max_time };
 			}
 			//scatter
 			//generate ptype_out
@@ -306,7 +305,7 @@ namespace evdm {
 
 				T from_factor = m_factor * m_s.gen_pre_form_factor;
 
-
+				size_t p_type_out_eff = FastDecay ? 0 : ptype_out;
 				if (from_factor > majorant) {
 					if (errors & gen_next_errors::MAJORANT_ERROR) {
 						std::ostringstream err;
@@ -331,11 +330,11 @@ namespace evdm {
 
 						T l = Lmax > 0 ? newL / Lmax : T(0);
 
-						return { {ptype_out,newE,l}, max_time - dt_scat };
+						return { {p_type_out_eff,newE,l},  dt_scat };
 
 					}
 					else {
-						return { {ptype_out,newE,0}, 0 };
+						return { {p_type_out_eff,newE,0}, max_time };
 					}
 				}
 			}
@@ -347,7 +346,7 @@ namespace evdm {
 					<< current.l << ")";
 				throw std::runtime_error(err.str());
 			}
-			return { {ptype_out,0,0}, 0 };
+			return { {ptype_out,0,0}, max_time };
 
 		}
 
@@ -454,6 +453,9 @@ namespace evdm {
 		std::list<std::string> m_errors = {};
 		size_t max_theta_steps = 100;
 		double prob_theta_accept = 0.05;
+		bool fast_decay = false;
+		std::ostream *logoutput = nullptr;
+		size_t max_steps_eq = 0;
 	};
 	template <typename T,typename FFC_impl_t>
 	struct MCEvolutor {
@@ -498,14 +500,16 @@ namespace evdm {
 			size_t ptype_in,size_t ptype_out,
 			size_t initial_rv_level, size_t max_rv_level,size_t max_rv_size, T rv_cmp_accept,
 			size_t initial_el_level, size_t max_el_level,size_t max_el_size,T el_cmp_accept,
-			size_t ThetaMaxSteps, T ThetaAccept, T zeroProb, Gen_t G, size_t Nmk){
+			size_t ThetaMaxSteps, T ThetaAccept, T zeroProb, Gen_t G, size_t Nmk,
+			std::ostream*logs = nullptr){
 
 			std::vector<ElementInfo_t> m_elements = make_element_info(
 				ScatterInfoEL.FFC_impl,ptype_in,ptype_out
 			);
 			ElementsRVQuadTree<T> m_qt;
 			m_qt.reserve(m_elements.size());
-				
+			
+
 			for(size_t i=0;i<m_elements.size();++i){
 				const auto & m_el = m_elements[i];
 				auto rv_qt_filler = [&](T r,T v_undim)->ScatterRVExpInfo_t<T> {
@@ -518,6 +522,9 @@ namespace evdm {
 						zeroProb/m_elements.size(),rv_cmp_accept
 					)
 				);
+				debug_args(logs, "", "make rv tree for element: (",
+					m_elements[i].A, ", ", m_elements[i].Z, ")");
+
 			}
 
 			// 2) using RV info fill elinfo quadtree
@@ -561,7 +568,7 @@ namespace evdm {
 				initial_el_level, max_el_level, max_el_size, zeroProb,
 				el_cmp_accept
 			);
-
+			debug_args(logs, "", "make el tree");
 			ScatterInfoEL.addQT(
 				ptype_in,ptype_out,
 				std::move(m_el_tree), std::move(m_qt)
@@ -586,6 +593,11 @@ namespace evdm {
 			EvolutionExtraParams m_params = {}
 		) const{
 
+			debug_args(m_params.logoutput, "", "evolution: ", " is FD: ", 
+				m_params.fast_decay, ", time: ", evolve_time, ", max_steps_eq: ", m_params.max_steps_eq);
+			if (m_params.max_steps_eq == 0) {
+				m_params.max_steps_eq = max_scatter;
+			}
 			typedef typename ScatterInfoEL_in_t<T, FFC_impl_t>::gen_next_errors err_t;
 			size_t m_err = 0;
 			auto m_errors = m_params.m_errors;
@@ -608,10 +620,22 @@ namespace evdm {
 			std::array<T,80> ElementBuffer;
 			std::vector<grob::Point<T,T>> prob_buffers(m_params.max_theta_steps * 2);
 			
-			#pragma omp parallel for firstprivate(ElementBuffer) firstprivate(prob_buffers)
+			std::atomic<bool> error_occurred(false);
+			std::exception_ptr global_exception_ptr = nullptr;
+
+			std::vector< StateTimeEL<T>> TrajectoryStory;
+			#pragma omp parallel for firstprivate(ElementBuffer) firstprivate(prob_buffers) firstprivate(TrajectoryStory)
 			for(int i=0;i<N;++i){
+				if(error_occurred.load()){
+					continue;
+				}
 				auto G = _G;
-				G.set_seed(hash_seed(_seed ^ i + 1));
+				G.set_seed(
+					hash_combine(
+						hash_float(init[i].e), hash_float(init[i].l),
+						hash_seed(init[i].ptype), hash_seed(i), hash_seed(_G.state)
+					)
+				);
 
 				std::span<grob::Point<T,T>> m_buf1{ prob_buffers.data(),m_params.max_theta_steps };
 				std::span<grob::Point<T,T>> m_buf2{ prob_buffers.data() + m_params.max_theta_steps,m_params.max_theta_steps };
@@ -619,16 +643,74 @@ namespace evdm {
 				T max_scatter1 = max_scatter+std::floor( G()*ScatterInfoEL.ptypes);
 				StateEL<T> tmp_state = init[i];
 				T time_remain = evolve_time;
-				for(size_t j=0;j< max_scatter1;++j){
+				T time_delta = 0;
+				size_t j = 0;
+				for(;j< max_scatter1 && !error_occurred.load() ;++j){
 					
-					std::tie(tmp_state, time_remain) = ScatterInfoEL.gen_next(
-						tmp_state, time_remain, prob_matrix.data(), B, G, ElementBuffer, m_params.prob_theta_accept, {m_buf1,m_buf2}, m_err
-					);
-					if(time_remain <= 0){
+					try {
+						std::tie(tmp_state, time_delta) = ScatterInfoEL.gen_next(
+							tmp_state, time_remain, prob_matrix.data(), B, G, ElementBuffer,
+							m_params.prob_theta_accept, { m_buf1,m_buf2 },
+							m_params.fast_decay, m_err
+						);
+						time_remain -= time_delta;
+						if (time_remain <= 0) {
+							break;
+						}
+					}
+					catch (...) {
+						if (!error_occurred.exchange(true)) {
+							global_exception_ptr = std::current_exception();
+						}
 						break;
 					}
 				}
+				if (j == max_scatter1 && time_remain > 0) {
+					if (TrajectoryStory.size() < m_params.max_steps_eq)
+						TrajectoryStory.resize(m_params.max_steps_eq);
+					
+					TrajectoryStory[0] = { tmp_state, 0};
+					T last_time = 0;
+					for(size_t k=0;k<TrajectoryStory.size()  && !error_occurred.load(); ++k){
+						try {
+							T delta_time;
+							std::tie(tmp_state, delta_time) = ScatterInfoEL.gen_next(
+								TrajectoryStory[k], time_remain, prob_matrix.data(), B, G, ElementBuffer,
+								m_params.prob_theta_accept, { m_buf1,m_buf2 },
+								m_params.fast_decay, m_err
+							);
+							last_time += delta_time;
+							TrajectoryStory[k].t = last_time;
+							if(k+1 < TrajectoryStory.size()){
+								TrajectoryStory[k+1] = { tmp_state, 0 };
+							}
+							
+							time_remain -= delta_time;
+							if (time_remain <= 0) {
+								break;
+							}
+							
+						} catch (...) {
+							if (!error_occurred.exchange(true)) {
+								global_exception_ptr = std::current_exception();
+							}
+							break;
+						}
+					}
+					if(time_remain > 0 && !error_occurred.load()){
+						// we should generate state according to trajectory story
+						auto time_view = TrajectoryStory | std::views::transform([](const StateTimeEL<T>& st) {
+							return st.t;
+						});
+						size_t index = IndexGenBigHelper::gen(time_view.begin(), time_view.end(),  time_view.back() * G());
+						tmp_state = TrajectoryStory[index];
+					}
+				} 
 				init[i] = tmp_state;
+				
+			}
+			if (global_exception_ptr) {
+				std::rethrow_exception(global_exception_ptr);
 			}
 		}
 
@@ -701,18 +783,19 @@ namespace evdm {
 			auto GetProb = [](ScatterRVExpInfo_t<T> const & x){
 				return x.full_prob;
 			};
-			auto comparator = [](
+			auto comparator = [zeroProb](
 				ScatterRVExpInfo_t<T> const & R1,
 				ScatterRVExpInfo_t<T> const & R2) ->T
 			{
 				auto get_delta = [](T x,T y){
-					if(y>x){
+					if(x>y){
 						std::swap(x,y);
 					}
 					return ( x > 0 ? y/x : T(1e10) ) - 1;
 				};
-				
-				T delta_fp = get_delta(R1.full_prob,R2.full_prob);
+				T _x = R1.full_prob;
+				T _y = R2.full_prob;
+				T delta_fp = (_x > zeroProb || _y > zeroProb) ? get_delta(_x, _y) : 0;
 				return delta_fp;
 			};
 			QT_RV_t<T> m_tree =  make_quadtree<ScatterRVExpInfo_t<T>,ScatterRVExp<T>>(
@@ -748,20 +831,23 @@ namespace evdm {
 				ScatterInfoElements<T> const & y)->T 
 			{
 				auto get_delta = [](T x,T y){	
-					if(y>x){
+					if(x>y){
 						std::swap(x,y);
 					}
 					return ( x > 0 ? y/x : T(1e10) ) - 1;
 				};
-				T delta_fp = get_delta(x.full_prob,x.full_prob);
+				T _x = x.full_prob;
+				T _y = y.full_prob;
+				T delta_fp = (_x > zeroProb || _y > zeroProb) ? get_delta(_x,_y) : 0;
 				T max_delta = delta_fp;
+				/*
 				for(size_t i=0;i<std::min(x.ProbsElements.size(),y.ProbsElements.size());++i){
 					T _x = x.ProbsElements[i];
 					T _y = y.ProbsElements[i];
 					if(_x > zeroProb ||  _y> zeroProb){
 						max_delta = std::max(max_delta,get_delta(_x,_y));
 					} 
-				}
+				}*/
 
 				return max_delta;
 			};

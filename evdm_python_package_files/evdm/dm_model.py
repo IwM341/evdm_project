@@ -16,10 +16,11 @@ class WimpModel:
         wimp_deltas_new.sort()
         min_delta = wimp_deltas_new[0]
         for i in range(len(wimp_deltas_new)):
-            wimp_deltas_new[i] -=min_delta
-        self.mass = wimp_mass
+            wimp_deltas_new[i] -= min_delta
+            wimp_deltas_new[i] = float(wimp_deltas_new[i])
+        self.mass = float(wimp_mass)
         self.deltas = wimp_deltas_new
-        self.spin = wimp_spin
+        self.spin = float(wimp_spin)
     def delta(self,ptype_in,ptype_out):
         return self.deltas[ptype_out]-self.deltas[ptype_in]
     def __call__(self,ptype_in = 0,ptype_out = 0) -> WimpScatterParams:

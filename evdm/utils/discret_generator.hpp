@@ -46,7 +46,15 @@ namespace evdm {
             return values_end;
         }
 
-
+        /// @brief generates index, according to probability
+        /// 
+        /// xi value will be m_begin[index-1] < xi <= m_begin[index]
+        /// If it is Cumulative Probability Function
+        /// (*m_begin) should be > 1 (otherwise 0 index will not be reachable)
+        /// 
+        /// @param m_begin iterator begin
+        /// @param m_end iterator end
+        /// @param xi value
         template <typename iter_t, typename Vt>
         inline static size_t gen(iter_t m_begin, iter_t m_end, Vt xi) {
             auto it = std::lower_bound(m_begin, m_end, xi);
