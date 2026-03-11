@@ -7,7 +7,7 @@ from ._form_factors import _symbols as _symv
 from ._form_factors import _nuc_info as _nuc_info
 from . import dm_model as dm_m
 try:
-    from ._cpp_lib.pyevdm import *
+    from ._cpp_lib import pyevdm as _evdm
 except ImportError:
     pass
 
