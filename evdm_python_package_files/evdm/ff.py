@@ -65,7 +65,7 @@ class Nucleus:
         self.A = A
         self.spin = _nuc_info._get_spin(Z,A)
         self.mass = A*0.938
-        self.abondonce = _nuc_info._get_abondonce(A,Z)
+        self.abondonce = _nuc_info._get_abondonce(self.A,self.Z)
         try:
             self.factors = _ff_bind.FormFactors[self.name][self.A]
         except:
