@@ -1,52 +1,78 @@
+\documentclass[a4paper, 14pt]{article}
+
 \input{preamble.tex}
 \input{math_defs.tex}
 \begin{document}
-	Факты о потенциале.
+
 	\subsubsection{Обозначения}
 	\begin{enumerate}
-		\item $\varphi(r)$ --- безразмерный положительный потегнциал.
+		\item $\varphi(r)$ --- безразмерный положительный потенциал.
 		\begin{itemize}
 			\item $\varphi(r) > 0$
 			\item $\varphi(r) = \cfrac{1}{r}, r \ge 1$
 			\item $\varphi'(r) < 0$
 			\item $\varphi''(r) + \cfrac{2}{r}\varphi'(r) = -\rho(r) < 0$
 		\end{itemize}
-		\item $e$ --- положительная энергия
-		\item $l$ --- момент импульса
-		\item $l_m(e)$ --- максимальный момент импульса при данной энергии, $r_m(e)$ --- точка достижения этого максимума.
+		\item $r$ --- безразмерный радиус
+		\item $v$ --- безразмерная скорость:
+		\begin{equation*}
+			v = \frac{V}{v_{esc}}
+		\end{equation*}
+
+		где $V$ --- настоящая скорость, $v_{esc}$ --- вторая космическая 
+		скорость на поверхности небесного тела.
+		\begin{itemize}
+			\item $v_{esc} = \sqrt{2GM/R}$, $G$ --- гравитационная постоянная, 
+			$M$ --- масса небесного тела, $R$ --- радиус небесного тела
+		\end{itemize}
+
+		\item $e$ --- положительная безразмерная энергия определяется как
+		\begin{equation*}
+			e = \varphi(r) - v^2
+		\end{equation*}
+		\item $L$ --- безразмерный момент импульса
+		\begin{equation*}
+			l = \frac{L_{\text{размерный}}}{R v_{esc}} = rv\sin{\theta}
+		\end{equation*}
+		\item $L_m(e)$ --- максимальный момент импульса при данной энергии, 
+		$r_m(e)$ --- точка достижения этого максимума.
 		\begin{equation}
-			l^2_m(e) = \max_r{r^2(\varphi(r)-e)}
+			L^2_m(e) = \max_r{r^2(\varphi(r)-e)}
 			\label{eq:l_m_e}
 		\end{equation}
 		\item $x_l = \sqrt{1 - \cfrac{l^2}{l_m^2}}$
-		\item $T(e,l)$ --- время траектории.
+		\item $T(e,L)$ --- время, за которое частица пролетает от $r_{min}$ до $r_{max}$.
 		\begin{equation*}
-			T(e,l) = \int_{r_{-}}^{r_{+}}\frac{dx}{ \sqrt{\varphi(x) -e - \frac{l^{2}}{x^{2}}}}
+			T(e,l) = \int_{r_{-}}^{r_{+}}\frac{dx}{ \sqrt{\varphi(x) -e - \frac{L^{2}}{x^{2}}}}
 		\end{equation*}
 		\begin{itemize}
 			\item $T(e,l) - \cfrac{\pi}{2e^{3/2}}$ --- ограниченная гладкая функция параметров $e, x_l l_m$.
+			\item $T(e,l)$ разделяется на 2 части: 
+	внутренняя часть $T_{in}$, когда $r < 1$ и внешняя часть $T_{out}$, когда $r > 1$. 
 		\end{itemize}
-		\item $r_{\pm}$ --- корни уравнения $r^2\varphi(r)-er^2-l^2=0$
-		\item $u = r^2$, $u_{\pm}$ --- корни уравнения  $u\varphi(u)-eu-l^2=0$
+
+
+		\item $r_{\pm}$ --- корни уравнения $r^2\varphi(r)-er^2-L^2=0$
+		\item $u = r^2$, $u_{\pm}$ --- корни уравнения  $u\varphi(u)-eu-L^2=0$
 		\item $F(u) = u\varphi(u)$ --- монотонная, гладкая, выпуклая вниз функция.
-		\item $u_{-} \downarrow e, \uparrow l^2$
-		\item $u_{+} \downarrow e, \downarrow l^2$
+		\item $u_{-} \downarrow e, \uparrow L^2$
+		\item $u_{+} \downarrow e, \downarrow L^2$
 	\end{enumerate}
 	
 	
-	\subsubsection{$l_m(e)$}
-	Для нахождения $l_m(e)$ находятся $r_{i-1},r_i, r_{i+1}$ --- точки, такие, что $r_i \ge r_{i\pm1}$, далее фунция $F(u)$ приближается параболой, после чего находятся $u, l_m$
+	\subsubsection{$L_m(e)$}
+	Для нахождения $L_m(e)$ находятся $r_{i-1},r_i, r_{i+1}$ --- точки, такие, что $r_i \ge r_{i\pm1}$, далее фунция $F(u)$ приближается параболой, после чего находятся $u, l_m$
 	
 	Заметим, что если $e>\cfrac{1}{2}$, то максимальный момент равен
 	\begin{equation*}
-		l^2_m(e) = \cfrac{1}{4e}
+		L^2_m(e) = \cfrac{1}{4e}
 	\end{equation*}
 	однако траектории, пересекающие границу небесного тело ($\exists t: r(t,e,l) < 1$) ограничиваются $l^2 \le 1 - e$
 	
 	
 	
 	
-		\subsubsection{Траектории.}
+	\subsubsection{Траектории.}
 	При расчете траектории, делаем замену
 	\begin{equation}
 		u = \cfrac{u_{-}+u_{+}}{2} - \cfrac{u_{+}-u_{-}}{2}cos(\theta)
@@ -162,6 +188,7 @@
 		T_{\theta in} = \cfrac{T_{in}}{\theta_1}
 	\end{equation}
 	
+	\iffalse
 	Далее: при интерполяции времени по сетке $el$, озможно, что каждый бин придется разбить на более маленькие части для более точной интерполяции времени. Для этого квадратный бин можно разделить на части (сделаем это по переменным $e$ и $\xi = \sqrt{1-l^2/l_m^2}$)
 	
 	Итак, Алгоритм для интерполяции внутреннего преиода:
@@ -317,7 +344,7 @@
 		2\cfrac{L_m^2(e)}{de} \approx (de \rightarrow 0) \approx \cfrac{de}{C_0}
 		\label{eq:u_0l_soph_interpol}
 	\end{equation}
-	
+\fi
 		
 	\subsubsection{Потенциал.}
 	Свяжем величины: безразмерный потенциал $\varphi(r)$, безразмерный радиус $r$, безразмерная масса $M(r)$ (такая, что $M(1) = 1$), безразмерная плотность $\rho(r)$.
@@ -470,6 +497,7 @@
 	 \end{equation}
 	 
 	 \begin{enumerate}
+		\iffalse
 	 	\item Предположение 1: равномерное распределение внутри бина по $dedl$:
 	 	
 	 	В этом случае 
@@ -495,7 +523,7 @@
 	 		u = \cfrac{2\xi}{(1-b)+\sqrt{(1-b)^2+4b\xi}} \\
 	 		b = \cfrac{L_{max}(e_0)-L_{max}(e_0)}{L_{max}(e_0)+L_{max}(e_0)}
 	 	\end{eqnarray}
-	 	
+	 	\fi
 	 	
 	 	
 	 	\item Предположение 2: равномерное распределение внутри бина по $dedl^2$:
@@ -930,7 +958,7 @@ F(r^2,\cos^2{\varphi}) \cdot \cos{\varphi}
 \end{equation*}
 
 \subsection{Оптимизации бина.}
-\input{src/OptBin.tex}
+%\input{src/OptBin.tex}
 
 
 \subsection{Монте-Карло алгоритм.}

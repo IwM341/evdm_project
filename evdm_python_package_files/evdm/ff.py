@@ -6,7 +6,10 @@ from ._form_factors import _latex_names as _ltx_nms
 from ._form_factors import _symbols as _symv 
 from ._form_factors import _nuc_info as _nuc_info
 from . import dm_model as dm_m
-from ._cpp_lib import pyevdm as _evdm
+try:
+    from ._cpp_lib.pyevdm import *
+except ImportError:
+    pass
 
 
 
@@ -62,6 +65,7 @@ class Nucleus:
         self.A = A
         self.spin = _nuc_info._get_spin(Z,A)
         self.mass = A*0.938
+        self.abondonce = _nuc_info._get_abondonce(A,Z)
         try:
             self.factors = _ff_bind.FormFactors[self.name][self.A]
         except:

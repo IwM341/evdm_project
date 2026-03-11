@@ -1,5 +1,12 @@
+from ._isotopes import isotope_table
+
 def _get_spin(Z,A):
 
+    try:
+        return isotope_table.query(f"A == {A} and Z == {Z}")['spin'].values[0]
+    except:
+        raise ValueError(f"not supported element with Z = '{Z}' and A = '{A}'")
+    
     specials = {
         (92,235):7/2,
         (13,27):5/2,
@@ -19,7 +26,28 @@ def _get_spin(Z,A):
     else:
         return 1/2
     #raise Exception(f'unsupported element with A = {A}')
-Mindeleev_table = {
+
+def _mindeleev_get_name(Z):
+    try:
+        return isotope_table.query(f"Z == {Z}")['name'].values[0]
+    except:
+        raise ValueError(f"not supported element with Z = '{Z}'") 
+    
+def _mindeleev_get_Z(name):
+    try:
+        return isotope_table.query(f"name == '{name}'")['Z'].values[0]
+    except:
+        raise ValueError(f"not supported element with name '{name}'") 
+
+def _get_abondonce(A,Z):
+    try:
+        return isotope_table.query(f"A == {A} and Z == {Z}")['abundance'].values[0]
+    except:
+        raise ValueError(f"not supported element with Z = '{Z}' and A = '{A}'")
+
+
+if False:
+    Mindeleev_table = {
         0:'NN',
         1:'H',
         2:'He',
@@ -41,19 +69,4 @@ Mindeleev_table = {
         92 : 'U',
         81 : 'Ti',
         197 : 'Au'
-
-}
-def _mindeleev_get_name(Z):
-    try:
-        return Mindeleev_table[Z] 
-    except:
-        raise ValueError(f"not supported element with Z = '{Z}'") 
-    
-def _mindeleev_get_Z(name):
-    for  (Z,_name) in Mindeleev_table.items():
-        if(_name == name):
-            return Z
-    raise ValueError(f"not supported element with name '{name}'") 
-
-
-        
+    }
