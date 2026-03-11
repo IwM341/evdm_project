@@ -71,7 +71,7 @@ def MakeLogGrid(Body : evdm.Body,h0,Ne,Nl = None,r = 1.1,dtype= 'float',lpoints 
     else:
         Lpoints = np.linspace(0,1,Nl+1)
     #print(Lpoints)
-    return evdm.MakeGrid(Body,Epoints,Lpoints,ptypes = 2,value_type = dtype)
+    return MakeGrid(Body,Epoints,Lpoints,ptypes = 2,value_type = dtype)
 
 def Grid_sqrt_L(N = 100,alpha = 0.04,delta=0.04):
 
@@ -319,7 +319,7 @@ def GetElementDense(m_body_model, element:ff.Nucleus):
 
 def CaptureNuc(
         ptype_in,ptype_out,
-        m_grid,m_wimp_model : evdm.WimpModel,
+        m_grid,m_wimp_model : WimpModel,
         m_elements : list[ff.Nucleus],
         m_body_table,
         m_operator ,m_norm_operator,Nmk,seed,constrain = True,rpow=1,form_factor=None): 
