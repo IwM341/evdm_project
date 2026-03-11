@@ -63,19 +63,19 @@ class Nucleus:
             self.Z = _nuc_info._mindeleev_get_Z(name)
             self.name = name
         self.A = A
-        self.spin = _nuc_info._get_spin(Z,A)
-        self.mass = A*0.938
+        self.spin = _nuc_info._get_spin(self.Z,self.A)
+        self.mass = self.A*0.938
         self.abondonce = _nuc_info._get_abondonce(self.A,self.Z)
         try:
             self.factors = _ff_bind.FormFactors[self.name][self.A]
         except:
-            print(f"Warning: element {(Z,name,A)} hasn't form factors")
+            print(f"Warning: element {(self.Z,self.name,self.A)} hasn't form factors")
             self.factors = None
 
-        if (A == 1):
+        if (self.A == 1):
             self.b = 1e-4
         else:
-            self.b = float(sympy.sqrt(41.467/(45*A**(-1.0/3) - 25*A**(-2.0/3) ))*5.067730716548338)
+            self.b = float(sympy.sqrt(41.467/(45*self.A**(-1.0/3) - 25*self.A**(-2.0/3) ))*5.067730716548338)
     def __repr__(self):
         return f"Nucleus(A = {self.A}, Z = {self.Z})"
     def __str__(self):
