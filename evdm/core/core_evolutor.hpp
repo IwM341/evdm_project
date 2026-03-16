@@ -142,7 +142,14 @@ namespace evdm {
 							return siot.full_prob;
 						}
 					);
-					T p_elem = interpolate_log(p00, p01, p10, p11, alpha, betha);
+					T p_elem = 0;
+					if(Node.x1() != qt.X1)
+					{
+						p_elem = interpolate_log(p00, p01, p10, p11, alpha, betha);
+					}
+					else {
+						p_elem = interpolate_lin(p00, p01, p10, p11, alpha, betha);
+					}
 					ptype_out_probs[array_index] =
 						p_elem * p_in_p_out_ProbMatrix[current.ptype * ptypes + ptype_out];
 					ptype_out_indexes[array_index] = ptype_out;

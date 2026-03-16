@@ -63,9 +63,9 @@ class Nucleus:
             self.Z = _nuc_info._mindeleev_get_Z(name)
             self.name = name
         self.A = A
-        self.spin = _nuc_info._get_spin(self.Z,self.A)
+        self.spin = float(_nuc_info._get_spin(self.Z,self.A))
         self.mass = self.A*0.938
-        self.abondonce = _nuc_info._get_abondonce(self.A,self.Z)
+        self.abondonce = float(_nuc_info._get_abondonce(self.A,self.Z))
         try:
             self.factors = _ff_bind.FormFactors[self.name][self.A]
         except:
@@ -260,9 +260,12 @@ class ScatterModel:
             try:
                 self.ff = FormFactor_Standard ( wimp_pars, nucleus, operator, operator_norm, norm_dv)
             except Exception as e:
-                print("can't create form factors", e)
-                print("fallback to helm form factors")
-                self.ff = FormFactor_Helm(wimp_pars,nucleus)
+                if(form_factor == "any"):
+                    print("can't create form factors", e)
+                    print("fallback to helm form factors")
+                    self.ff = FormFactor_Helm(wimp_pars,nucleus)
+                else:
+                    raise e
 
     def as_func(self):
         return self.ff.as_func()

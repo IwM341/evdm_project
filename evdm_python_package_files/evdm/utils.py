@@ -322,7 +322,7 @@ def CaptureNuc(
         m_grid,m_wimp_model : WimpModel,
         m_elements : list[ff.Nucleus],
         m_body_table,
-        m_operator ,m_norm_operator,Nmk,seed,constrain = True,rpow=1,form_factor=None): 
+        m_operator ,m_norm_operator,Nmk,seed,constrain = True,rpow=1,form_factor=None,threads=True): 
     from concurrent.futures import ThreadPoolExecutor
     def heavy_computation(m_element):
         n_e = GetElementDense(m_body_table,m_element)
@@ -335,8 +335,11 @@ def CaptureNuc(
     
     Capt = evdm.Capture(m_grid)
 
-    with ThreadPoolExecutor() as executor:
-        results = list(executor.map(heavy_computation, m_elements))
+    if(threads):
+        with ThreadPoolExecutor() as executor:
+            results = list(executor.map(heavy_computation, m_elements))
+    else:
+        results = list(map(heavy_computation, m_elements))
     for (dCapt,CalcC) in results:
         Capt += dCapt
     return Capt
