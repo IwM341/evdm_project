@@ -148,8 +148,8 @@ def NormalizeMatEl(MatrixElementExpression,Vdiff,b,mx,mT,mN,delta,j_X):
     #print("d",2*delta/mu)
     IngegralWeight = 1/(p_0*p_1*b**2)
     #print("IngegralWeight",IngegralWeight)
-    Y0 = b**2*(p_0-p_1)**2/4
     Y1 = b**2*(p_0+p_1)**2/4
+    Y0 = b**2*(p_0-p_1)**2/4+1e-10*Y1
     #print("Y0",Y0)
     #print("Y1",Y1)
     av_mat_el = sympy.re(
