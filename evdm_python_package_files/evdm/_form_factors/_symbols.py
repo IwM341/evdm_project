@@ -126,12 +126,12 @@ def scatter_model_subs(m_X,m_T,delta,j_X,j_N,b):
             "m_N" : 0.9389, M_N  :0.9389, 
             M_T : m_T,M_X : m_X,Delta : delta,J_X : j_X,J_N:j_N,sympy.Symbol('b',real = True):b}
 
-def NormalizeMatEl(MatrixElementExpression,Vdiff,b,mx,mT,mN,delta,j_X):
+def NormalizeMatEl(MatrixElementExpression,Vdiff,Vdiff_V,b,mx,mT,mN,delta,j_X):
     """
     normalizator object:
     makes the resulting expression normalised to Hydrogen Avarage Matrix Element
     """
-    VT2_subed = VT2.subs(V2_T,Vdiff**2)
+    VT2_subed = VT2.subs(V2_T,Vdiff_V**2)
     
     mu = mx*mT/(mx+mT)
     V_0 = Vdiff
@@ -160,9 +160,9 @@ def NormalizeMatEl(MatrixElementExpression,Vdiff,b,mx,mT,mN,delta,j_X):
 
 def FormFactorArrays(MatElNuc : sympy.Expr ,MatEl_norm : sympy.Expr ,
                      b_H,b_N,mx,mH,mN,delta_H,delta,j_X,j_N,
-                     Vdiff_Norm):
+                     Vdiff_Norm,Vdiff_Vinner):
     
-    norm_coeff = NormalizeMatEl(MatEl_norm,Vdiff_Norm,b_H,mx,mH,mN,delta_H,j_X)
+    norm_coeff = NormalizeMatEl(MatEl_norm,Vdiff_Norm,Vdiff_Vinner,b_H,mx,mH,mN,delta_H,j_X)
     pot_scatter_model = scatter_model_subs(mx,mN,delta,j_X,j_N,b_N)
     
     pre_ff= (MatElNuc.subs({Q2:"4*y/b**2"}).subs(pot_scatter_model)*
@@ -180,8 +180,8 @@ def FormFactorArrays(MatElNuc : sympy.Expr ,MatEl_norm : sympy.Expr ,
     V1_poly = pre_ff.coeff(rsym('VT2'),1)
     has_vT = (V1_poly != 0)
     try:
-        V0_coeffs = [float(V0_poly.coeff(_y,i - is_y_1)) for i in range(m_deg+1)]
-        V1_coeffs = [float(V1_poly.coeff(_y,i - is_y_1)) for i in range(m_deg+1)]
+        V0_coeffs = [float(V0_poly.coeff(_y,i - is_y_1)) for i in range(m_deg+1+is_y_1)]
+        V1_coeffs = [float(V1_poly.coeff(_y,i - is_y_1)) for i in range(m_deg+1+is_y_1)]
     except Exception as exeption:
         raise Exception(f"couldn't get coeffs of V0_poly = {V0_poly} and V1_poly = {V1_poly}") from exeption
     

@@ -158,6 +158,7 @@ class FormFactor_Standard:
             operator,
             operator_norm,
             norm_dv,
+            norm_dv_inner = None,
         ):
         """
         wimp_pars: instance of class WimpScatterParams\n
@@ -167,7 +168,7 @@ class FormFactor_Standard:
         cross section to Hydrogen (if None, then same as operator)\n
         norm_dv: delta velocity in scatter process with hydrogen to normalize.\n
         """
-        
+        norm_dv_inner = norm_dv_inner if(norm_dv_inner != None) else norm_dv
 
         if(operator_norm == None):
             operator_norm = operator
@@ -191,7 +192,7 @@ class FormFactor_Standard:
                 m_mat_el_h,_H.b,nucleus.b,
                 wimp_pars.mass,_H.mass,nucleus.mass,
                 0,wimp_pars.delta,wimp_pars.spin,
-                nucleus.spin,norm_dv
+                nucleus.spin,norm_dv,norm_dv_inner
             )
         
         #self.Zero indicates that all coeffs are zero
@@ -244,9 +245,13 @@ class ScatterModel:
         operator_norm: same as operator, but used to normilize\n 
         cross section to Hydrogen (if None, then same as operator)\n
         norm_dv: delta velocity in scatter process with hydrogen to normalize.\n
+        norm_dv_inner: norm_dv which would be used inside matrix element (if None, then same as norm_dv)\n
         """
         self.wimp = wimp_pars
         self.nucleus = nucleus
+
+
+        norm_dv_inner = kwargs.get('norm_dv_inner',norm_dv)
 
         if(form_factor == "helm"):
             R = kwargs.get('R')
@@ -258,7 +263,7 @@ class ScatterModel:
             self.ff = FormFactor_Helm(wimp_pars,nucleus,0,S2)
         else:
             try:
-                self.ff = FormFactor_Standard ( wimp_pars, nucleus, operator, operator_norm, norm_dv)
+                self.ff = FormFactor_Standard ( wimp_pars, nucleus, operator, operator_norm, norm_dv, norm_dv_inner)
             except Exception as e:
                 if(form_factor == "any"):
                     print("can't create form factors", e)
