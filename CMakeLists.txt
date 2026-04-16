@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ version selection")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
-project(evdm_python_mudule LANGUAGES CXX VERSION 2.0.0)
+project(evdm_python_mudule LANGUAGES CXX VERSION 2.0.1)
 
 #include("build/build/generators/conan_toolchain.cmake")
 

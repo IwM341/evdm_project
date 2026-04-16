@@ -23,6 +23,7 @@ PYBIND11_MODULE(pyevdm, m)
         "Matrix : class of Scatter Matrix\n"
         "ScatterFactor : form factor appered in collisions\n"
         "ScatterEvent : concentration of scatter target + form factor (ScatterFactor)";
+    m.def("version", []() {return "2.0.1"; });
 
     Py_BodyModel::add_to_python_module(m);
     Py_EL_Grid::add_to_python_module(m);
@@ -39,7 +40,14 @@ PYBIND11_MODULE(pyevdm, m)
 
     m.def("set_thread_num", [](int M) {
 #ifdef _OPENMP
-        omp_set_num_threads(M);
+        if(M > 0 && M <= omp_get_max_threads())
+        {
+            omp_set_num_threads(M);
+        }
+        else {
+            pybind11::print("incorrect number of threads '",M,"', change to default");
+            omp_set_num_threads(omp_get_max_threads());
+        }
 #endif // _OPENMP
     },py::arg("threads"));
 }

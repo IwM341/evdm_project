@@ -309,7 +309,7 @@ namespace evdm {
 				T Vu_out = std::sqrt(downbound(Vu_in2 - v2_delta, 0));
 
 				T m_factor = get_ff_out(
-					Vu_in, Vu_out, Mu_chi_i, -v2_delta, vesc, m_s.cos_theta_out, ff.ff.sf);
+					Vu_in, Vu_out, Mu_chi_i, v2_delta, vesc, m_s.cos_theta_out, ff.ff.sf);
 
 				T from_factor = m_factor * m_s.gen_pre_form_factor;
 
