@@ -115,6 +115,7 @@ struct Py_Evolutor {
 				.max_theta_steps = pyget<size_t>(64, extra, "max_theta_steps"),
 				.prob_theta_accept = pyget<double>(0.05, extra, "theta_accept"),
 				.max_steps_eq = pyget<size_t>(0, extra, "eq_steps"),
+				.max_attempts = pyget<size_t>(1000, extra, "attempts")
 			};
 
 			
@@ -325,11 +326,16 @@ void PyEvolutor_add_to_python_module(pybind11::module& m) {
 			"dict of additional mult factor, for example:\n\t"
 			"{(0,0):0,(0,1):2} (by default they are 1)\n"
 			"max_scat : int\n\t max number of scatter in evolution (to avoid infinit loop)\n"
-			"seed : int",
-			"max_theta_steps: size_t\n\tmax number of steps in trajectory\n",
+			"seed : int"
+			"max_theta_steps: size_t\n\tmax number of steps in trajectory\n"
 			"decay : str\n\t 'FD' or 'SD' (fast decay or slow decay)\n"
-			"theta_accept: size_t\n\trelative difference in probability between poins of trajectory, which is acceptable"
-			"eq_steps: size_t\n\tif after max_scat steps the particle still have time to evolve, we generate trajectory and pick point from it according to time",
+			"theta_accept: size_t\n\t"
+			"relative difference in probability"
+			"between poins of trajectory, which is acceptable"
+			"eq_steps: size_t\n\tif after max_scat steps the particle stil"
+			" have time to evolve, we generate trajectory "
+			"and pick point from it according to time\n"
+			"attempts: int\n\tmax attempts to sample form factor",
 
 			py::arg("states"), py::arg("time"),
 			py::arg_v("probs",py::dict()), 

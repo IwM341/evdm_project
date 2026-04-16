@@ -82,10 +82,10 @@ namespace evdm{
 		T delta_Vu2 = Vu_in*Vu_in+ Vu_out*Vu_out - 2*Vu_in*Vu_out*cos_theta_out;
 		T t = delta_Vu2 >0 ? v2delta/(delta_Vu2) : T(0);
 		
-		T Vu_in_t = Vu_in *( T(0.5)-t);
-		T Vu_out_t = Vu_out *( T(0.5)+t);
+		T Vu_in_t = Vu_in *( T(1)-t)/2;
+		T Vu_out_t = Vu_out *( T(1)+t)/2;
 
-		T V2_perp = Vu_in_t*Vu_in_t + Vu_out_t*Vu_out_t - 2*Vu_in_t*Vu_out_t*cos_theta_out;
+		T V2_perp = Vu_in_t*Vu_in_t + Vu_out_t*Vu_out_t + 2*Vu_in_t*Vu_out_t*cos_theta_out;
 		
 		return FF.ScatterFactor(
 			m_factor*delta_Vu2,

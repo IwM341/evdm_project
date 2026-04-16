@@ -118,6 +118,7 @@ namespace evdm {
 			T MaxProbDiff_traj,
 			std::pair < std::span<grob::Point<T,T>>, std::span<grob::Point<T, T>>> theta_buffers,
 			bool FastDecay = false,
+			size_t max_attempts = 1000,
 			size_t errors = gen_next_errors::NO_ERROR,
 			std::ostream * logs = nullptr
 		) const {
@@ -287,7 +288,7 @@ namespace evdm {
 				m_RV_Qt.find_node(r, v / std::sqrt(B.Phi(r)));
 
 
-			for (size_t attempt = 0; attempt < 1000; ++attempt) {
+			for (size_t attempt = 0; attempt < max_attempts; ++attempt) {
 				auto xi_rv = G();
 				ScatterRVExp<T> const& m_scatter_rv = NodeRV.uvalue();
 
@@ -463,6 +464,7 @@ namespace evdm {
 		bool fast_decay = false;
 		std::ostream *logoutput = nullptr;
 		size_t max_steps_eq = 0;
+		size_t max_attempts = 1000;
 	};
 	template <typename T,typename FFC_impl_t>
 	struct MCEvolutor {
@@ -657,7 +659,7 @@ namespace evdm {
 					try {
 						std::tie(tmp_state, time_delta) = ScatterInfoEL.gen_next(
 							tmp_state, time_remain, prob_matrix.data(), B, G, ElementBuffer,
-							m_params.prob_theta_accept, { m_buf1,m_buf2 },
+							m_params.prob_theta_accept, { m_buf1,m_buf2 },m_params.max_attempts,
 							m_params.fast_decay, m_err
 						);
 						time_remain -= time_delta;
@@ -763,7 +765,7 @@ namespace evdm {
 						T Vu_out = std::sqrt(downbound(Vu_in2 - v2_delta, 0));
 
 						T m_factor = get_ff_out(
-							Vu_in, Vu_out, Mu_chi_i, -v2_delta, vesc, m_s.cos_theta_out, El.ff.sf);
+							Vu_in, Vu_out, Mu_chi_i, v2_delta, vesc, m_s.cos_theta_out, El.ff.sf);
 						T from_factor = m_factor * m_s.gen_pre_form_factor;
 						max_ff = std::max(max_ff, from_factor);
 						sum += (xiu_1 - xiu_0)*from_factor * n_r * std::exp(-u_tresh);
