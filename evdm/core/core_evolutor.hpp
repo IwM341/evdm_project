@@ -351,10 +351,10 @@ namespace evdm {
 				err << "evolute error: too many attempts to";
 				err << ", state = (" <<
 					current.ptype << ", " << current.e << ", "
-					<< current.l << ")";
+					<< current.l << ")" << ", v = "  << v << ", vd^2 = " << v2_delta;
 				throw std::runtime_error(err.str());
 			}
-			return { {ptype_out,0,0}, max_time };
+			return { {ptype_out,1e10,1e10}, max_time };
 
 		}
 
@@ -667,9 +667,12 @@ namespace evdm {
 							break;
 						}
 					}
-					catch (...) {
+					catch (std::runtime_error &e) {
+						std::ostringstream S;
+						S << e.what() << "; at i = " << i << ", j = " << j;
+
 						if (!error_occurred.exchange(true)) {
-							global_exception_ptr = std::current_exception();
+							global_exception_ptr = std::make_exception_ptr(std::runtime_error(S.str()));
 						}
 						break;
 					}
@@ -699,9 +702,13 @@ namespace evdm {
 								break;
 							}
 							
-						} catch (...) {
+						}
+						catch (std::runtime_error& e) {
+							std::ostringstream S;
+							S << e.what() << "; at i = " << i << ", j = " << j;
+
 							if (!error_occurred.exchange(true)) {
-								global_exception_ptr = std::current_exception();
+								global_exception_ptr = std::make_exception_ptr(std::runtime_error(S.str()));
 							}
 							break;
 						}

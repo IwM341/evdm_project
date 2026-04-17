@@ -23,7 +23,7 @@ PYBIND11_MODULE(pyevdm, m)
         "Matrix : class of Scatter Matrix\n"
         "ScatterFactor : form factor appered in collisions\n"
         "ScatterEvent : concentration of scatter target + form factor (ScatterFactor)";
-    m.def("version", []() {return "2.0.1"; });
+    m.def("version", []() {return "2.0.2"; });
 
     Py_BodyModel::add_to_python_module(m);
     Py_EL_Grid::add_to_python_module(m);
