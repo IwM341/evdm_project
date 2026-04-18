@@ -689,7 +689,7 @@ namespace evdm {
 							std::tie(tmp_state, delta_time) = ScatterInfoEL.gen_next(
 								TrajectoryStory[k], time_remain, prob_matrix.data(), B, G, ElementBuffer,
 								m_params.prob_theta_accept, { m_buf1,m_buf2 },
-								m_params.fast_decay, m_err
+								m_params.fast_decay, m_params.max_attempts, m_err
 							);
 							last_time += delta_time;
 							TrajectoryStory[k].t = last_time;
