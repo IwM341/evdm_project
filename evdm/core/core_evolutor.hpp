@@ -659,8 +659,8 @@ namespace evdm {
 					try {
 						std::tie(tmp_state, time_delta) = ScatterInfoEL.gen_next(
 							tmp_state, time_remain, prob_matrix.data(), B, G, ElementBuffer,
-							m_params.prob_theta_accept, { m_buf1,m_buf2 },m_params.max_attempts,
-							m_params.fast_decay, m_err
+							m_params.prob_theta_accept, { m_buf1,m_buf2 }, m_params.fast_decay, m_params.max_attempts,
+							m_err
 						);
 						time_remain -= time_delta;
 						if (time_remain <= 0) {
