@@ -1,5 +1,5 @@
 from ._isotopes import isotope_table
-
+from ._ffee_info import ffee_info
 def _get_spin(Z,A):
 
     try:

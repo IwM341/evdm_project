@@ -8,6 +8,8 @@
 #include <tuple>
 #include <string>
 #include <sstream>
+#include <span>
+#include "utils/math_external.hpp"
 namespace evdm{
 
     namespace detail{
@@ -162,7 +164,7 @@ namespace evdm{
         float R; // something like nucleus radius
         float s2; // another nucleus radius
         float cns_fac; //multiplicity factor A^4*(M+mp)^2/(M+mN)^2
-        static constexpr float fermi_GeV = 5;
+        static constexpr float fermi_GeV = 5.067731;
 
         inline BesselFormFactor(float R, float s2, float cns_fac):
             R(R), s2(s2), cns_fac(cns_fac){}
@@ -183,6 +185,67 @@ namespace evdm{
             std::ostringstream S;
             S << "Bessel form factor ";
             S << "(" << R << ", " << s2 << ", " << cns_fac << ")";
+            return S.str();
+        }
+    };
+
+    struct Fht_formfactor {
+        float q0_inv; // in GeV^{-1}
+        std::array<float,17> ff_data;
+        static inline float SincPi(float x) {
+            x = pi<float> * std::abs(x);
+            float x2 = x * x;
+            if (x2 < 1e-6f)[[unlikely]] {
+                constexpr float _f3 = 1.0 / 6;
+                constexpr float _f5_3 = 1.0 / (4 * 5);
+                constexpr float _f7_5 = 1.0 / (6 * 7);
+                constexpr float _f9_7 = 1.0 / (8 * 9);
+                return 1 - _f3*x2*(
+                    1 - x2 * _f5_3* (
+                        1 - x2 * _f7_5*(1 - x2* _f9_7)
+                        )
+                    );
+            }
+            else {
+                return std::sin(x) / x;
+            }
+        }
+        static inline float SincN(float y, size_t n) {// sin(pi * y)* (-1)^y/(y*(y-n)) {
+            if (y < 1e-3f) [[unlikely]] {
+                int sgn = (n % 2 ? 1 : -1);
+                return SincPi(y) * sgn/(n-y);
+            }
+            else {
+                float delta = y - n;
+                return SincPi(delta) / y;
+            }
+        }
+        inline float ScatterFactor(float q_2, float v_2, float Eloss) const {
+            float y = q0_inv * std::sqrt(q_2);
+            float sum = 0;
+            for (size_t i = 1; i < 17; ++i) {
+                float fi = ff_data[i - 1];
+                sum += fi* SincN(y,i) * (2 * i * i) /
+                    ((i + y) );
+            }
+            return sum*sum;
+        }
+        Fht_formfactor(float q0, std::span<const float> ff_data_in) {
+            if (ff_data_in.size() > ff_data.size()) {
+                throw std::runtime_error("Fht_formfactor constructor: ff_data_in > 17");
+            }
+            std::copy(ff_data_in.begin(), ff_data_in.end(), ff_data.begin());
+            std::fill(ff_data.begin() + ff_data_in.size(), ff_data.end(), 0.0f);
+            q0_inv = 1 / q0;
+        }
+        inline std::string repr()const {
+            std::ostringstream S;
+            S << "Fht form factor ";
+            S << "( q0 = " << 1/q0_inv << ", [";
+            for (float a : ff_data) {
+                S << a << " ";
+            }
+            S << "])";
             return S.str();
         }
     };
@@ -296,20 +359,19 @@ namespace evdm{
     struct QexpFactors;
 
     template <size_t...I>
-    struct QexpFactors<std::index_sequence<I...>> :public std::variant<
-            QexpFactor<I,false>...,QexpFactor<I,true>...,
-            QexpFactor_v<I,false>...,QexpFactor_v<I,true>...,
-            BesselFormFactor
-        >{
+    using QexpFactorsBase = std::variant<
+        QexpFactor<I, false>..., QexpFactor<I, true>...,
+        QexpFactor_v<I, false>..., QexpFactor_v<I, true>...,
+        BesselFormFactor,
+        Fht_formfactor
+    >;
+    template <size_t...I>
+    struct QexpFactors<std::index_sequence<I...>> :QexpFactorsBase<I...>{
         typedef std::index_sequence<I...> PolySizes;
 
         constexpr static bool Y_INV = true; 
 
-        typedef std::variant<
-            QexpFactor<I,false>...,QexpFactor<I,true>...,
-            QexpFactor_v<I,false>...,QexpFactor_v<I,true>...,
-            BesselFormFactor
-        > Base;
+        typedef QexpFactorsBase<I...> Base;
 
         typedef std::variant<QexpFactor<I>...> Base_v0;
         typedef std::variant<QexpFactor<I,Y_INV>...> Base_yinv_v0;
@@ -376,6 +438,10 @@ namespace evdm{
         QexpFactors(BesselFormFactor BFF) :
             Base(BFF) {}
 
+        QexpFactors(Fht_formfactor HFT_FF) :
+            Base(HFT_FF) {
+        }
+
         inline Base & as_variant(){
             return static_cast<Base &>(*this);
         }
@@ -398,24 +464,7 @@ namespace evdm{
             return std::visit([q_2, v_2, inel_enloss](const auto& Poly) ->float{
                 return Poly.ScatterFactor(q_2, v_2, inel_enloss);
             }, as_variant());
-        }
-
-        
-        float eval_slow(float y, float v2T) const{
-            return std::visit([y, v2T](const auto& Poly) {
-                if constexpr (
-                    std::same_as<
-                        std::decay_t<decltype(Poly)>,
-                        BesselFormFactor
-                    >) {
-                    return Poly.ScatterFactor(4 * y / (Poly.R* Poly.R), v2T, 0);
-                }
-                else {
-                    return Poly.ScatterFactor(4 * y / Poly.b_2, v2T, 0);
-                }
-                
-            }, as_variant());
-        }
+        }        
     };
 
 };

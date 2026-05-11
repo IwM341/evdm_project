@@ -808,11 +808,30 @@ class MCEvolutor:
         seed
 
         """
-    def evolute(self, states: numpy.ndarray, time: float, probs: dict = ..., max_scat: int = ..., seed: int = ..., **kwargs) -> numpy.ndarray:
+    def evolute(self, *args, **kwargs):
         """evolute(self: pyevdm.MCEvolutor, states: numpy.ndarray, time: float, probs: dict = {}, max_scat: int = 1000000000, seed: int = 123, **kwargs) -> numpy.ndarray
 
+        calculate evolution of initial states
+        Parameters:
+        ___________
+        time : float
+        \t time of evolution
+        states : array
+        \t initial state to evolute
+        probs : dict [optional]
+        \t dict of additional mult factor, for example:
+        \t{(0,0):0,(0,1):2} (by default they are 1)
+        max_scat : int
+        \t max number of scatter in evolution (to avoid infinit loop)
+        seed : intmax_theta_steps: size_t
+        \tmax number of steps in trajectory
+        decay : str
+        \t 'FD' or 'SD' (fast decay or slow decay)
         theta_accept: size_t
-        \trelative difference in probability between poins of trajectory, which is acceptable
+        \trelative difference in probabilitybetween poins of trajectory, which is acceptableeq_steps: size_t
+        \tif after max_scat steps the particle stil have time to evolve, we generate trajectory and pick point from it according to time
+        attempts: int
+        \tmax attempts to sample form factor
         """
     def gen_initial(self, distrib: Distrib, N: int, mes: tuple = ..., seed: int = ...) -> numpy.ndarray:
         """gen_initial(self: pyevdm.MCEvolutor, distrib: pyevdm.Distrib, N: int, mes: tuple = (1, 2), seed: int = 123) -> numpy.ndarray
@@ -1115,8 +1134,29 @@ class ScatterEvent:
 class ScatterFactor:
     def __init__(self, *args, **kwargs) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
-    def __call__(self, y: float, v2T: float = ...) -> float:
-        """__call__(self: pyevdm.ScatterFactor, y: float, v2T: float = 0) -> float
+    @overload
+    def __call__(self, q: float, v2T: float = ...) -> float:
+        """__call__(*args, **kwargs)
+        Overloaded function.
+
+        1. __call__(self: pyevdm.ScatterFactor, q: float, v2T: float = 0) -> float
+
+        evaluates form factor for demonstration
+
+        2. __call__(self: pyevdm.ScatterFactor, q: numpy.ndarray[numpy.float32], v2T: float = 0) -> list[float]
+
+        evaluates form factor for demonstration
+        """
+    @overload
+    def __call__(self, q: numpy.ndarray[numpy.float32], v2T: float = ...) -> list[float]:
+        """__call__(*args, **kwargs)
+        Overloaded function.
+
+        1. __call__(self: pyevdm.ScatterFactor, q: float, v2T: float = 0) -> float
+
+        evaluates form factor for demonstration
+
+        2. __call__(self: pyevdm.ScatterFactor, q: numpy.ndarray[numpy.float32], v2T: float = 0) -> list[float]
 
         evaluates form factor for demonstration
         """
@@ -1186,6 +1226,12 @@ def GridProjectionMatrix(Grid_out: GridEL, Grid_in: GridEL, p: float = ..., q: f
     """GridProjectionMatrix(Grid_out: pyevdm.GridEL, Grid_in: pyevdm.GridEL, p: float = measure of bin proportional dE^p, q: float = measure of bin proportional dl^q) -> object
 
     Make projection matrix from Grid_in to Grid_out distribution
+    """
+def fht_factor(q0: float, fn: numpy.ndarray[numpy.float32]) -> ScatterFactor:
+    """fht_factor(q0: float, fn: numpy.ndarray[numpy.float32]) -> pyevdm.ScatterFactor
+
+    create fourier-bessel approximated form factor
+    where FF(q_k) = f^2(q0*k)
     """
 def helm_factor(R: float, s2: float, CF: float) -> ScatterFactor:
     """helm_factor(R: float, s2: float, CF: float) -> pyevdm.ScatterFactor
@@ -1262,3 +1308,5 @@ def qexp_factor(b: float, y_inv: bool, P_0: numpy.ndarray[numpy.float32]) -> Sca
     """
 def set_thread_num(threads: int) -> None:
     """set_thread_num(threads: int) -> None"""
+def version() -> str:
+    """version() -> str"""

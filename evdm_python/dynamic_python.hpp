@@ -15,8 +15,9 @@ struct Py_ScatterFactor : public evdm::FormFactor_t {
 	inline  const evdm::FormFactor_t& to_ff()const {
 		return *this;
 	}
-	double eval(double y,double v2_T = 0)const {
-		return eval_slow(y, v2_T);
+
+	inline float evalq(float q,float v2_T = 0) const {
+		return ScatterFactor(q * q, v2_T, 0);
 	}
 	pybind11::object _opt_functur;
 };

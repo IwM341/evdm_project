@@ -329,7 +329,7 @@ def CaptureNuc(
         m_wimp_params = m_wimp_model(ptype_in,ptype_out)
         Capt = evdm.Capture(m_grid)
         scat_mod = ff.ScatterModel(m_wimp_params,m_element,m_operator,m_norm_operator,2.06e-3,form_factor)
-        CalcC = CaptureCalc(Capt,scat_mod,n_e,0.73e-3,0.423e-3,1.78e-3,
+        CalcC = CaptureCalc(Capt,scat_mod,n_e,0.73e-3,0.423e-3,1.81e-3,
                          Nmk,r_pow= rpow, seed = seed,constrain = constrain )
         return (Capt,CalcC)
     

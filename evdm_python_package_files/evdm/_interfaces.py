@@ -271,6 +271,8 @@ class FF_Provider:
         form_factor: (optional) could be 'helm' or 'exp'
         R: (optional) for helm form factor - coeff in bessel: ff~J(R*q)
         S2: (optional) for helm form factor - coeff in exp ff~exp(-q^2*s2)
+        errors: (optional) idefault is 'ignore' than element with exception ff will be ignored
+        f errors == 'raise', than error in form factor will lead to exception
         """
         
         self.wimp = m_wimp
@@ -280,25 +282,32 @@ class FF_Provider:
         self.NormVelocity = NormVelocity
         self.density_getter = density_getter
         self.kwargs = kwargs
+        self.errors = kwargs.get('errors','ignore')
     def construct(self,pin,pout):
         delta = self.wimp.delta(pin,pout)
         data = []
         for nuc in self.elements:
-            scat_mod = ff.ScatterModel( 
-                self.wimp(pin,pout),nuc,
-                self.Operator,self.NormOperator,
-                self.NormVelocity,**self.kwargs)
-            sc_event = ScatterEvent(
-                self.density_getter(nuc),
-                scat_mod.factor(),
-                scat_mod.str_char())
+            try: 
+                scat_mod = ff.ScatterModel( 
+                    self.wimp(pin,pout),nuc,
+                    self.Operator,self.NormOperator,
+                    self.NormVelocity,**self.kwargs)
+                sc_event = ScatterEvent(
+                    self.density_getter(nuc),
+                    scat_mod.factor(),
+                    scat_mod.str_char())
             
-            data.append({
-                'A':nuc.A,
-                'Z':nuc.Z,
-                'mN':nuc.mass,
-                'mX' : self.wimp.mass + delta,
-                'delta':delta,
-                'event':sc_event
-            })
+                data.append({
+                    'A':nuc.A,
+                    'Z':nuc.Z,
+                    'mN':nuc.mass,
+                    'mX' : self.wimp.mass + delta,
+                    'delta':delta,
+                    'event':sc_event
+                })
+            except Exception as e:
+                if( self.errors == 'ignore'):
+                    print('error in form factor: ',e, f"\t element {nuc} will be ignored")
+                else:
+                    raise e
         return data

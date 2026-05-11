@@ -30,6 +30,12 @@ Py_ScatterFactor helm_factor(float R,float s2,float cns_fac) {
 	return Py_ScatterFactor(evdm::BesselFormFactor(R, s2, cns_fac));
 }
 
+Py_ScatterFactor fht_factor(float q0, pybind11::array_t<float> fn_coeffs) {
+	return Py_ScatterFactor(
+		evdm::Fht_formfactor(q0,std::span<const float>( fn_coeffs.data(),fn_coeffs.size()))
+	);
+}
+
 
 std::string make_compare_sc_event(
 	const Py_ScatterEvent& sc_event,
@@ -59,10 +65,22 @@ void Py_ScatterFactor::add_to_python_module(pybind11::module_& m) {
 		.def("__repr__", [](const Py_ScatterFactor& sf) {return sf.repr(); })
 		.def("__str__", [](const Py_ScatterFactor& sf) {return sf.repr(); })
 		.def("__call__",
-			[](const Py_ScatterFactor& sf, float y, float v2T)
-			{return sf.eval(y, v2T); },
+			[](const Py_ScatterFactor& sf, float q, float v2T)
+			{return sf.evalq(q, v2T); },
 			"evaluates form factor for demonstration",
-			py::arg("y"),
+			py::arg("q"),
+			py::arg_v("v2T", 0)
+		)
+		.def("__call__",
+			[](const Py_ScatterFactor& sf, pybind11::array_t<float> q, float v2T)
+			{
+				std::span<const float> _q(q.data(), q.size());
+				auto it_range = std::views::transform(_q, [v2T, &sf](float q) {return sf.evalq(q, v2T); });
+				std::vector<float> result(it_range.begin(), it_range.end());
+				return result;
+			},
+			"evaluates form factor for demonstration",
+			py::arg("q"),
 			py::arg_v("v2T", 0)
 		);
 	m.def("qexp_factor", static_cast<Qexp_1_t>(&qexp_factor),
@@ -95,6 +113,10 @@ void Py_ScatterFactor::add_to_python_module(pybind11::module_& m) {
 		"FF(q^2) = CF*(Bessels[qR])^2*exp(-q^2*s2)"
 		"Parameters:\n",
 		py::arg("R"), py::arg("s2"), py::arg("CF"))
+	.def("fht_factor", fht_factor,
+			"create fourier-bessel approximated form factor\n"
+			"where FF(q_k) = f^2(q0*k)",
+			py::arg("q0"), py::arg("fn"))
 	.def("__repr__", [](const Py_ScatterFactor& sf) {
 	return sf.repr();
 		})

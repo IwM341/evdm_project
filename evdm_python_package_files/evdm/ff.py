@@ -11,7 +11,7 @@ try:
 except ImportError:
     pass
 
-
+fermi_GeV = 5.067731
 
 class O:
     _Expression_Latex_O_Array = _ltx_nms._make_latex_array()
@@ -66,6 +66,9 @@ class Nucleus:
         self.spin = float(_nuc_info._get_spin(self.Z,self.A))
         self.mass = self.A*0.938
         self.abondonce = float(_nuc_info._get_abondonce(self.A,self.Z))
+
+        self.ffee = _nuc_info.ffee_info.get((self.name,self.A),None)
+
         try:
             self.factors = _ff_bind.FormFactors[self.name][self.A]
         except:
@@ -137,15 +140,41 @@ class FormFactor_Helm:
             bf = 3*myBessel(math.sqrt(q2)*R)*math.exp(-q2*s2/2)
             return bf*bf*cns_fac
         self.py_func = ScatterFactor
+        self.factor = _evdm.helm_factor(self.R,self.s2,self.cfac)
     def as_func(self):
         K = 2/(3/self.R**2+self.s2/2)
         return lambda y: self.py_func(y*K,0)
-    def factor(self):
-        return _evdm.helm_factor(self.R,self.s2,self.cfac)
     def str_char(self):
         return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
     
+class FormFactor_Fht:
+    def __init__(self,
+            wimp_pars: dm_m.WimpScatterParams,
+            nucleus: Nucleus
+        ):
+        import numpy as np
 
+        self.Zero = False 
+        self.wimp = wimp_pars
+        self.nucleus = nucleus
+        fermi_GeV= 5
+        mp = Nucleus.Hydrogen.mass
+        cns_fac : float = nucleus.A**4*( (wimp_pars.mass+mp)/(wimp_pars.mass+nucleus.A*mp) )**2
+        
+        if(cns_fac == 0):
+            self.Zero = True 
+        
+        cns_fac_sqr = cns_fac**0.5
+        ak = np.array(self.nucleus.ffee.ak)
+        Ns = np.arange(1,len(ak)+1)
+        fk = ak/Ns**2
+        f0 = sum( fk[i]*(-1)**i*2 for i in range(len(ak)) )
+        fk *= (cns_fac_sqr/f0)
+        self.factor = _evdm.fht_factor(np.pi/self.nucleus.ffee.R,fk)
+
+    def str_char(self):
+        return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
+    
 class FormFactor_Standard:
     """
     class with info of scattering model with wimp+nucleus,
@@ -202,6 +231,7 @@ class FormFactor_Standard:
         else:
             self.Zero = False
         self.coeffs = normd_arrays
+        self.factor = _evdm.ff_factor(*self.coeffs)
     def as_func(self):
         def eval_poly(is_inv,Coeffs,y):
             factor = 1
@@ -220,8 +250,7 @@ class FormFactor_Standard:
         return self.__repr__()
     def str_char(self):
         return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
-    def factor(self):
-        return _evdm.qexp_factor(*self.coeffs)
+
 
 class ScatterModel:
     """
@@ -239,6 +268,9 @@ class ScatterModel:
             **kwargs
         ):
         """
+        Create scatter model with given parameters\n
+        ---
+        Parameters:
         wimp_pars: instance of class WimpScatterParams\n
         nucleus: instance of class Nucleus, contain nucleus information\n
         operator: a linear composition of O_i with coeffs.\n
@@ -246,12 +278,34 @@ class ScatterModel:
         cross section to Hydrogen (if None, then same as operator)\n
         norm_dv: delta velocity in scatter process with hydrogen to normalize.\n
         norm_dv_inner: norm_dv which would be used inside matrix element (if None, then same as norm_dv)\n
+        form_factor: type one ff type or fallback sequence for example: 'standard?fht?helm'
         """
         self.wimp = wimp_pars
         self.nucleus = nucleus
 
 
         norm_dv_inner = kwargs.get('norm_dv_inner',norm_dv)
+
+        ff_types = form_factor.split('?') if(form_factor != None) else ['standard','fht','helm']
+        
+        ff_creation = {
+            'helm': lambda : FormFactor_Helm(wimp_pars,nucleus,kwargs.get('R'),kwargs.get('S2')),
+            'exp': lambda : FormFactor_Helm(wimp_pars,nucleus,0,kwargs.get('S2')),
+            'fht': lambda : FormFactor_Fht(wimp_pars,nucleus),
+            'standard': lambda : FormFactor_Standard ( wimp_pars, nucleus, operator, operator_norm, norm_dv, norm_dv_inner)
+        }
+
+        for i,form_factor in enumerate(ff_types):
+            try:
+                self.ff = ff_creation[form_factor]()
+                break
+            except Exception as e:
+                if(i == len(ff_types)-1):
+                    raise e
+                else:
+                    print(f"can't create form factor of type '{form_factor}'", e)
+                    print(f"try next form factor type {ff_types[i+1]}")
+
 
         if(form_factor == "helm"):
             R = kwargs.get('R')
@@ -261,6 +315,13 @@ class ScatterModel:
             R = kwargs.get('R')
             S2 =  kwargs.get('S2',None)
             self.ff = FormFactor_Helm(wimp_pars,nucleus,0,S2)
+        elif(form_factor == "fht"):
+            try:
+                self.ff = FormFactor_Fht(wimp_pars,nucleus)
+            except Exception as e:
+                print("can't create fht form factors", e)
+                print("fallback to helm form factors")
+                self.ff = FormFactor_Helm(wimp_pars,nucleus)
         else:
             try:
                 self.ff = FormFactor_Standard ( wimp_pars, nucleus, operator, operator_norm, norm_dv, norm_dv_inner)
@@ -282,7 +343,7 @@ class ScatterModel:
     def str_char(self):
         return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
     def factor(self):
-        return self.ff.factor()
+        return self.ff.factor
 
 
     
