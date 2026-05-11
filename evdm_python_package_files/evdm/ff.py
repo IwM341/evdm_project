@@ -301,37 +301,11 @@ class ScatterModel:
                 break
             except Exception as e:
                 if(i == len(ff_types)-1):
+                    print("ff creation error for nuc",self.nucleus, " and form factor type: ", ff_types)
                     raise e
                 else:
                     print(f"can't create form factor of type '{form_factor}'", e)
                     print(f"try next form factor type {ff_types[i+1]}")
-
-
-        if(form_factor == "helm"):
-            R = kwargs.get('R')
-            S2 =  kwargs.get('S2')
-            self.ff = FormFactor_Helm(wimp_pars,nucleus,R,S2)
-        elif(form_factor == "exp"):
-            R = kwargs.get('R')
-            S2 =  kwargs.get('S2',None)
-            self.ff = FormFactor_Helm(wimp_pars,nucleus,0,S2)
-        elif(form_factor == "fht"):
-            try:
-                self.ff = FormFactor_Fht(wimp_pars,nucleus)
-            except Exception as e:
-                print("can't create fht form factors", e)
-                print("fallback to helm form factors")
-                self.ff = FormFactor_Helm(wimp_pars,nucleus)
-        else:
-            try:
-                self.ff = FormFactor_Standard ( wimp_pars, nucleus, operator, operator_norm, norm_dv, norm_dv_inner)
-            except Exception as e:
-                if(form_factor == "any"):
-                    print("can't create form factors", e)
-                    print("fallback to helm form factors")
-                    self.ff = FormFactor_Helm(wimp_pars,nucleus)
-                else:
-                    raise e
 
     def as_func(self):
         return self.ff.as_func()
