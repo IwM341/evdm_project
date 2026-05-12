@@ -231,7 +231,7 @@ class FormFactor_Standard:
         else:
             self.Zero = False
         self.coeffs = normd_arrays
-        self.factor = _evdm.ff_factor(*self.coeffs)
+        self.factor = _evdm.qexp_factor(*self.coeffs)
     def as_func(self):
         def eval_poly(is_inv,Coeffs,y):
             factor = 1
