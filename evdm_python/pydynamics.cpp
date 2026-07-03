@@ -76,8 +76,7 @@ void Py_ScatterFactor::add_to_python_module(pybind11::module_& m) {
 			{
 				std::span<const float> _q(q.data(), q.size());
 				auto it_range = std::views::transform(_q, [v2T, &sf](float q) {return sf.evalq(q, v2T); });
-				std::vector<float> result(it_range.begin(), it_range.end());
-				return result;
+				return  make_py_array(it_range);
 			},
 			"evaluates form factor for demonstration",
 			py::arg("q"),

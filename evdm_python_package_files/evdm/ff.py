@@ -67,7 +67,7 @@ class Nucleus:
         self.mass = self.A*0.938
         self.abondonce = float(_nuc_info._get_abondonce(self.A,self.Z))
 
-        self.ffee = _nuc_info.ffee_info.get((self.name,self.A),None)
+        self.ffee : _nuc_info.FFEE  = _nuc_info.ffee_info.get((self.name,self.A),None)
 
         try:
             self.factors = _ff_bind.FormFactors[self.name][self.A]

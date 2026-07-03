@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  8 MAR 2026 16:17
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.10) (preloaded format=pdflatex 2023.1.24)  3 JUL 2026 11:30
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -962,7 +962,7 @@ Missing character: There is no Å in font cmr10!
 Missing character: There is no ñ in font cmr10!
 Missing character: There is no ë in font cmr10!
 Missing character: There is no è in font cmr10!
-<imags/graphT.jpg, id=114, 383.18156pt x 378.66469pt>
+<imags/graphT.jpg, id=122, 383.18156pt x 378.66469pt>
 File: imags/graphT.jpg Graphic file (type jpg)
 <use imags/graphT.jpg>
 Package pdftex.def Info: imags/graphT.jpg  used on input line 128.
@@ -1033,25 +1033,25 @@ Missing character: There is no í in font cmr10!
 Missing character: There is no à in font cmr10!
 Missing character: There is no ë in font cmr10!
 Missing character: There is no ü in font cmr10!
-[14]) [15] (DM_Dynamic.aux)
+[14] [15] [16] [17] [18] [19]) [20] (DM_Dynamic.aux)
 
 LaTeX Warning: There were undefined references.
 
 Package rerunfilecheck Info: File `DM_Dynamic.out' has not changed.
-(rerunfilecheck)             Checksum: B9BFCCDAD540017C93116557B460BAF6;3797.
+(rerunfilecheck)             Checksum: 21A6920E1B81EA6CDEDE3AC6F82776E2;4503.
  ) 
 Here is how much of TeX's memory you used:
- 26197 strings out of 475385
- 503065 string characters out of 2790968
+ 26212 strings out of 475385
+ 503258 string characters out of 2790968
  842894 words of memory out of 3000000
- 47053 multiletter control sequences out of 15000+600000
+ 47061 multiletter control sequences out of 15000+600000
  476139 words of font info for 43 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 81i,13n,83p,823b,613s stack positions out of 10000i,1000n,20000p,200000b,80000s
+ 81i,16n,83p,1537b,613s stack positions out of 10000i,1000n,20000p,200000b,80000s
 {D:/Soft/MikTex/fonts/enc/dvips/cm-super/cm-super-t2a.enc}{D:/Soft/MikTex/fonts/enc/dvips/cm-super/cm-super-ts1.enc}<D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmex10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmmi10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmmi5.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmmi7.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr5.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmr7.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy10.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy5.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/cm/cmsy7.pfb><D:/Soft/MikTex/fonts/type1/public/amsfonts/symbols/msam10.pfb><D:/Soft/MikTex/fonts/type1/public/cm-super/sfbx1000.pfb><D:/Soft/MikTex/fonts/type1/public/cm-super/sfbx1200.pfb><D:/Soft/MikTex/fonts/type1/public/cm-super/sfrm0700.pfb><D:/Soft/MikTex/fonts/type1/public/cm-super/sfrm1000.pfb>
-Output written on DM_Dynamic.pdf (15 pages, 343028 bytes).
+Output written on DM_Dynamic.pdf (20 pages, 369096 bytes).
 PDF statistics:
- 303 PDF objects out of 1000 (max. 8388607)
- 85 named destinations out of 1000 (max. 500000)
- 170 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 333 PDF objects out of 1000 (max. 8388607)
+ 92 named destinations out of 1000 (max. 500000)
+ 186 words of extra memory for PDF output out of 10000 (max. 10000000)
 
