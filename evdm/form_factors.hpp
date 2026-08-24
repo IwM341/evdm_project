@@ -12,6 +12,15 @@
 #include "utils/math_external.hpp"
 namespace evdm{
 
+    inline float myBessel(float x) {
+        if (x < 0.01) {
+            return 1.0 / 3 - x * x * (1 - x * x / 28) / 10;
+        }
+        else {
+            return (std::sin(x) - x * std::cos(x)) / (x * x * x);
+        }
+    }
+
     namespace detail{
         template <size_t N>
         struct coeff_evaulator{
@@ -93,6 +102,48 @@ namespace evdm{
         }
     };
 
+    template <size_t _poly_size, bool y_inv = false>
+    struct HelmPolyFactor {
+        float R; // something like nucleus radius
+        float s2; // another nucleus radius
+        using Poly = Polynom<_poly_size>;
+        Poly _Pol;
+        static constexpr float fermi_GeV = 5.067731;
+
+        
+        
+
+        HelmPolyFactor() {}
+        template <typename Array_t>
+        HelmPolyFactor(float R, float s2, Array_t coeffs) :R(R), s2(s2), _Pol(coeffs) {}
+
+        inline float ScatterFactor(float q_2, float v_2, float Eloss) const {
+            float bf = 3 * myBessel(std::sqrt(q_2) * R) * std::exp(-q_2 * s2 / 2);
+            if constexpr (y_inv) {
+                return bf * bf * _Pol(q_2)/(q_2 > 0 ? q_2 : 1e20f);
+            }
+            else {
+                return bf* bf* _Pol(q_2);
+            }
+        }
+
+
+        inline std::string repr()const {
+            std::ostringstream S;
+            S << "HelmPolyFactor form factor ";
+            S << "(" << R << ", " << s2 << ", " << "Poly = ";
+            for (size_t i = 0; i < _poly_size; ++i) {
+                if (i != 0 && _Pol[i] >= 0) {
+                    S << " + ";
+                }
+                S << _Pol[i] << degree_print((int)i - (y_inv ? 1 : 0));
+            }
+            S << ")";
+            return S.str();
+        }
+    };
+
+    
     template <size_t _poly_size,bool y_inv  = false>
     struct QexpFactor_v : ElasticFactorBase{
         using Poly = Polynom<_poly_size>;
@@ -143,6 +194,62 @@ namespace evdm{
         }
     };
     
+    template <size_t _poly_size, bool y_inv = false>
+    struct HelmPolyFactor_v {
+        using Poly = Polynom<_poly_size>;
+
+        float R; // something like nucleus radius
+        float s2; // another nucleus radius
+        Poly _P_0;
+        Poly _P_V;
+        static constexpr float fermi_GeV = 5.067731;
+
+        
+
+
+        HelmPolyFactor_v() {}
+        template <typename Array1_t, typename Array2_t>
+        HelmPolyFactor_v(float R, float s2, Array1_t const& coeffs_v0, Array2_t const& coeffs_v1) :
+            R(R), s2(s2), _P_0(coeffs_v0), _P_V(coeffs_v1) {
+        }
+
+        inline float ScatterFactor(float q_2, float v_2, float Eloss) const {
+            float bf = 3 * myBessel(std::sqrt(q_2) * R) * std::exp(-q_2 * s2 / 2);
+            Poly eff_poly = Poly::x_plus_by(_P_0, _P_V, v_2);
+            if constexpr (y_inv) {
+                return bf * bf * eff_poly(q_2) / (q_2 > 0 ? q_2 : 1e20f);
+            }
+            else {
+                return bf* bf* eff_poly(q_2);
+            }
+        }
+
+
+        inline std::string repr()const {
+            std::ostringstream S;
+            S << "HelmPolyFactor_v form factor ";
+            S << "(" << R << ", " << s2 << ", " << "Poly = ";
+            S << "{";
+            for (size_t i = 0; i < _poly_size; ++i) {
+                if (i != 0 && (_P_0[i] >= 0)) {
+                    S << " + ";
+                }
+                S << _P_0[i] << degree_print((int)i - (y_inv ? 1 : 0));
+            }
+            S << "} + v^2*{";
+            for (size_t i = 0; i < _poly_size; ++i) {
+                if (i != 0 && _P_V[i] >= 0) {
+                    S << " + ";
+                }
+                S << _P_V[i] << degree_print((int)i - (y_inv ? 1 : 0));
+            }
+            S << "}";
+            S << ")";
+            return S.str();
+        }
+    };
+
+
     struct FunctionalElasticFormFactor : ElasticFactorBase {
         float (*Func)(float, float);
 
@@ -173,14 +280,7 @@ namespace evdm{
             return bf * bf * cns_fac;
         }
         
-        static float myBessel(float x) {
-            if (x < 0.01) {
-                return 1.0 / 3 - x * x * (1 - x * x / 28) / 10;
-            }
-            else {
-                return (std::sin(x) - x * std::cos(x)) / (x * x * x);
-            }
-        }
+        
         inline std::string repr()const {
             std::ostringstream S;
             S << "Bessel form factor ";
@@ -362,6 +462,8 @@ namespace evdm{
     using QexpFactorsBase = std::variant<
         QexpFactor<I, false>..., QexpFactor<I, true>...,
         QexpFactor_v<I, false>..., QexpFactor_v<I, true>...,
+        HelmPolyFactor<I,false>..., HelmPolyFactor<I, true>...,
+        HelmPolyFactor_v<I, false>..., HelmPolyFactor_v<I, true>...,
         BesselFormFactor,
         Fht_formfactor
     >;
@@ -377,6 +479,12 @@ namespace evdm{
         typedef std::variant<QexpFactor<I,Y_INV>...> Base_yinv_v0;
         typedef std::variant<QexpFactor_v<I>...> Base_v1;
         typedef std::variant<QexpFactor_v<I,Y_INV>...> Base_yinv_v1;
+
+        typedef std::variant<HelmPolyFactor<I>...> BaseH_v0;
+        typedef std::variant<HelmPolyFactor<I, Y_INV>...> BaseH_yinv_v0;
+        typedef std::variant<HelmPolyFactor_v<I>...> BaseH_v1;
+        typedef std::variant<HelmPolyFactor_v<I, Y_INV>...> BaseH_yinv_v1;
+
 
         //typedef QexpFactors<std::index_sequence<I...>> this_t;
         QexpFactors(){}
@@ -398,6 +506,30 @@ namespace evdm{
                         __index_detail::find_first_moreq_index(coeffs.size(),PolySizes{}),
                         [b,&coeffs](auto t){
                             return typename decltype(t)::type (coeffs,b);
+                        }
+                    )
+                );
+            }
+        }
+
+        template <typename Array_t>
+        inline static auto MakeBaseH_v0(bool y_inv, float R, float s2, Array_t const& coeffs) {
+            if (!y_inv) {
+                return variant_cast<Base>(
+                    make_variant<BaseH_v0>(
+                        __index_detail::find_first_moreq_index(coeffs.size(), PolySizes{}),
+                        [R, s2, &coeffs](auto t) {
+                            return typename decltype(t)::type(R,s2,coeffs);
+                        }
+                    )
+                );
+            }
+            else {
+                return variant_cast<Base>(
+                    make_variant<BaseH_yinv_v0>(
+                        __index_detail::find_first_moreq_index(coeffs.size(), PolySizes{}),
+                        [R, s2, &coeffs](auto t) {
+                            return typename decltype(t)::type(R, s2, coeffs);
                         }
                     )
                 );
@@ -427,6 +559,30 @@ namespace evdm{
             }
         }
 
+        template <typename Array1_t, typename Array2_t>
+        inline static auto MakeBaseH_v1(bool y_inv, float R, float s2, Array1_t const& coeffs_v0, Array2_t const& coeffs_v1) {
+            if (!y_inv) {
+                return variant_cast<Base>(
+                    make_variant<BaseH_v1>(
+                        __index_detail::find_first_moreq_index(std::max(coeffs_v0.size(), coeffs_v1.size()), PolySizes{}),
+                        [&](auto t) {
+                            return typename decltype(t)::type(R, s2, coeffs_v0, coeffs_v1);
+                        }
+                    )
+                );
+            }
+            else {
+                return variant_cast<Base>(
+                    make_variant<BaseH_yinv_v1>(
+                        __index_detail::find_first_moreq_index(std::max(coeffs_v0.size(), coeffs_v1.size()), PolySizes{}),
+                        [&](auto t) {
+                            return typename decltype(t)::type(R, s2, coeffs_v0, coeffs_v1);
+                        }
+                    )
+                );
+            }
+        }
+
         template <typename Array_t>
         QexpFactors(bool y_inv,double b,Array_t const & coeffs): 
         Base(vmove(MakeBase_v0(y_inv,b,coeffs))){}
@@ -434,6 +590,21 @@ namespace evdm{
         template <typename Array1_t,typename Array2_t>
         QexpFactors(bool y_inv,double b,Array1_t const & coeffs_v0,Array2_t const & coeffs_v1): 
         Base(vmove(MakeBase_v1(y_inv,b,coeffs_v0,coeffs_v1))){}
+
+        struct __HelmMarker_t {};
+
+        constexpr static __HelmMarker_t HelmMarker = {};
+
+        template <typename Array_t>
+        QexpFactors(__HelmMarker_t,bool y_inv, float R,float s2, Array_t const& coeffs) :
+            Base(vmove(MakeBaseH_v0(y_inv, R,s2, coeffs))) {
+        }
+
+        template <typename Array1_t, typename Array2_t>
+        QexpFactors(__HelmMarker_t,bool y_inv, float R, float s2, Array1_t const& coeffs_v0, Array2_t const& coeffs_v1) :
+            Base(vmove(MakeBaseH_v1(y_inv, R,s2, coeffs_v0, coeffs_v1))) {
+        }
+
 
         QexpFactors(BesselFormFactor BFF) :
             Base(BFF) {}

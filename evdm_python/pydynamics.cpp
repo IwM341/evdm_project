@@ -13,6 +13,7 @@ Py_ScatterFactor qexp_factor(float b, bool y_inv,
 	size_t _msize = std::max(P_0_arr.size(), P_V_arr.size());
 	return Py_ScatterFactor(y_inv, b, P_0_arr, P_V_arr);
 }
+typedef Py_ScatterFactor(*Qexp_0_t)(float, bool, pybind11::array_t<float>);
 typedef Py_ScatterFactor(*Qexp_1_t)(float, bool, pybind11::array_t<float>, pybind11::array_t<float>);
 
 Py_ScatterFactor qexp_factor(float b, bool y_inv,
@@ -24,6 +25,33 @@ Py_ScatterFactor qexp_factor(float b, bool y_inv,
 
 	size_t _msize = P_0_arr.size();
 	return Py_ScatterFactor(y_inv, b, P_0_arr);
+}
+
+Py_ScatterFactor helmpoly_factor(float R, float s2, bool y_inv,
+	pybind11::array_t<float> P_0_coeffs)
+{
+	auto P_0_arr = grob::vector_view<const float>(
+		P_0_coeffs.data(), pybind11::len(P_0_coeffs)
+	);
+
+	size_t _msize = P_0_arr.size();
+	return Py_ScatterFactor(evdm::FormFactor_t::HelmMarker, y_inv, R,s2, P_0_arr);
+}
+
+typedef Py_ScatterFactor(*HPol_0_t)(float, float, bool, pybind11::array_t<float>);
+typedef Py_ScatterFactor(*HPol_1_t)(float, float, bool, pybind11::array_t<float>, pybind11::array_t<float>);
+
+Py_ScatterFactor helmpoly_factor(float R, float s2, bool y_inv,
+	pybind11::array_t<float> P_0_coeffs, pybind11::array_t<float> P_V_coeffs)
+{
+	auto P_0_arr = grob::vector_view<const float>(
+		P_0_coeffs.data(), pybind11::len(P_0_coeffs)
+	);
+	auto P_V_arr = grob::vector_view<const float>(
+		P_V_coeffs.data(), pybind11::len(P_V_coeffs)
+	);
+	size_t _msize = std::max(P_0_arr.size(), P_V_arr.size());
+	return Py_ScatterFactor(evdm::FormFactor_t::HelmMarker, y_inv, R, s2, P_0_arr, P_V_arr);
 }
 
 Py_ScatterFactor helm_factor(float R,float s2,float cns_fac) {
@@ -57,7 +85,7 @@ std::string make_compare_sc_event(
 }
 
 
-typedef Py_ScatterFactor(*Qexp_0_t)(float, bool, pybind11::array_t<float>);
+
 
 void Py_ScatterFactor::add_to_python_module(pybind11::module_& m) {
 	namespace py = pybind11;
@@ -107,6 +135,34 @@ void Py_ScatterFactor::add_to_python_module(pybind11::module_& m) {
 		py::arg("b"),
 		py::arg("y_inv"),
 		py::arg("P_0"))
+	.def("helmpoly_factor", static_cast<HPol_0_t>(&helmpoly_factor),
+		"create helm poly form factor\n"
+		"Parameters:\n"
+		"___________\n"
+		"R : float\n\t size of nuclei in GeV^{-1}\n"
+		"s2 : float\n\t factor in exponent in GeV^{-2}\n"
+		"y_inv : bool\n\tif true the form factor divide by q^2\n"
+		"P_0 : array\n\tcoefficients of q^2i\n",
+		py::arg("R"),
+		py::arg("s2"),
+		py::arg("y_inv"),
+		py::arg("P_0")
+	)
+	.def("helmpoly_factor", static_cast<HPol_1_t>(&helmpoly_factor),
+		"create helm poly form factor\n"
+		"Parameters:\n"
+		"___________\n"
+		"R : float\n\t size of nuclei in GeV^{-1}\n"
+		"s2 : float\n\t factor in exponent in GeV^{-2}\n"
+		"y_inv : bool\n\tif true the form factor divide by q^2\n"
+		"P_0 : array\n\tcoefficients of q^2i",
+		"P_V : array\n\toptional coefficints of q^2i v_perp^2",
+		py::arg("R"),
+		py::arg("s2"),
+		py::arg("y_inv"),
+		py::arg("P_0"),
+		py::arg("P_V")
+	)
 	.def("helm_factor", helm_factor,
 		"create helm form fractor\n"
 		"FF(q^2) = CF*(Bessels[qR])^2*exp(-q^2*s2)"

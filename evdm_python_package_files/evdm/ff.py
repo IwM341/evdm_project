@@ -112,7 +112,10 @@ class FormFactor_Helm:
             wimp_pars: dm_m.WimpScatterParams,
             nucleus: Nucleus,
             R = None,
-            S2 = None
+            S2 = None,
+            is_q2_inv = False,
+            q2_poly = None,
+            q2v2T_poly = None
         ):
         self.Zero = False 
         self.wimp = wimp_pars
@@ -125,6 +128,12 @@ class FormFactor_Helm:
         mp = Nucleus.Hydrogen.mass
         cns_fac : float = nucleus.A**4*( (wimp_pars.mass+mp)/(wimp_pars.mass+nucleus.A*mp) )**2
 
+
+        if(q2v2T_poly is None):
+            q2v2T_poly = []
+        if(q2_poly is None):
+            q2_poly = [self.cfac]
+        
         if(cns_fac == 0):
             self.Zero = True 
         
@@ -140,13 +149,16 @@ class FormFactor_Helm:
             bf = 3*myBessel(math.sqrt(q2)*R)*math.exp(-q2*s2/2)
             return bf*bf*cns_fac
         self.py_func = ScatterFactor
-        self.factor = _evdm.helm_factor(self.R,self.s2,self.cfac)
+        if( is_q2_inv is False and len(q2_poly) == 1 and len(q2v2T_poly) == 0):
+            self.factor = _evdm.helm_factor(self.R,self.s2,q2_poly[0])
+        else:
+            self.factor = _evdm.helmpoly_factor(self.R,self.s2,is_q2_inv,q2_poly,q2v2T_poly)
     def as_func(self):
         K = 2/(3/self.R**2+self.s2/2)
         return lambda y: self.py_func(y*K,0)
     def str_char(self):
         return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
-    
+
 class FormFactor_Fht:
     def __init__(self,
             wimp_pars: dm_m.WimpScatterParams,
@@ -251,6 +263,94 @@ class FormFactor_Standard:
     def str_char(self):
         return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
 
+class FormFactor_HelmCut:
+    """
+        form factor similar to standart 
+        but has only W_M nucleus response function
+        other response functions are cutted
+    """
+    def __init__(self,
+            wimp_pars: dm_m.WimpScatterParams,
+            nucleus: Nucleus,
+            operator,
+            operator_norm = None,
+            norm_dv = 1e-3,
+            norm_dv_inner = None,
+            R = None,
+            S2 = None,
+        ):
+        """
+        wimp_pars: instance of class WimpScatterParams\n
+        nucleus: instance of class Nucleus, contain nucleus information\n
+        operator: a linear composition of O_i with coeffs.\n
+        operator_norm: same as operator, but used to normilize\n 
+        cross section to Hydrogen (if None, then same as operator)\n
+        norm_dv: delta velocity in scatter process with hydrogen to normalize.\n
+        """
+
+        self.Zero = False 
+        self.wimp = wimp_pars
+        self.nucleus = nucleus
+        fermi_GeV= 5
+        s2 : float =  S2 if(S2 != None) else (fermi_GeV*0.9)**2
+        b = (1.23*nucleus.A**(1.0/3)-0.6)*fermi_GeV
+        a = 0.52*fermi_GeV
+        R : float = R if(R != None) else math.sqrt(b*b+7*math.pi**2*a*a/3-5*s2)
+        mp = Nucleus.Hydrogen.mass
+        J = nucleus.spin
+        cns_fac : float = nucleus.A**2*(2*J + 1)/2
+
+        
+        norm_dv_inner = norm_dv_inner if(norm_dv_inner != None) else norm_dv
+
+        if(operator_norm == None):
+            operator_norm = operator
+        self.wimp = wimp_pars
+        self.nucleus = nucleus
+        self.operator = operator
+        self.norm_op = operator_norm
+
+        _H : Nucleus = Nucleus.Hydrogen
+        
+        sympyficate = lambda x: x if(isinstance(x,(sympy.Expr))) else x.symbol
+
+        A = nucleus.A
+        dA = (2*nucleus.Z - nucleus.A)
+
+        C0 = 0.0397887
+        x = dA/A
+        m_mat_el = _symv.GetMatrixElement(sympyficate(operator),
+            {
+                'W_M00': f'{C0*cns_fac}',
+                'W_M11': f'{C0*cns_fac*x*x}',
+                'W_M10': f'{C0*cns_fac*x}',
+                'W_M10': f'{C0*cns_fac*x}'  
+            })
+        m_mat_el_h = _symv.GetMatrixElement(sympyficate(operator_norm),_H.factors)
+        self.matel = m_mat_el
+        self.norm_matel = m_mat_el_h        
+
+        normd_arrays = _symv.FormFactorArrays(m_mat_el,
+                m_mat_el_h,_H.b,2,
+                wimp_pars.mass,_H.mass,nucleus.mass,
+                0,wimp_pars.delta,wimp_pars.spin,
+                nucleus.spin,norm_dv,norm_dv_inner
+            )
+        is_y_1 = normd_arrays[1]
+        Q2_cf = normd_arrays[2]
+        VTQ2_cf = normd_arrays[3] if len(normd_arrays) > 3 else None
+        self.coeffs = normd_arrays
+        self.ffhelm = FormFactor_Helm(wimp_pars,nucleus,R,s2,is_y_1,Q2_cf,VTQ2_cf)
+        self.factor = self.ffhelm.factor
+
+    
+    def __repr__(self):
+        return f'Scatter({self.wimp} + {self.nucleus}, op = {self.operator})'
+    def __str__(self):
+        return self.__repr__()
+    def str_char(self):
+        return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
+
 
 class ScatterModel:
     """
@@ -290,6 +390,7 @@ class ScatterModel:
         
         ff_creation = {
             'helm': lambda : FormFactor_Helm(wimp_pars,nucleus,kwargs.get('R'),kwargs.get('S2')),
+            'helmcut': lambda : FormFactor_HelmCut(wimp_pars,nucleus,operator,operator_norm,norm_dv,norm_dv_inner,kwargs.get('R'),kwargs.get('S2')),
             'exp': lambda : FormFactor_Helm(wimp_pars,nucleus,0,kwargs.get('S2')),
             'fht': lambda : FormFactor_Fht(wimp_pars,nucleus),
             'standard': lambda : FormFactor_Standard ( wimp_pars, nucleus, operator, operator_norm, norm_dv, norm_dv_inner)
