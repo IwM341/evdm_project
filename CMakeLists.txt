@@ -26,6 +26,18 @@ option(OPENMP "" OFF)
 option(CATCHNAN "" OFF)
 endif()
 
+option(ENABLE_NATIVE "Enable -march=native" ON)
+
+if(ENABLE_NATIVE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang|IntelLLVM")
+        add_compile_options(-march=native)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+        add_compile_options(-xHost)
+    elseif(MSVC)
+        message(WARNING "MSVC: ENABLE_NATIVE has no direct equivalent")
+    endif()
+endif()
+
 if(${CATCHNAN})
    add_compile_definitions(CATCHNAN)
 endif()
