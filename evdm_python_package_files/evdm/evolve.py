@@ -64,14 +64,34 @@ class Aoperator:
 class ECAoperator:
     def __init__(self,Rop,Cop,Aop):
         if(Aoperator is None):
+            self.A = None
             if(Coperator is None):
-                self.U = lambda x: Rop@x
+                self.Ur = lambda x: Rop@x
+                self.C = None
             else:
-                self.U = lambda x: Rop@(Cop@(Rop@x))
+                self.Uc = lambda x: Rop@(Cop@(Rop@x))
+                self.Ur = lambda x: Rop@(Rop@x)
+                self.C = True
         else:
-            self.U = lambda x: Rop(Cop@(Aop@(Cop@(Rop@x))))
+            self.Ua = lambda x: Rop(Cop@(Aop@(Cop@(Rop@x))))
+            self.Uc = lambda x: Rop@(Cop@(Cop@(Rop@x)))
+            self.Ur = lambda x: Rop@((Rop@x))
+            self.A = True
+            self.C = True
+
+    def switch_a(self,value):
+        if(self.A ==False or self.A == True):
+            self.A = bool(value)
+    def switch_c(self,value):
+        if(self.C ==False or self.C == True):
+            self.C = bool(value)
     def __matmul__(self,Distrib):
-        return self.U(Distrib)
+        if(self.A):
+            return self.Ua(Distrib)
+        if(self.C):
+            return self.Uc(Distrib)
+        else:
+            return self.Ur(Distrib)
 
 def change_diag(A,func_to_diag):
     m_diag = A.diagonal()
@@ -300,15 +320,20 @@ def EvToTaskFastDecay(EvolveInfo,T_final,N,erase = False):
     return {'grid': EvolveInfo['grid'],'R':R2,'X':X,'A':Ann,'N':N,'tau':tau}
 
 
-def Evolute(DictTask : Dict,verbose = False):
+def Evolute(DictTask : Dict,verbose = False,non_linear = True):
     X = DictTask['X']
-    R = DictTask['R']
+    R : ECAoperator= DictTask['R']
     X0 = X*0
     N = DictTask['N']
     tau = DictTask['tau']
     Nskip = DictTask.get('Nskip',N)
     #print( np.abs(R-np.identity(R.shape[0])).sum())
     distrib_table = {'t':[],'D':[]}
+
+    try:
+        R.switch_a(non_linear)
+    except:
+        pass
 
     sch = 0
     for i in range(N):
