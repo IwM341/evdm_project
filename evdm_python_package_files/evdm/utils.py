@@ -359,7 +359,7 @@ def ScatterNuc(
     if(ScatterMatrix is None):
         ScatterMatrix = evdm.Matrix(m_grid)
 
-    if(type(method) is str):
+    if(type(algol) is str):
         m_algol = lambda nuc: algol
     else:
         m_algol = algol
