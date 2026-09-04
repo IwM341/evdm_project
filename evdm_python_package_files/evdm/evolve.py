@@ -1,6 +1,6 @@
 from .utils import *
 import pickle
-
+from typing import Dict
 import numpy as np
 
 try:
@@ -43,7 +43,44 @@ class SparseRop:
         if(result.sum() > 0):
             result*=(X.sum()/result.sum())
         return result
-    
+
+class Coperator:
+    def __init__(self,Capt,tau):
+        self.delta = Capt*tau
+    def __matmul__(self,Distrib):
+        return Distrib + self.delta
+
+class Aoperator:
+    def __init__(self,Amatrix,tau,agamma = 1,erase = False):
+        self.A = Amatrix
+        self.cf=  (tau*agamma)
+    def __matmul__(self,Distrib):
+        N = self.A.shape[0]
+        D1 = Distrib[0:N]
+        Distrib2 = Distrib
+        Distrib2[0:N] = np.exp(-self.A@D1*self.cf)*D1
+        return Distrib2
+
+class ECAoperator:
+    def __init__(self,Rop,Cop,Aop):
+        if(Aoperator is None):
+            if(Coperator is None):
+                self.U = lambda x: Rop@x
+            else:
+                self.U = lambda x: Rop@(Cop@(Rop@x))
+        else:
+            self.U = lambda x: Rop(Cop@(Aop@(Cop@(Rop@x))))
+    def __matmul__(self,Distrib):
+        return self.U(Distrib)
+
+def change_diag(A,func_to_diag):
+    m_diag = A.diagonal()
+    new_diag = func_to_diag(m_diag)
+    if(type(A) is np.ndarray):
+        np.fill_diagonal(A,new_diag)
+    else:
+        A.setdiag(new_diag)
+
 def PreCondition(m_mat : sprs.csc_matrix):
     if(isinstance(m_mat, sprs.csc_matrix)):
         Precond = sprs.diags(1/m_mat.diagonal())
@@ -74,18 +111,42 @@ def RInvPrecond(scat_mat,tau):
         scat_mat += np.identity(scat_mat.shape[0])
     return PreCondition(scat_mat)
 
-def ROperator(scat_mat,tau):
+def ROperator(scat_mat,tau,order = 1):
     if(isinstance(scat_mat,sprs.csc_matrix)):
         m_markov = evdm.MarkovChain(scat_mat)
         scat_mat*=(-tau)
         scat_mat += sprs.identity(scat_mat.shape[0])
     else:
-        m_markov = None
-        scat_mat*=(-tau)
-        scat_mat += np.identity(scat_mat.shape[0])
+        if(order == 1):
+            # s = -tau S
+            # denom = (1 + s)
+            m_markov = None
+            scat_mat*=(-tau)
+            change_diag(scat_mat,lambda x: x + 1)
+        elif(order == 2):
+            # we want denom = 1 + s + s^2/2
+            # s' = 1/2(s + 1)**2 + 1/2
+            # we want: 1.s' >=0 => 
+            # denom = (1 + s')
+            scat_mat*=(-tau)
+            s = scat_mat
+            s2 = s@s
+            s2 *= 0.5
+            s += s2
+            s2 = 0
+            sp = s
+
+            errors = np.array(s.sum(axis = 0)).flatten()
+            corrector = -np.where(errors < 0,errors,0)
+
+            change_diag(sp,lambda x: (x+corrector) + 1)
+        else:
+            raise ValueError(f"order {order} is not supported")
+        
     return PreCondInv(scat_mat,m_markov,tau)
 
-def make_state(smat,capt,ann = None,evap = None,elastic_factor = 1):
+
+def make_state(smat,capt,ann = None,elastic_factor = 1,evap = True):
     grid = capt.grid
     if(smat.grid.size != capt.grid.size):
         raise RuntimeError("sizes doesn't matches")
@@ -96,21 +157,21 @@ def make_state(smat,capt,ann = None,evap = None,elastic_factor = 1):
     return {
         'grid':grid,
         'mat':mmat,
-        'evap':smat.evap_histo.to_numpy().astype('float64'),
+        'evap':smat.evap_histo.to_numpy().astype('float64')*evap,
         'capt':capt.to_numpy().astype('float64'),
         'ann':ann,
         }
 
-def load_state(filenameMat,filenameCapt,filenameAnn = None,elastic_factor = 1):
+def load_state(filenameMat,filenameCapt,filenameAnn = None,elastic_factor = 1,evap = True):
     smat = pickle.load(open(filenameMat,'rb'))
     capt = pickle.load(open(filenameCapt,'rb'))
     if(filenameAnn is None):
         ann = None
     else:
         ann = pickle.load(open(filenameAnn,'rb'))
-    return make_state(smat,capt,ann,elastic_factor )
+    return make_state(smat,capt,ann,elastic_factor,evap )
 
-def CalcR(smatrix_np,tau,erase):
+def CalcR(smatrix_np,tau,erase,order = 1):
     if(erase):
         m_mat = smatrix_np
     else:
@@ -131,8 +192,8 @@ def CalcR(smatrix_np,tau,erase):
         R2-=R1 
         return R2
     else:
-        return ROperator(m_mat,tau)
-def CalcRFD(smatrix_np,tau,erase):
+        return ROperator(m_mat,tau,order)
+def CalcRFD(smatrix_np,tau,erase,order = 1):
     if(erase):
         m_mat = smatrix_np
     else:
@@ -163,7 +224,22 @@ def CalcRFD(smatrix_np,tau,erase):
         R2*=2
         R2-=R1
         return R2
-    return ROperator(m_mat,tau)
+    return ROperator(m_mat,tau,order)
+
+def EvToTaskAnn(EvolveInfo,T_final,N,Nskip = None,agamma = None,order = 1):
+    Nskip = N if Nskip is None else Nskip
+    tau = T_final/N
+    AnnMat = EvolveInfo['ann']*agamma if(agamma is not None) else None
+
+    Rop = CalcR(EvolveInfo['mat'],tau/2,True,order = order)
+    X = EvolveInfo['capt'].copy()
+    Cop = Coperator(X,tau/2 if AnnMat is not None else tau)
+    Aop = None
+    if(AnnMat is not None):
+        Aop = Aoperator(AnnMat,tau,agamma,True)
+    R2 = ECAoperator(Rop,Cop,Aop)
+    
+    return {'grid': EvolveInfo['grid'],'R':R2,'X':X,'A':AnnMat,'N':N,'Nskip':Nskip,'tau':tau}
 
 def EvToTask(EvolveInfo,T_final,N,erase = False):
     tau = T_final/N
@@ -195,8 +271,8 @@ def load_task(capt_fname,rmat_fname,ann_fname,N,tau):
     if(ann_fname is None):
         ann = None
     else:
-        ann = unpickle(rmat_fname)
-    return make_task(unpickle(capt_fname),ann,unpickle(ann_fname),N,tau)
+        ann = unpickle(ann_fname)
+    return make_task(unpickle(capt_fname),unpickle(rmat_fname),ann,N,tau)
 
 def load_taskFD(capt_fname,rmat_fname,ann_fname,N,tau):
     def unpickle(fname):
@@ -204,8 +280,8 @@ def load_taskFD(capt_fname,rmat_fname,ann_fname,N,tau):
     if(ann_fname is None):
         ann = None
     else:
-        ann = unpickle(rmat_fname)
-    return make_taskFD(unpickle(capt_fname),ann,unpickle(ann_fname),N,tau)
+        ann = unpickle(ann_fname)
+    return make_taskFD(unpickle(capt_fname),unpickle(rmat_fname),ann,N,tau)
 
 def EvToTaskFastDecay(EvolveInfo,T_final,N,erase = False):
     tau = T_final/N
@@ -223,6 +299,24 @@ def EvToTaskFastDecay(EvolveInfo,T_final,N,erase = False):
     
     return {'grid': EvolveInfo['grid'],'R':R2,'X':X,'A':Ann,'N':N,'tau':tau}
 
+
+def Evolute(DictTask : Dict,verbose = False):
+    X = DictTask['X']
+    R = DictTask['R']
+    X0 = X*0
+    N = DictTask['N']
+    tau = DictTask['tau']
+    Nskip = DictTask.get('Nskip',N)
+    #print( np.abs(R-np.identity(R.shape[0])).sum())
+    distrib_table = {'t':[],'D':[]}
+
+    sch = 0
+    for i in range(N):
+        X0 = R@X0
+        if(N-1-i % Nskip == 0):
+            distrib_table['t'].append((i + 1)*tau)
+            distrib_table['D'].append(X0)
+    return distrib_table
 
 def GetEvolveVector(DictTask,verbose = False):
     X = DictTask['X']

@@ -78,6 +78,7 @@ def Grid_sqrt_L(N = 100,alpha = 0.04,delta=0.04):
     xi = np.linspace(0,1,N+1,endpoint=True)
     psy = ( ((1+alpha)**2-(1+alpha-xi)**2)/(1+2*alpha))
     m_l = np.sqrt(((1+2*delta)*psy+delta**2))-delta
+    m_l[-1] = 1
     return m_l
     
 def GridPreparaion(DoutPre : evdm.Distrib,CaptPre,Ne_pre,Ne_full,Nl,
@@ -351,11 +352,18 @@ def ScatterNuc(
         m_body_table,
         m_operator ,m_norm_operator,Nmk,seed,method = "naive",
         algol = 'naive',measure = (1,2),Nmk_traj = 10,ScatterMatrix = None,zero = 0,**kwargs)->evdm.Matrix: 
-    
+    '''
+        method: 'naive', 'shift'
+    '''
     print('start:')
     if(ScatterMatrix is None):
         ScatterMatrix = evdm.Matrix(m_grid)
-    
+
+    if(type(method) is str):
+        m_algol = lambda nuc: algol
+    else:
+        m_algol = algol
+
     for m_element in m_elements:
         print(f'scatter for {m_element}')
         n_e = GetElementDense(m_body_table,m_element)
@@ -364,7 +372,7 @@ def ScatterNuc(
         scat_mod = ff.ScatterModel(m_wimp_params,m_element,m_operator,m_norm_operator,2.06e-3,**kwargs)
         print()
         ScatterCalc(ScatterMatrix,scat_mod,n_e,Nmk,Nmk_traj = Nmk_traj,
-                         seed=seed,method=method,measure = measure,algol=algol,**kwargs)
+                         seed=seed,method=method,measure = measure,algol=m_algol(m_element),**kwargs)
         if(np.isnan(ScatterMatrix.to_numpy().sum())):
           raise RuntimeError(f"ScatterMatrix have nan!, at ")
     return ScatterMatrix
