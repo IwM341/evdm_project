@@ -250,7 +250,7 @@ def CalcRFD(smatrix_np,tau,erase,order = 1,markov=False):
 def EvToTaskAnn(EvolveInfo,T_final,N,Nskip = None,agamma = None,order = 1,markov = False):
     Nskip = N if Nskip is None else Nskip
     tau = T_final/N
-    AnnMat = EvolveInfo['ann']*agamma if(agamma is not None) else None
+    AnnMat = EvolveInfo['ann'] if(agamma is not None) else None
 
     Rop = CalcR(EvolveInfo['mat'],tau/2,True,order = order,markov = markov)
     X = EvolveInfo['capt'].copy()
