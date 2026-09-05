@@ -15,7 +15,7 @@ void Py_Pre_Ann::add_to_python_module(pybind11::module& m)
 		.def(py::init<
 				Py_EL_Grid const&, size_t, 
 				std::string_view, double , double , 
-				size_t, py::handle
+				size_t, py::handle,bool
 			>(),
 			"constructor.\n\n"
 			"Parameters:\n\t"
@@ -28,6 +28,7 @@ void Py_Pre_Ann::add_to_python_module(pybind11::module& m)
 			py::arg_v("rmin", 0),
 			py::arg_v("rmax", 1),
 			py::arg_v("seed", 1),
+			py::arg_v("debug", 0),
 			py::arg_v("bar", py::none())
 		).def("__repr__", &Py_Pre_Ann::repr)
 		.def(py::init([](
@@ -77,10 +78,10 @@ void Py_Pre_Ann::add_to_python_module(pybind11::module& m)
 
 Py_Pre_Ann::Py_Pre_Ann(
 	Py_EL_Grid const& mGridEL, size_t Nmk_bin,
-	std::string_view dtype, double Rmin, double Rmax, size_t seed, 
-	pybind11::handle update_function): 
+	std::string_view dtype, double Rmin, double Rmax, size_t seed,
+	pybind11::handle update_function, bool debug):
 	m_preann(
-		std::visit([Nmk_bin, dtype, Rmin , Rmax, &update_function,_seed=seed]
+		std::visit([Nmk_bin, dtype, Rmin , Rmax, &update_function,_seed=seed, debug]
 			<_GRID_EL_TMPL_,typename T>
 			(const  evdm::EL_Grid<_GRID_EL_PARS_>& m_gr,
 				evdm::self_type<T>)->PreAnn_Variant_t
@@ -101,8 +102,8 @@ Py_Pre_Ann::Py_Pre_Ann(
 			evdm::xorshift<T> G(seed);
 			pybind11::gil_scoped_release m_lock;
 			return evdm::GridAnnPreMatrix<T, _T1, _T2, _m_grid_t>(
-				m_gr, Rmin, Rmax, Nmk_bin,G,
-				m_prog
+				m_gr, Rmin, Rmax, Nmk_bin,G, 
+				m_prog, debug
 			);
 		}
 		else {

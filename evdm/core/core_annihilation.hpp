@@ -31,7 +31,9 @@ namespace evdm {
             GridEL_t const &Grid,
             GridEL_vt Rmin, GridEL_vt Rmax,
             size_t Nmk_traj, 
-            Gen_t && G,progress_omp_function<> m_progress):
+            Gen_t && G,
+            progress_omp_function<> m_progress,
+            bool debug ):
             Grid(Grid){
             const auto& grid = Grid.getLE_inner_grid();
             const size_t N = grid.size();
@@ -44,7 +46,7 @@ namespace evdm {
             AnnImpl(A0, Av,
                 grid, Rmin, Rmax, *Grid._TrajPools,
                 Grid.LE(), Grid.body->Phi, _F2,
-                G, Nmk_traj, m_progress);
+                G, Nmk_traj, m_progress, debug);
             Av = 0.5 * (Av + Av.transpose());
             A0 = 0.5 * (A0 + A0.transpose());
         }

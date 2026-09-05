@@ -173,7 +173,8 @@ def make_state(smat,capt,ann = None,elastic_factor = 1,evap = True):
     mmat = to_diag64(smat,True)#.astype('float64'),
     N = capt.grid.size
     mmat[0:N,0:N] *= elastic_factor
-    
+    if( (type(ann) is not np.ndarray) and (ann is not None)):
+        ann= ann.A0
     return {
         'grid':grid,
         'mat':mmat,
