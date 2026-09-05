@@ -339,7 +339,7 @@ def Evolute(DictTask : Dict,verbose = False,non_linear = True):
     sch = 0
     for i in range(N):
         X0 = R@X0
-        if(N-1-i % Nskip == 0):
+        if((N-1-i) % Nskip == 0):
             distrib_table['t'].append((i + 1)*tau)
             distrib_table['D'].append(X0)
     return distrib_table
