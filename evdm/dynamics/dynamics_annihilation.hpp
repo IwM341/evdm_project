@@ -6,6 +6,9 @@
 #include "../utils/mc.hpp"
 #include "../utils/progress_bar.hpp"
 
+#define DEBUGT(x) (#x " = " + std::to_string(x) + "\n")
+#define DEBUGN(x) (#x " = " + std::to_string(x) + "\t, ")
+
 namespace evdm {
 	template <typename Vec_t>
 	concept VectorC = requires(Vec_t t, size_t i) {
@@ -40,7 +43,8 @@ namespace evdm {
 		_F2_t _F2,
 		Gen_t _G,
 		size_t Nmk_r,
-		progress_omp_function<>& m_progress_func
+		progress_omp_function<>& m_progress_func,
+		bool debug_nan = false
 	) {
 		const size_t N_in = grid.size();
 		progress_omp_bar<> m_bar(
@@ -157,19 +161,25 @@ namespace evdm {
 								auto Tl2 = PeriodFunc_out(e2, l2, Lm2);
 
 								auto weight_s = dens_weight * W1 * W2 / (Tl1 * Tl2);
-								if (std::isnan(weight_s)) {
+								if (std::isnan(weight_s) && debug_nan) {
 									std::string message =
-										"nan at annihilation, seed = " +
-										std::to_string(push_seed) +
+										std::string("nan at annihilation\n") +
+										DEBUGT(push_seed) +
 										", (I_in,I_out) = (" +
 										std::to_string(I_in) + ", " +
 										std::to_string(I_out) +
-										"), mki = " + std::to_string(_mki);
+										DEBUGN(_mki) +
+										DEBUGT(e1) + DEBUGT(l1) + DEBUGN(Lm1) +
+										DEBUGT(e2) + DEBUGT(l2) + DEBUGN(Lm2) +
+										DEBUGT(W1) + DEBUGN(W2) + 
+										DEBUGT(Tl1) +DEBUGN(Tl1);
 
 									throw std::runtime_error(message);
 								}
-								A0_ij += weight_s;
-								Av_ij += weight_s * (v21 + v22) / 2;
+								else {
+									A0_ij += weight_s;
+									Av_ij += weight_s * (v21 + v22) / 2;
+								}
 							}
 						}
 					}
