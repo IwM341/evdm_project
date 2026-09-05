@@ -109,10 +109,12 @@ def PreCondition(m_mat : sprs.csc_matrix):
         Precond = m_mat.diagonal()
         return (m_mat*Precond,Precond)
 def PreCondInv(Rmat : sprs.csc_matrix,MarkovChain,tau):
-    if(isinstance(Rmat, sprs.csc_matrix)):
+    if(MarkovChain is not None):
         (Rp,Pr) = PreCondition(Rmat)
         return SparseRop(Rp,Pr,MarkovChain,tau)
     else:
+        if(isinstance(Rmat, sprs.csc_matrix)):
+            Rmat = Rmat.toarray()
         return np.linalg.inv(Rmat)
 
 def RInvMat(scat_mat,tau):
@@ -132,10 +134,9 @@ def RInvPrecond(scat_mat,tau):
     return PreCondition(scat_mat)
 
 def ROperator(scat_mat,tau,order = 1,markov = False):
-    if(order == 1):
+    if(order == 1 or markov):
         # s = -tau S
         # denom = (1 + s)
-        m_markov = None
         scat_mat*=(-tau)
         change_diag(scat_mat,lambda x: x + 1)
     elif(order == 2):
