@@ -50,6 +50,14 @@ class Coperator:
     def __matmul__(self,Distrib):
         return Distrib + self.delta
 
+class Rcorrector:
+    def __init__(self,R):
+        self.R = R
+    def __matmul__(self,Distrib):
+        Distrib = self.R@Distrib
+        Distrib[Distrib<0] = 0
+        return Distrib
+
 class Aoperator:
     def __init__(self,Amatrix,tau,agamma = 1,erase = False):
         self.A = Amatrix
@@ -140,22 +148,15 @@ def ROperator(scat_mat,tau,order = 1,markov = False):
         scat_mat*=(-tau)
         change_diag(scat_mat,lambda x: x + 1)
     elif(order == 2):
-        # we want denom = 1 + s + s^2/2
-        # s' = 1/2(s + 1)**2 + 1/2
-        # we want: 1.s' >=0 => 
-        # denom = (1 + s')
         scat_mat*=(-tau)
         s = scat_mat
-        s2 = s@s
-        s2 *= 0.5
-        s += s2
-        s2 = 0
-        sp = s
-
-        errors = np.array(s.sum(axis = 0)).flatten()
-        corrector = -np.where(errors < 0,errors,0)
-
-        change_diag(sp,lambda x: (x+corrector) + 1)
+        s12 = s/2
+        change_diag(s,lambda x: x + 1)
+        change_diag(s12,lambda x: x + 1)
+        R12 = PreCondInv(s12,False,tau)
+        R1 = PreCondInv(s,False,tau)
+        return Rcorrector(2*R12@R12 - R1)
+        
     else:
         raise ValueError(f"order {order} is not supported")
 
