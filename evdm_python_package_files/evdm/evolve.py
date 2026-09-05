@@ -73,7 +73,7 @@ class ECAoperator:
                 self.Ur = lambda x: Rop@(Rop@x)
                 self.C = True
         else:
-            self.Ua = lambda x: Rop(Cop@(Aop@(Cop@(Rop@x))))
+            self.Ua = lambda x: Rop@(Cop@(Aop@(Cop@(Rop@x))))
             self.Uc = lambda x: Rop@(Cop@(Cop@(Rop@x)))
             self.Ur = lambda x: Rop@((Rop@x))
             self.A = True
