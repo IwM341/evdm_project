@@ -131,38 +131,37 @@ def RInvPrecond(scat_mat,tau):
         scat_mat += np.identity(scat_mat.shape[0])
     return PreCondition(scat_mat)
 
-def ROperator(scat_mat,tau,order = 1):
-    if(isinstance(scat_mat,sprs.csc_matrix)):
-        m_markov = evdm.MarkovChain(scat_mat)
+def ROperator(scat_mat,tau,order = 1,markov = False):
+    if(order == 1):
+        # s = -tau S
+        # denom = (1 + s)
+        m_markov = None
         scat_mat*=(-tau)
-        scat_mat += sprs.identity(scat_mat.shape[0])
+        change_diag(scat_mat,lambda x: x + 1)
+    elif(order == 2):
+        # we want denom = 1 + s + s^2/2
+        # s' = 1/2(s + 1)**2 + 1/2
+        # we want: 1.s' >=0 => 
+        # denom = (1 + s')
+        scat_mat*=(-tau)
+        s = scat_mat
+        s2 = s@s
+        s2 *= 0.5
+        s += s2
+        s2 = 0
+        sp = s
+
+        errors = np.array(s.sum(axis = 0)).flatten()
+        corrector = -np.where(errors < 0,errors,0)
+
+        change_diag(sp,lambda x: (x+corrector) + 1)
     else:
-        if(order == 1):
-            # s = -tau S
-            # denom = (1 + s)
-            m_markov = None
-            scat_mat*=(-tau)
-            change_diag(scat_mat,lambda x: x + 1)
-        elif(order == 2):
-            # we want denom = 1 + s + s^2/2
-            # s' = 1/2(s + 1)**2 + 1/2
-            # we want: 1.s' >=0 => 
-            # denom = (1 + s')
-            scat_mat*=(-tau)
-            s = scat_mat
-            s2 = s@s
-            s2 *= 0.5
-            s += s2
-            s2 = 0
-            sp = s
+        raise ValueError(f"order {order} is not supported")
 
-            errors = np.array(s.sum(axis = 0)).flatten()
-            corrector = -np.where(errors < 0,errors,0)
-
-            change_diag(sp,lambda x: (x+corrector) + 1)
-        else:
-            raise ValueError(f"order {order} is not supported")
-        
+    m_markov= None
+    if(markov):
+        m_markov = evdm.MarkovChain(scat_mat)
+    
     return PreCondInv(scat_mat,m_markov,tau)
 
 
@@ -192,7 +191,7 @@ def load_state(filenameMat,filenameCapt,filenameAnn = None,elastic_factor = 1,ev
         ann = pickle.load(open(filenameAnn,'rb'))
     return make_state(smat,capt,ann,elastic_factor,evap )
 
-def CalcR(smatrix_np,tau,erase,order = 1):
+def CalcR(smatrix_np,tau,erase,order = 1,markov=False):
     if(erase):
         m_mat = smatrix_np
     else:
@@ -213,8 +212,8 @@ def CalcR(smatrix_np,tau,erase,order = 1):
         R2-=R1 
         return R2
     else:
-        return ROperator(m_mat,tau,order)
-def CalcRFD(smatrix_np,tau,erase,order = 1):
+        return ROperator(m_mat,tau,order,markov)
+def CalcRFD(smatrix_np,tau,erase,order = 1,markov=False):
     if(erase):
         m_mat = smatrix_np
     else:
@@ -245,14 +244,14 @@ def CalcRFD(smatrix_np,tau,erase,order = 1):
         R2*=2
         R2-=R1
         return R2
-    return ROperator(m_mat,tau,order)
+    return ROperator(m_mat,tau,order,markov = markov)
 
-def EvToTaskAnn(EvolveInfo,T_final,N,Nskip = None,agamma = None,order = 1):
+def EvToTaskAnn(EvolveInfo,T_final,N,Nskip = None,agamma = None,order = 1,markov = False):
     Nskip = N if Nskip is None else Nskip
     tau = T_final/N
     AnnMat = EvolveInfo['ann']*agamma if(agamma is not None) else None
 
-    Rop = CalcR(EvolveInfo['mat'],tau/2,True,order = order)
+    Rop = CalcR(EvolveInfo['mat'],tau/2,True,order = order,markov = markov)
     X = EvolveInfo['capt'].copy()
     Cop = Coperator(X,tau/2 if AnnMat is not None else tau)
     Aop = None
