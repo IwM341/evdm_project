@@ -161,20 +161,22 @@ namespace evdm {
 								auto Tl2 = PeriodFunc_out(e2, l2, Lm2);
 
 								auto weight_s = dens_weight * W1 * W2 / (Tl1 * Tl2);
-								if (std::isnan(weight_s) && debug_nan) {
-									std::string message =
-										std::string("nan at annihilation\n") +
-										DEBUGT(push_seed) +
-										", (I_in,I_out) = (" +
-										std::to_string(I_in) + ", " +
-										std::to_string(I_out) +
-										DEBUGN(_mki) +
-										DEBUGT(e1) + DEBUGT(l1) + DEBUGN(Lm1) +
-										DEBUGT(e2) + DEBUGT(l2) + DEBUGN(Lm2) +
-										DEBUGT(W1) + DEBUGN(W2) + 
-										DEBUGT(Tl1) +DEBUGN(Tl1);
+								if (std::isnan(weight_s)) {
+									if (debug_nan) {
+										std::string message =
+											std::string("nan at annihilation\n") +
+											DEBUGT(push_seed) +
+											", (I_in,I_out) = (" +
+											std::to_string(I_in) + ", " +
+											std::to_string(I_out) +
+											DEBUGN(_mki) +
+											DEBUGT(e1) + DEBUGT(l1) + DEBUGN(Lm1) +
+											DEBUGT(e2) + DEBUGT(l2) + DEBUGN(Lm2) +
+											DEBUGT(W1) + DEBUGN(W2) +
+											DEBUGT(Tl1) + DEBUGN(Tl1);
 
-									throw std::runtime_error(message);
+										throw std::runtime_error(message);
+									}
 								}
 								else {
 									A0_ij += weight_s;
