@@ -29,7 +29,7 @@ void Py_Pre_Ann::add_to_python_module(pybind11::module& m)
 			py::arg_v("rmax", 1),
 			py::arg_v("seed", 1),
 			py::arg_v("bar", py::none()),
-			py::arg_v("debug", 0)
+			py::arg_v("debug", false)
 		).def("__repr__", &Py_Pre_Ann::repr)
 		.def(py::init([](
 			Py_EL_Grid const& G,
