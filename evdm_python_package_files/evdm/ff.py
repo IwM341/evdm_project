@@ -127,7 +127,7 @@ class FormFactor_Helm:
         R : float = R if(R != None) else math.sqrt(b*b+7*math.pi**2*a*a/3-5*s2)
         mp = Nucleus.Hydrogen.mass
         cns_fac : float = nucleus.A**4*( (wimp_pars.mass+mp)/(wimp_pars.mass+nucleus.A*mp) )**2
-
+        self.cfac = cns_fac
 
         if(q2v2T_poly is None):
             q2v2T_poly = []
@@ -139,7 +139,7 @@ class FormFactor_Helm:
         
         self.s2 = s2
         self.R = R  
-        self.cfac = cns_fac
+        
         def myBessel(x : float)->float:
             if(x<0.01):
                 return 1.0/3-x*x*(1-x*x/28)/10
