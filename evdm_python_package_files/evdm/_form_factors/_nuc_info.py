@@ -1,4 +1,5 @@
 from ._isotopes import isotope_table
+from ._isotopes import _spin_data
 from ._ffee_info import ffee_info
 from ._ffee_info import FFEE
 def _get_spin(Z,A):
@@ -45,6 +46,15 @@ def _get_abondonce(A,Z):
         return isotope_table.query(f"A == {A} and Z == {Z}")['abundance'].values[0]
     except:
         raise ValueError(f"not supported element with Z = '{Z}' and A = '{A}'")
+
+def _get_spin_data( A, Z):
+    if(isotope_table.query(f"A == {A} and Z == {Z}")['spin'].values[0] == 0):
+        return (0, 0, "no spin")
+
+    data = _spin_data.get((A, Z), None)
+    if(data is None):
+        return (None, None, "no data")
+    return (data["sp"], data["sn"], data["model"])
 
 
 if False:

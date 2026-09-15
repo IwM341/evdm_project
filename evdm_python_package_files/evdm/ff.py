@@ -67,6 +67,11 @@ class Nucleus:
         self.mass = self.A*0.938
         self.abondonce = float(_nuc_info._get_abondonce(self.A,self.Z))
 
+        spn_data = _nuc_info._get_spin_data(self.A,self.Z)
+        self.Sp = spn_data[0]
+        self.Sn = spn_data[1]
+        self.spin_model = spn_data[2]
+
         self.ffee : _nuc_info.FFEE  = _nuc_info.ffee_info.get((self.name,self.A),None)
 
         try:
@@ -78,7 +83,8 @@ class Nucleus:
         if (self.A == 1):
             self.b = 1e-4
         else:
-            self.b = float(sympy.sqrt(41.467/(45*self.A**(-1.0/3) - 25*self.A**(-2.0/3) ))*5.067730716548338)
+            sqrt = lambda x : x**0.5
+            self.b = float(sqrt(41.467/(45*self.A**(-1.0/3) - 25*self.A**(-2.0/3) ))*5.067730716548338)
     def __repr__(self):
         return f"Nucleus(A = {self.A}, Z = {self.Z})"
     def __str__(self):
@@ -127,7 +133,7 @@ class FormFactor_Helm:
         R : float = R if(R != None) else math.sqrt(b*b+7*math.pi**2*a*a/3-5*s2)
         mp = Nucleus.Hydrogen.mass
         cns_fac : float = nucleus.A**4*( (wimp_pars.mass+mp)/(wimp_pars.mass+nucleus.A*mp) )**2
-        self.cfac = cns_fac
+
 
         if(q2v2T_poly is None):
             q2v2T_poly = []
@@ -139,7 +145,7 @@ class FormFactor_Helm:
         
         self.s2 = s2
         self.R = R  
-        
+        self.cfac = cns_fac
         def myBessel(x : float)->float:
             if(x<0.01):
                 return 1.0/3-x*x*(1-x*x/28)/10

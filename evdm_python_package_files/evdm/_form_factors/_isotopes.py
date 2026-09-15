@@ -471,3 +471,572 @@ _raw = [
 ]
 
 isotope_table = pd.DataFrame(_raw, columns=["A", "Z", "name", "spin", "abundance"])
+
+unknown = -1
+
+_spin_data = {
+    # Hydrogen-1
+    (1, 1): {
+        "sp": 0.5,
+        "sn": 0.0,
+        "model": "exact single-proton",
+        "source": "single-nucleon limit",
+        "reliability": "preferred",
+    },
+
+    # Lithium-7 (!!! less reliable)
+    (7, 3): {
+        "sp": 0.497,
+        "sn": 0.004,
+        "model": "SM, Pacheco-Strottman",
+        "source": "hep-ph/0406218 review table",
+        "reliability": "!!! less reliable",
+    },
+
+    # Beryllium-9 (!!! less reliable)
+    (9, 4): {
+        "sp": 0.007,
+        "sn": 0.415,
+        "model": "SM, Pacheco-Strottman",
+        "source": "hep-ph/0406218 review table",
+        "reliability": "!!! less reliable",
+    },
+
+    # Oxygen-17 (!!! less reliable)
+    (17, 8): {
+        "sp": 0.0,
+        "sn": 0.5,
+        "model": "SM, Pacheco-Strottman",
+        "source": "hep-ph/0406218 review table",
+        "reliability": "!!! less reliable",
+    },
+
+    # Fluorine-19 (!!! less reliable)
+    (19, 9): {
+        "sp": 0.475,
+        "sn": -0.009,
+        "model": "SM, Divari et al.",
+        "source": "Ref. [5] as summarized in hep-ph/0406218",
+        "reliability": "!!! less reliable",
+    },
+
+    # Sodium-23
+    (23, 11): {
+        "sp": 0.2477,
+        "sn": 0.0199,
+        "model": "SM, Divari et al. / Ressell-Dean",
+        "source": "hep-ph/9702290 and hep-ph/0406218",
+        "reliability": "preferred",
+    },
+
+    # Aluminium-27
+    (27, 13): {
+        "sp": 0.3430,
+        "sn": 0.0296,
+        "model": "SM, Engel-Ressell-Towner-Ormand",
+        "source": "hep-ph/9504322",
+        "reliability": "preferred",
+    },
+
+    # Silicon-29 (!!! less reliable)
+    (29, 14): {
+        "sp": -0.0019,
+        "sn": 0.1334,
+        "model": "SM, Divari et al.",
+        "source": "hep-ph/0406218 review table",
+        "reliability": "!!! less reliable",
+    },
+
+    # Potassium-39
+    (39, 19): {
+        "sp": -0.184,
+        "sn": 0.054,
+        "model": "PT with Force II, Engel et al.",
+        "source": "hep-ph/9504322",
+        "reliability": "preferred",
+    },
+
+    # Germanium-73
+    (73, 32): {
+        "sp": 0.030,
+        "sn": 0.378,
+        "model": "hybrid SM, Dimitrov-Engel-Pittel",
+        "source": "hep-ph/9408246",
+        "reliability": "preferred",
+    },
+
+    # Niobium-93 (!!! less reliable)
+    (93, 41): {
+        "sp": 0.48,
+        "sn": 0.04,
+        "model": "SM (large), Engel-Pittel-Ormand-Vogel",
+        "source": "hep-ph/0406218 review table",
+        "reliability": "!!! less reliable",
+    },
+
+    # Tellurium-125
+    (125, 52): {
+        "sp": 0.001,
+        "sn": 0.287,
+        "model": "SM (Bonn A), Ressell-Dean",
+        "source": "hep-ph/9702290",
+        "reliability": "preferred",
+    },
+
+    # Iodine-127
+    (127, 53): {
+        "sp": 0.309,
+        "sn": 0.075,
+        "model": "SM (Bonn A), Ressell-Dean",
+        "source": "hep-ph/9702290",
+        "reliability": "preferred",
+    },
+
+    # Xenon-129
+    (129, 54): {
+        "sp": 0.0128,
+        "sn": 0.300,
+        "model": "SM (Nijmegen II), Ressell-Dean",
+        "source": "hep-ph/9702290",
+        "reliability": "preferred",
+    },
+
+    # Xenon-131
+    (131, 54): {
+        "sp": -0.041,
+        "sn": -0.236,
+        "model": "QTDA, Engel",
+        "source": "hep-ph/0406218 review with hep-ph/9702290 cross-check",
+        "reliability": "preferred",
+    },
+
+    # Lead-207
+    (207, 82): {
+        "sp": -0.0103025,
+        "sn": -0.1491290,
+        "model": "SM, Kosmas-Vergados",
+        "source": "hep-ph/9701205 from Omega0/Omega1 recast to Sp/Sn",
+        "reliability": "preferred",
+    },
+
+    #################
+    #               #
+    # Less Reliable #
+    #               #
+    #################
+
+    # Helium-3 (!!! less reliable)
+    (3, 2): {
+        "sp": -0.081,
+        "sn": 0.552,
+        "model": "EOGM (gA/gV = 1), Engel–Vogel",
+        "source": "hep-ph/0406218 review tables",
+        "reliability": "!!! less reliable",
+    },
+
+    # Boron-11 (!!! less reliable)
+    (11, 5): {
+        "sp": 0.292 ,
+        "sn": 0.008,
+        "model": "SM, Pacheco-Strottman",
+        "source": "hep-ph/0406218 review tables",
+        "reliability": "!!! less reliable",
+    },
+    # Carbon-13 (!!! less reliable)
+    (13, 6): {
+        "sp": -0.009,
+        "sn": -0.172 ,
+        "model": "EOGM (gA/gV = 1), Engel–Vogel",
+        "source": "hep-ph/0406218 review tables",
+        "reliability": "!!! less reliable",
+    },
+
+    # Nitrogen-15 (!!! less reliable)
+    (15, 7): {
+        "sp": -0.145 ,
+        "sn": 0.037,
+        "model": "EOGM (gA/gV = 1), Engel–Vogel [",
+        "source": "hep-ph/0406218 review tables",
+        "reliability": "!!! less reliable",
+    },
+
+    # Neon-21 (!!! less reliable)
+    (21, 10): {
+        "sp": 0.020,
+        "sn": 0.294,
+        "model": "EOGM (gA/gV = 1), Engel–Vogel",
+        "source": "hep-ph/0406218 review tables",
+        "reliability": "!!! less reliable",
+    },
+
+    # Magnesium-25 (!!! less reliable)
+    (25, 12): {
+        "sp": 0.040,
+        "sn": 0.376 ,
+        "model": "EOGM (gA/gV = 1), Engel–Vogel ",
+        "source": "hep-ph/0406218 review tables",
+        "reliability": "!!! less reliable",
+    },
+
+    # Phosphorus-31 (!!! less reliable)
+    (31, 15): {
+        "sp": 0.181,
+        "sn": 0.032 ,
+        "model": "EOGM (gA/gV = 1), Engel–Vogel",
+        "source": "hep-ph/0406218 review tables",
+        "reliability": "!!! less reliable",
+    },
+
+    # Chlorine-35 (!!! less reliable)
+    (35, 17): {
+        "sp": -0.051 ,
+        "sn": -0.0088,
+        "model": "SM, Ressell et al.",
+        "source": "hep-ph/0406218 review table 4",
+        "reliability": "!!! less reliable",
+    },
+
+    # Titanium-47 (!!! less reliable)
+    (47, 22): {
+        "sp": 0,
+        "sn": 0.21,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 5",
+        "reliability": "!!! less reliable",
+    },
+
+    # Titanium-49 (!!! less reliable)
+    (49, 22): {
+        "sp": 0,
+        "sn": 0.29,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 5",
+        "reliability": "!!! less reliable",
+    },
+
+    # Vanadium-51 (!!! less reliable)
+    (51, 23): {
+        "sp": 0.36 ,
+        "sn": 0,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 5",
+        "reliability": "!!! less reliable",
+    },
+
+    # Manganese-55 (!!! less reliable)
+    (55, 25): {
+        "sp": 0.264 ,
+        "sn": 0,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 5",
+        "reliability": "!!! less reliable",
+    },
+
+    # Cobalt-59 (!!! less reliable)
+    (59, 27): {
+        "sp": 0.25 ,
+        "sn": 0,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 5",
+        "reliability": "!!! less reliable",
+    },
+
+    # Zinc-67 (!!! less reliable)
+    (67, 30): {
+        "sp": 0,
+        "sn": -0.23 ,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 5",
+        "reliability": "!!! less reliable",
+    },
+
+    # Gallium-69 (!!! less reliable)
+    (69, 31): {
+        "sp": 0.11,
+        "sn": 0,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 5",
+        "reliability": "!!! less reliable",
+    },
+
+    # Gallium-71 (!!! less reliable)
+    (71, 31): {
+        "sp": 0.23 ,
+        "sn": 0,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 5",
+        "reliability": "!!! less reliable",
+    },
+
+    # Arsenic-75 (!!! less reliable)
+    (75, 33): {
+        "sp": -0.01 ,
+        "sn": 0,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 6",
+        "reliability": "!!! less reliable",
+    },
+
+    # Bromine-79 (!!! less reliable)
+    (79, 35): {
+        "sp": 0.13,
+        "sn": 0,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 6",
+        "reliability": "!!! less reliable",
+    },
+
+    # Bromine-81 (!!! less reliable)
+    (81, 35): {
+        "sp": 0.17,
+        "sn": 0,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 6",
+        "reliability": "!!! less reliable",
+    },
+
+    # Zirconium-91 (!!! less reliable)
+    (91, 40): {
+        "sp": 0,
+        "sn": 0.34,
+        "model": "OGM, Engel–Voge",
+        "source": "hep-ph/0406218 review table 6",
+        "reliability": "!!! less reliable",
+    },
+
+    # Ruthenium-99 (!!! less reliable)
+    (99, 44): {
+        "sp": 0,
+        "sn": 0.17,
+        "model": "OGM, Ellis–Flores",
+        "source": "hep-ph/0406218 review table 7",
+        "reliability": "!!! less reliable",
+    },
+
+    # Ruthenium-101 (!!! less reliable)
+    (101, 44): {
+        "sp": 0,
+        "sn": 0.19,
+        "model": "OGM, Ellis–Flores",
+        "source": "hep-ph/0406218 review table 7",
+        "reliability": "!!! less reliable",
+    },
+
+    # Silver-107 (!!! less reliable)
+    (107, 47): {
+        "sp": -0.13,
+        "sn": 0.00,
+        "model": "OGM, Ellis–Flores",
+        "source": "hep-ph/0406218 review table 7",
+        "reliability": "!!! less reliable",
+    },
+
+    # Silver-109 (!!! less reliable)
+    (109, 47): {
+        "sp": -0.14,
+        "sn": 0.00,
+        "model": "OGM, Ellis–Flores",
+        "source": "hep-ph/0406218 review table 7",
+        "reliability": "!!! less reliable",
+    },
+
+    # Cadmium-111 (!!! less reliable)
+    (111, 48): {
+        "sp": 0,
+        "sn": 0.16,
+        "model": "OGM, Ellis–Flores",
+        "source": "hep-ph/0406218 review table 7",
+        "reliability": "!!! less reliable",
+    },
+
+    # Cadmium-113 (!!! less reliable)
+    (113, 48): {
+        "sp": 0,
+        "sn": 0.175,
+        "model": "TFFS, Nikolaev–Klapdor-Kleingrothaus",
+        "source": "hep-ph/0406218 review table 7",
+        "reliability": "!!! less reliable",
+    },
+
+    # Tin-115 (!!! less reliable)
+    (115, 50): {
+        "sp": 0,
+        "sn": 0.24,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 8",
+        "reliability": "!!! less reliable",
+    },
+
+    # Tin-117 (!!! less reliable)
+    (117, 50): {
+        "sp": 0,
+        "sn": 0.126,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 8",
+        "reliability": "!!! less reliable",
+    },
+
+    # Antimony-121 (!!! less reliable)
+    (121, 51): {
+        "sp": 0.188 ,
+        "sn": 0,
+        "model": "OGM, Engel–Vogel",
+        "source": "hep-ph/0406218 review table 8",
+        "reliability": "!!! less reliable",
+    },
+
+    # Antimony-123 (!!! less reliable)
+    (123, 51): {
+        "sp": -0.207,
+        "sn": 0.0,
+        "model": "OGM, Ellis–Flores",
+        "source": "hep-ph/0406218 review table 8",
+        "reliability": "!!! less reliable",
+    },
+
+    # Tellurium-123 (!!! less reliable)
+    (123, 52): {
+        "sp": 0.00,
+        "sn": 0.192,
+        "model": "TFFS, Nikolaev–Klapdor-Kleingrothaus",
+        "source": "hep-ph/0406218 review table 8",
+        "reliability": "!!! less reliable",
+    },
+
+    # Caesium-133 (!!! less reliable)
+    (133, 55): {
+        "sp":  -0.225,
+        "sn": 0.002,
+        "model": "IBFM (quenched), Iachello et al.",
+        "source": "hep-ph/0406218 review table 11",
+        "reliability": "!!! less reliable",
+    },
+
+    # Barium-135 (!!! less reliable)
+    (135, 56): {
+        "sp": -0.004,
+        "sn": -0.145,
+        "model": "IBFM (quenched), Iachello et al.",
+        "source": "hep-ph/0406218 review table 11",
+        "reliability": "!!! less reliable",
+    },
+
+    # Lanthanum-137 (!!! less reliable)
+    (137, 57): {
+        "sp": -0.212,
+        "sn": 0.0003,
+        "model": "IBFM (quenched), Iachello et al.",
+        "source": "hep-ph/0406218 review table 11",
+        "reliability": "!!! less reliable",
+    },
+
+    # Lanthanum-139 (!!! less reliable)
+    (139, 57): {
+        "sp": -0.16,
+        "sn": 0.0,
+        "model": "OGM, Engel–Vogel ",
+        "source": "hep-ph/0406218 review table 11",
+        "reliability": "!!! less reliable",
+    },
+
+    # Gadolinium-155 (!!! less reliable)
+    (155, 64): {
+        "sp": 0,
+        "sn": 0.07,
+        "model": "OGM, Ellis–Flores ",
+        "source": "hep-ph/0406218 review table 12",
+        "reliability": "!!! less reliable",
+    },
+
+    # Gadolinium-157 (!!! less reliable)
+    (157, 64): {
+        "sp": 0,
+        "sn": 0.09,
+        "model": "OGM, Ellis–Flores ",
+        "source": "hep-ph/0406218 review table 12",
+        "reliability": "!!! less reliable",
+    },
+
+    # Tungsten-183 (!!! less reliable)
+    (183, 74): {
+        "sp": 0,
+        "sn": -0.03,
+        "model": "OGM, Ellis–Flores ",
+        "source": "hep-ph/0406218 review table 12",
+        "reliability": "!!! less reliable",
+    },
+
+    # Iridium-191 (!!! less reliable)
+    (191, 77): {
+        "sp": -0.295 ,
+        "sn": 0,
+        "model": "OGM, Ellis–Flores ",
+        "source": "hep-ph/0406218 review table 12",
+        "reliability": "!!! less reliable",
+    },
+
+    # Iridium-193 (!!! less reliable)
+    (193, 77): {
+        "sp": -0.292,
+        "sn": 0,
+        "model": "OGM, Ellis–Flores ",
+        "source": "hep-ph/0406218 review table 12",
+        "reliability": "!!! less reliable",
+    },
+
+    # Mercury-199 (!!! less reliable)
+    (199, 80): {
+        "sp": 0,
+        "sn": -0.13,
+        "model": "OGM, Engel–Vogel ",
+        "source": "hep-ph/0406218 review table 12",
+        "reliability": "!!! less reliable",
+    },
+
+    # Mercury-201 (!!! less reliable)
+    (201, 80): {
+        "sp": 0,
+        "sn": 0.146,
+        "model": "OGM, Ellis–Flores",
+        "source": "hep-ph/0406218 review table 12",
+        "reliability": "!!! less reliable",
+    },
+
+    # Thallium-203 (!!! less reliable)
+    (203, 81): {
+        "sp": 0.24 ,
+        "sn": 0.0,
+        "model": "OGM, Ellis–Flores",
+        "source": "hep-ph/0406218 review table 12",
+        "reliability": "!!! less reliable",
+    },
+
+    # Thallium-205 (!!! less reliable)
+    (205, 81): {
+        "sp": 0.25,
+        "sn": 0.0,
+        "model": "OGM, Ellis–Flores",
+        "source": "hep-ph/0406218 review table 12",
+        "reliability": "!!! less reliable",
+    },
+
+    # Bismuth-209 (!!! less reliable)
+    (209, 83): {
+        "sp": -0.085,
+        "sn": 0,
+        "model": "OGM, Ellis–Flores",
+        "source": "hep-ph/0406218 review table 13",
+        "reliability": "!!! less reliable",
+    },
+
+    ######
+    #    #
+    ######
+    (57, 26):{
+        "sp": 0.0,
+        "sn": 0.5,
+        "model": "ISPSM: independent neutron",
+        "source": "hep-ph/0406218 review table 12",
+        "reliability": "!!! less reliable",
+    }
+}

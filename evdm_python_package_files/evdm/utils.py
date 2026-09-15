@@ -300,16 +300,20 @@ def get_solar_abundance(Name,ElementA = None):
     # Если элемента нет ни в одном списке
     raise KeyError(f"Element {Name} not found in solar or meteoritic abundance tables")
 
-def GetElementDense(m_body_model, element:ff.Nucleus):
+def GetElementDense(m_body_model, element:ff.Nucleus,aggregate_isotopes = False):
     el_name_num = (element.name+str(element.A))
     if(el_name_num in m_body_model.columns):
         rho_e = m_body_model[el_name_num]
     elif(element.name in m_body_model.columns):
         rho_e = m_body_model[element.name]
+        if(not aggregate_isotopes):
+            rho_e *= element.abondonce
     else:
         calibration = np.array(m_body_model["Fe"])/m_body_model["Fe"][1]
         try:
-            abond = get_solar_abundance(element.name,element.A)*element.abondonce
+            abond = get_solar_abundance(element.name,element.A)
+            if(not aggregate_isotopes):
+                abond *= element.abondonce
             rho_e = calibration*abond*element.A
         except Exception as e:
             raise e
@@ -323,10 +327,10 @@ def CaptureNuc(
         m_grid,m_wimp_model : WimpModel,
         m_elements : list[ff.Nucleus],
         m_body_table,
-        m_operator ,m_norm_operator,Nmk,seed,constrain = True,rpow=1,form_factor=None,threads=True): 
+        m_operator ,m_norm_operator,Nmk,seed,constrain = True,rpow=1,form_factor=None,threads=True,aggregate_isotopes = False): 
     from concurrent.futures import ThreadPoolExecutor
     def heavy_computation(m_element):
-        n_e = GetElementDense(m_body_table,m_element)
+        n_e = GetElementDense(m_body_table,m_element,aggregate_isotopes = aggregate_isotopes)
         m_wimp_params = m_wimp_model(ptype_in,ptype_out)
         Capt = evdm.Capture(m_grid)
         scat_mod = ff.ScatterModel(m_wimp_params,m_element,m_operator,m_norm_operator,2.06e-3,form_factor)
@@ -366,7 +370,7 @@ def ScatterNuc(
 
     for m_element in m_elements:
         print(f'scatter for {m_element}')
-        n_e = GetElementDense(m_body_table,m_element)
+        n_e = GetElementDense(m_body_table,m_element,aggregate_isotopes = kwargs.get("aggregate_isotopes", False))
         m_wimp_params = m_wimp_model(ptype_in,ptype_out)
         form_factor = kwargs.get("form_factor",None)
         scat_mod = ff.ScatterModel(m_wimp_params,m_element,m_operator,m_norm_operator,2.06e-3,**kwargs)
