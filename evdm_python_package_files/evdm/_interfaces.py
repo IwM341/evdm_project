@@ -233,8 +233,9 @@ def SolarAbundance(Name):
 
 
 class SolarDensityGetter:
-    def __init__(self,table_of_element):
+    def __init__(self,table_of_element,aggregate_isotopes=False):
         self.tab = table_of_element
+        self.aggregate_isotopes = aggregate_isotopes
     def __call__(self, element : ff.Nucleus):
         import numpy as np
         el_name_num = (element.name+str(element.A))
@@ -242,11 +243,15 @@ class SolarDensityGetter:
             rho_e = self.tab[el_name_num]
         elif(element.name in self.tab.columns):
             rho_e = self.tab[element.name]
+            if(not self.aggregate_isotopes):
+                rho_e*=element.abondonce
         else:
             calibration = np.array(self.tab["Fe"])/self.tab["Fe"][1]
             try:
                 abond = SolarAbundance(element.name)
                 rho_e = calibration*abond*element.A
+                if(not self.aggregate_isotopes):
+                    rho_e*=element.abondonce
             except Exception as e:
                 raise e
         return np.array(rho_e)*np.array(self.tab['Rho']/element.A)
