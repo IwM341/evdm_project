@@ -1034,7 +1034,7 @@ _spin_data = {
     ######
     (57, 26):{
         "sp": 0.0,
-        "sn": 0.5,
+        "sn": -0.0236,
         "model": "ISPSM: independent neutron",
         "source": "hep-ph/0406218 review table 12",
         "reliability": "!!! less reliable",
