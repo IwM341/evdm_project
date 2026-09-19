@@ -165,6 +165,51 @@ class FormFactor_Helm:
     def str_char(self):
         return f'W_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
 
+class FormFactor_O4:
+    def __init__(self,
+            wimp_pars: dm_m.WimpScatterParams,
+            nucleus: Nucleus,
+            operator
+        ):
+        """
+            https://arxiv.org/pdf/0803.2360
+        """
+        sympyficate = lambda x: x if(isinstance(x,(sympy.Expr))) else x.symbol
+        coeffs = _symv.GetOCoeffs(sympyficate(operator))
+        c0=float(coeffs[0][3])
+        c1=float(coeffs[1][3])
+        if(c0 ==0 and c1 == 0):
+            raise RuntimeError(f"no spin dependent interaction in operator {operator}")
+        
+        self.Zero = False 
+        self.wimp = wimp_pars
+        self.nucleus = nucleus
+
+        A = nucleus.A
+        one_third = 1.0/3
+        bracket = A**one_third - 3.8 + ((A**one_third - 3.8)**2 + 0.2)**0.5
+        b = (1.7*A**one_third -0.28 - 0.78*bracket)/2**0.5*fermi_GeV
+
+        J = nucleus.spin
+        
+        if(nucleus.Sp is None or nucleus.Sp is None):
+            print(f"Warning: Spin information for nucleus {nucleus.name} is missing, set form factor to zero")
+            self.Zero = True
+            cns_fac = 0
+            self.cfac = cns_fac 
+        else:
+            Sav = (( nucleus.Sp + nucleus.Sn ) *c0 + ( nucleus.Sp - nucleus.Sn ) *c1)**2*(J+1)/J
+            norm_factor = (c0**2 + c1**2)*(3/4)
+            Sav = Sav/norm_factor
+
+            mp = Nucleus.Hydrogen.mass
+            cns_fac : float = nucleus.A**2*( (wimp_pars.mass+mp)/(wimp_pars.mass+nucleus.A*mp) )**2*Sav
+            self.cfac = cns_fac
+
+        self.factor = _evdm.qexp_factor(b,False,[cns_fac])
+    def str_char(self):
+        return f'WO4_plus_{self.nucleus.name}_{self.nucleus.A}_{self.wimp.In}{self.wimp.Out}'
+
 class FormFactor_Fht:
     def __init__(self,
             wimp_pars: dm_m.WimpScatterParams,
@@ -399,7 +444,8 @@ class ScatterModel:
             'helmcut': lambda : FormFactor_HelmCut(wimp_pars,nucleus,operator,operator_norm,norm_dv,norm_dv_inner,kwargs.get('R'),kwargs.get('S2')),
             'exp': lambda : FormFactor_Helm(wimp_pars,nucleus,0,kwargs.get('S2')),
             'fht': lambda : FormFactor_Fht(wimp_pars,nucleus),
-            'standard': lambda : FormFactor_Standard ( wimp_pars, nucleus, operator, operator_norm, norm_dv, norm_dv_inner)
+            'standard': lambda : FormFactor_Standard ( wimp_pars, nucleus, operator, operator_norm, norm_dv, norm_dv_inner),
+            'spin': lambda : FormFactor_O4(wimp_pars,nucleus,operator)
         }
 
         for i,form_factor in enumerate(ff_types):
